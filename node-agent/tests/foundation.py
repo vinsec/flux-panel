@@ -33,6 +33,15 @@ while True:
   if not after:break
  check('generation-consistent paginated snapshot includes all 10k rules',len(seen)==10000)
  removes=[{'id':x['id'],'revision':2,'deleted':True} for x in desired];check('bulk delete reconciles without leaving a live orphan dispatch',job({'id':'native-delete','specs':removes})['status']=='succeeded' and probe())
+ wait(lambda:len(state().get('ackCounters',{}))>=19998,15)
+ stop(a);retired=state();oldtime=int(time.time()*1000)-120000
+ for key in retired.get('counterRetiredAt',{}):retired['counterRetiredAt'][key]=oldtime
+ for key in retired.get('retiredAt',{}):retired['retiredAt'][key]=oldtime
+ STATE.write_text(json.dumps(retired));a=agent()
+ traffic=subprocess.Popen(ns('client','python3','-c',"import socket,time;s=socket.create_connection(('10.205.1.1',18000),timeout=2);s.settimeout(1)\nfor _ in range(1500):\n s.sendall(b'g'*64);b=b''\n while len(b)<64:b+=s.recv(64-len(b))\n assert b==b'g'*64;time.sleep(.001)"))
+ gc_started=time.monotonic();collected=PANEL.rpc('CollectCounters',timeout=40)['data']['removed'];gc_seconds=time.monotonic()-gc_started;assert traffic.wait(timeout=10)==0
+ check('native batched GC reclaims 9999 retired tokens while other traffic continues',collected==19998 and len(state()['rules'])==1 and len(state().get('freeTokens',[]))>=9999 and probe())
+ (OUT/'gc-scale.json').write_text(json.dumps({'removedCounters':collected,'freedTokens':len(state().get('freeTokens',[])),'seconds':gc_seconds},indent=2))
  (OUT/'scale.json').write_text(json.dumps({'forwards':10000,'cold_delta_seconds':elapsed,'snapshot_count':len(seen)},indent=2))
  # Each killed process leaves only an old or new complete committed revision.
  for i,point in enumerate(['prepared','quiesced','kernel','credits','conntrack','counters','checkpoint','committed','activated']):
@@ -42,6 +51,13 @@ while True:
   wait(lambda:a.poll()==82);a=agent();want=old+1 if i>=6 else old;check('native crash recovery at '+point,state()['rules']['1_1_0']['revision']==want and probe())
  # Byte credit is shared by both directions and cannot be reset by replay.
  limited=spec('50_2_3',18001);limited['leaseRequired']=True;PANEL.quota=65536;apply(limited);wait(lambda:'50_2_3' in state().get('leases',{}));check('reserved credit allows bidirectional data',probe(18001))
+ time.sleep(.2)
+ request=PANEL.rpc('RequestCredit')['data'];grant=dict(PANEL.grant);grant['generation']+=1;grant['requestSequence']=request['sequence'];PANEL.grant=grant
+ budget_before=router('ipset','save','FPV3_CREDIT')
+ ack={'epoch':request['epoch'],'sequence':request['sequence'],'usage':request['usage'],'counters':request.get('counters',[]),'leaseWatermarks':request.get('leases',[]),'grants':[grant],'serviceId':'50_2_3'}
+ PANEL.rpc('InstallCredit',ack)
+ budget_after=router('ipset','save','FPV3_CREDIT')
+ check('real TTL-only renewal preserves the permanent byte budget',budget_before==budget_after and probe(18001))
  flood="import socket;s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.settimeout(.01)\nfor _ in range(100):\n s.sendto(b'x'*1000,('10.205.1.1',18001))\n try:s.recv(2048)\n except socket.timeout:pass"
  run(ns('client','python3','-c',flood));check('kernel credit exhausts while business desired state is still enabled',probe(18001,True) and state()['rules']['50_2_3']['enabled'])
  time.sleep(1.2);check('duplicate grant cannot reopen exhausted credit',probe(18001,True));wait(lambda:sum(state()['totals'].get('50_2_3',{}).get(k,0) for k in ['up','down'])>0);u=state()['totals']['50_2_3'];check('denied attempts do not overrun or inflate billed credit',u['up']+u['down']<=65536)

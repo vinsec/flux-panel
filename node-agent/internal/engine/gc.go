@@ -62,7 +62,7 @@ func (m *Manager) Acknowledge(ack Acknowledgement) error {
 			return fmt.Errorf("invalid counter acknowledgement")
 		}
 		key := watermarkKey(c.ID, c.Set, c.Key)
-		if c.Bytes > m.state.AckCounters[key] {
+		if old, seen := m.state.AckCounters[key]; !seen || c.Bytes > old {
 			m.state.AckCounters[key] = c.Bytes
 		}
 	}
@@ -130,7 +130,8 @@ func (m *Manager) Collect(retention time.Duration) (int, error) {
 		if _, exists := after.Rules[id]; !exists && r.Bytes == 0 {
 			orphan = true
 		}
-		eligible := !current[r.Key] && !refs[r.Key] && (orphan || retired > 0 && now-retired >= retention.Milliseconds() && after.AckCounters[watermarkKey(id, r.Set, r.Key)] >= r.Bytes)
+		acked, confirmed := after.AckCounters[watermarkKey(id, r.Set, r.Key)]
+		eligible := !current[r.Key] && !refs[r.Key] && (orphan || retired > 0 && now-retired >= retention.Milliseconds() && confirmed && acked >= r.Bytes)
 		if eligible {
 			remove = append(remove, r)
 		} else {

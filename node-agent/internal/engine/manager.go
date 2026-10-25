@@ -396,6 +396,7 @@ func (m *Manager) commit(after State, forget []Spec, reason string, gc []counter
 			e = m.activate()
 		}
 		if e != nil {
+			_ = m.quiesce()
 			m.blocked = true
 			return fmt.Errorf("%v; rollback failed: %w; guard retained", cause, e)
 		}
@@ -429,7 +430,10 @@ func (m *Manager) commit(after State, forget []Spec, reason string, gc []counter
 	}
 	sort.Slice(selected, func(i, j int) bool { return selected[i] < selected[j] })
 	var barrier error
-	if k, ok := m.Kernel.(interface{ QuiesceTokens([]uint32) error }); ok {
+	if reason == "counter and token GC" {
+		// ACKed unreferenced retired entries have no packet path. The live
+		// baselines are adjusted by deletion deltas, so no data fence is needed.
+	} else if k, ok := m.Kernel.(interface{ QuiesceTokens([]uint32) error }); ok {
 		barrier = k.QuiesceTokens(selected)
 	} else {
 		barrier = m.quiesce()
@@ -440,15 +444,19 @@ func (m *Manager) commit(after State, forget []Spec, reason string, gc []counter
 	}
 
 	m.fault("quiesced")
-	if e := m.Kernel.Apply(Render(after.Rules, nil)); e != nil {
-		return rollback(e)
+	if reason != "counter and token GC" {
+		if e := m.Kernel.Apply(Render(after.Rules, nil)); e != nil {
+			return rollback(e)
+		}
 	}
 	m.fault("kernel")
 	if e := m.capture(&after); e != nil {
 		return rollback(e)
 	}
-	if e := m.syncCredits(&after); e != nil {
-		return rollback(e)
+	if reason != "counter and token GC" {
+		if e := m.syncCredits(&after); e != nil {
+			return rollback(e)
+		}
 	}
 	m.fault("credits")
 	for _, s := range forget {

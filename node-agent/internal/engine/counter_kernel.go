@@ -55,39 +55,56 @@ func (k *IPTables) References() (map[string]bool, error) {
 	}
 	return out, nil
 }
+func (k *IPTables) counterSets() (map[string]map[string]setElement, error) {
+	out := map[string]map[string]setElement{}
+	for _, name := range []string{upSet, downSet} {
+		text, e := k.readSet(name)
+		if e != nil {
+			return nil, e
+		}
+		out[name] = parseSet(text)
+	}
+	return out, nil
+}
 func (k *IPTables) RemoveCounters(records []counterRecord) error {
+	sets, e := k.counterSets()
+	if e != nil {
+		return e
+	}
+	var b strings.Builder
 	for _, r := range records {
 		if r.Set != upSet && r.Set != downSet {
 			return fmt.Errorf("foreign counter set in GC")
 		}
-		saved, e := k.readSet(r.Set)
-		if e != nil {
-			return e
-		}
-		v, exists := parseSet(saved)[r.Key]
+		v, exists := sets[r.Set][r.Key]
 		if !exists {
 			continue
 		}
 		if v.Comment != r.Comment || v.Bytes != r.Bytes || v.Packets != r.Packets {
 			return fmt.Errorf("counter changed after GC preparation")
 		}
-		if _, e = k.run("ipset", "", "del", r.Set, r.Key); e != nil {
-			return e
-		}
+		fmt.Fprintf(&b, "del %s %s\n", r.Set, r.Key)
 	}
-	return nil
+	if b.Len() == 0 {
+		return nil
+	}
+	_, e = k.run("ipset", b.String(), "restore")
+	return e
 }
 func (k *IPTables) RestoreCounters(records []counterRecord) error {
+	if len(records) == 0 {
+		return nil
+	}
+	sets, e := k.counterSets()
+	if e != nil {
+		return e
+	}
 	var b strings.Builder
 	for _, r := range records {
 		if r.Set != upSet && r.Set != downSet {
 			return fmt.Errorf("foreign counter set in journal")
 		}
-		saved, e := k.readSet(r.Set)
-		if e != nil {
-			return e
-		}
-		if old, ok := parseSet(saved)[r.Key]; ok {
+		if old, ok := sets[r.Set][r.Key]; ok {
 			if old.Comment != r.Comment {
 				return fmt.Errorf("counter ownership changed during recovery")
 			}
@@ -98,6 +115,6 @@ func (k *IPTables) RestoreCounters(records []counterRecord) error {
 	if b.Len() == 0 {
 		return nil
 	}
-	_, e := k.run("ipset", b.String(), "restore")
+	_, e = k.run("ipset", b.String(), "restore")
 	return e
 }
