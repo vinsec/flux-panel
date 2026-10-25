@@ -1,11 +1,31 @@
 package engine
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"regexp"
 	"sort"
 	"strings"
 )
+
+func controlIdentity(rules map[string]Spec, allowed map[uint32]bool) (string, error) {
+	var bitmap [2 * 8192]byte
+	for _, rule := range rules {
+		if rule.Deleted {
+			continue
+		}
+		if rule.Token > 65535 {
+			return "", fmt.Errorf("invalid control token")
+		}
+		bitmap[rule.Token>>3] |= byte(1 << (rule.Token & 7))
+		if allowed[rule.Token] {
+			bitmap[8192+(rule.Token>>3)] |= byte(1 << (rule.Token & 7))
+		}
+	}
+	hash := sha256.Sum256(bitmap[:])
+	return hex.EncodeToString(hash[:]), nil
+}
 
 var icmpNode = regexp.MustCompile(`(?m)^:(FP_I[0-9a-f]{1,3}) `)
 
@@ -108,11 +128,14 @@ func (k *IPTables) UpdateControl(s State) error {
 			allowed[r.Token] = true
 		}
 	}
-	desired := renderControl(s.Rules, allowed)
-	shape := digest(desired)
+	shape, e := controlIdentity(s.Rules, allowed)
+	if e != nil {
+		return e
+	}
 	if shape == k.controlShape {
 		return nil
 	}
+	desired := renderControl(s.Rules, allowed)
 	adjusted, e := k.cleanStaleChains(desired, "filter", icmpNode)
 	if e != nil {
 		return e

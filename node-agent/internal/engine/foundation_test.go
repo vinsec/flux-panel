@@ -32,6 +32,45 @@ func BenchmarkIdleExpirationSweep(b *testing.B) {
 	}
 }
 
+func BenchmarkUnchangedControlPolicy(b *testing.B) {
+	rules := map[string]Spec{}
+	allowed := map[uint32]bool{}
+	for i := uint32(1); i <= 1000; i++ {
+		rules[fmt.Sprint(i)] = Spec{Token: i}
+		allowed[i] = true
+	}
+	b.Run("previous-format-and-hash", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			_ = digest(renderControl(rules, allowed))
+		}
+	})
+	b.Run("token-bitmap", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			if _, e := controlIdentity(rules, allowed); e != nil {
+				b.Fatal(e)
+			}
+		}
+	})
+}
+
+func TestControlIdentityTracksTopologyAndRevocation(t *testing.T) {
+	rules := map[string]Spec{"1_2_3": {Token: 1}, "2_2_3": {Token: 65535}}
+	allowed := map[uint32]bool{1: true, 65535: true}
+	before, e := controlIdentity(rules, allowed)
+	if e != nil {
+		t.Fatal(e)
+	}
+	delete(allowed, 65535)
+	paused, _ := controlIdentity(rules, allowed)
+	delete(rules, "2_2_3")
+	deleted, _ := controlIdentity(rules, allowed)
+	if paused == before || deleted == paused {
+		t.Fatal("control cache ignored a pause or retired token")
+	}
+}
+
 func TestTransactionSnapshotDoesNotAliasMutableState(t *testing.T) {
 	s := State{}
 	fields := reflect.ValueOf(&s).Elem()

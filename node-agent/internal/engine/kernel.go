@@ -257,6 +257,11 @@ func (k *IPTables) Apply(tables map[string]string) error {
 			}
 		}
 		for _, t := range []string{"filter", "nat", "mangle"} {
+			if t == "filter" {
+				// The base restore declares/clears the control entry chains.
+				// Rebuild them even when the allowed token set did not change.
+				k.controlShape = ""
+			}
 			if _, e = k.run(k.Binary+"-restore", input[t], "--wait", "2", "--noflush"); e != nil {
 				return e
 			}

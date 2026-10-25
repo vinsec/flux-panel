@@ -64,6 +64,7 @@ while True:
   try:PANEL.rpc('ApplyForward',new,timeout=2)
   except AssertionError:pass
   wait(lambda:a.poll()==82);a=agent();want=old+1 if i>=6 else old;check('native crash recovery at '+point,state()['rules']['1_1_0']['revision']==want and probe())
+ check('PMTU survives complete filter replacement and transaction recovery',run(ns('client','python3','-c',pmtu.replace(',10,2)',',10,3)'))) in ['10.205.2.2','10.205.1.1'])
  # Byte credit is shared by both directions and cannot be reset by replay.
  limited=spec('50_2_3',18001);limited['leaseRequired']=True;PANEL.quota=65536;apply(limited);wait(lambda:'50_2_3' in state().get('leases',{}));check('reserved credit allows bidirectional data',probe(18001))
  time.sleep(.2)
@@ -73,9 +74,19 @@ while True:
  PANEL.rpc('InstallCredit',ack)
  budget_after=router('ipset','save','FPV3_CREDIT')
  check('real TTL-only renewal preserves the permanent byte budget',budget_before==budget_after and probe(18001))
+ for point in ['renewal-prepared','renewal-checkpoint','renewal-kernel']:
+  stop(a);a=agent(point);request=PANEL.rpc('RequestCredit')['data'];time.sleep(.1)
+  before_budget=router('ipset','save','FPV3_CREDIT');grant=dict(PANEL.grant);grant['generation']+=1;grant['requestSequence']=request['sequence'];PANEL.grant=grant
+  ack={'epoch':request['epoch'],'sequence':request['sequence'],'usage':request['usage'],'counters':request.get('counters',[]),'leaseWatermarks':request.get('leases',[]),'grants':[grant],'serviceId':'50_2_3'}
+  try:PANEL.rpc('InstallCredit',ack,timeout=2)
+  except AssertionError:pass
+  wait(lambda:a.poll()==82);a=agent();after_budget=router('ipset','save','FPV3_CREDIT')
+  check('native TTL recovery preserves byte budget at '+point,before_budget==after_budget and probe(18001))
  flood="import socket;s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.settimeout(.01)\nfor _ in range(100):\n s.sendto(b'x'*1000,('10.205.1.1',18001))\n try:s.recv(2048)\n except socket.timeout:pass"
  run(ns('client','python3','-c',flood));check('kernel credit exhausts while business desired state is still enabled',probe(18001,True) and state()['rules']['50_2_3']['enabled'])
  time.sleep(1.2);check('duplicate grant cannot reopen exhausted credit',probe(18001,True));wait(lambda:sum(state()['totals'].get('50_2_3',{}).get(k,0) for k in ['up','down'])>0);u=state()['totals']['50_2_3'];check('denied attempts do not overrun or inflate billed credit',u['up']+u['down']<=65536)
+ PANEL.rpc('DeleteForward',{'id':'50_2_3','revision':2})
+ check('removing the final limited forward preserves survivor PMTU control',run(ns('client','python3','-c',pmtu.replace(',10,2)',',10,3)'))) in ['10.205.2.2','10.205.1.1'])
  check('foreign firewall policy and chain survive all transitions','keep-unrelated' in router('iptables-save') and '-P FORWARD DROP' in router('iptables','-S','FORWARD'))
  DONE=True
 except Exception:
