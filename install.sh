@@ -1,5 +1,13 @@
 #!/bin/bash
 
+# Explicit engine selection uses the checksum-pinned, reversible release flow.
+# The legacy invocation remains available for existing GOST bootstrap callers.
+if [[ "${1:-}" == --engine || "${1:-}" == --engine=* ]]; then
+  SCRIPT_ROOT="$(cd "$(dirname "$0")" && pwd)"
+  [[ -f "$SCRIPT_ROOT/node-agent/packaging/install.sh" ]] || { echo 'Use the verified release bundle install.sh for explicit engine selection.' >&2; exit 1; }
+  exec bash "$SCRIPT_ROOT/node-agent/packaging/install.sh" "$@"
+fi
+
 # 获取系统架构
 get_architecture() {
     ARCH=$(uname -m)

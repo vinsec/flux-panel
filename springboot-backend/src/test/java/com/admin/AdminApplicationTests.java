@@ -1,35 +1,29 @@
 package com.admin;
 
-import com.admin.common.dto.GostDto;
-import com.admin.common.utils.GostUtil;
-import com.admin.entity.Forward;
-import com.admin.entity.Tunnel;
-import com.admin.entity.User;
-import com.admin.entity.UserTunnel;
-import com.admin.service.ForwardService;
-import com.admin.service.TunnelService;
-import com.admin.service.UserService;
-import com.admin.service.UserTunnelService;
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
+import com.admin.common.engine.EngineBatchReconciler;
+import com.admin.common.engine.EngineCreditService;
+import com.admin.common.engine.EngineTrafficService;
+
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import javax.annotation.Resource;
-import java.util.Date;
-import java.util.List;
 
-
-@SpringBootTest
+/** Run explicitly against the disposable integration DB, never ambient DB vars. */
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@EnabledIfEnvironmentVariable(named = "FLUX_TEST_DB", matches = "1")
 class AdminApplicationTests {
-
-
+    @Resource EngineCreditService credit;
+    @Resource EngineTrafficService traffic;
+    @Resource EngineBatchReconciler reconcile;
 
     @Test
-    public void test(){
-
+    void foundationServicesAreWired() {
+        assertNotNull(credit);
+        assertNotNull(traffic);
+        assertNotNull(reconcile);
     }
-
-
-
-
 }

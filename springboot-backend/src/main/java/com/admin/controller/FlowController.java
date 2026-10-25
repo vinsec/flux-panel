@@ -212,6 +212,11 @@ public class FlowController extends BaseController {
     /**
      * 处理流量数据的核心逻辑
      */
+    public void enforceEngineLimits(String user,String permission,String service) {
+        checkUserRelatedLimits(user,service);
+        checkUserTunnelRelatedLimits(permission,service,user);
+    }
+
     public String accountEngineDelta(FlowDto flowDataList) {
         return processFlowData(flowDataList);
     }

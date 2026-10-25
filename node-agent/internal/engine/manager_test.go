@@ -3,6 +3,7 @@ package engine
 import (
 	"errors"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -58,14 +59,14 @@ func TestRevisionAndRollback(t *testing.T) {
 	if e := m.Apply(s); e == nil {
 		t.Fatal("restore failure was acknowledged")
 	}
-	if m.Rules()[s.ID] != old {
+	if !reflect.DeepEqual(m.Rules()[s.ID], old) {
 		t.Fatal("failed revision replaced the last successful configuration")
 	}
 	reloaded, e := New(m.Path, k)
 	if e != nil {
 		t.Fatal(e)
 	}
-	if reloaded.Rules()[s.ID] != old {
+	if !reflect.DeepEqual(reloaded.Rules()[s.ID], old) {
 		t.Fatal("disk state did not roll back")
 	}
 }

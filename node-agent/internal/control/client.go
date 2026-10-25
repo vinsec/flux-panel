@@ -49,7 +49,7 @@ func (c Config) URLs() (string, string, error) {
 	q := ws.Query()
 	q.Set("type", "1")
 	q.Set("engine", "iptables")
-	q.Set("version", "iptables-v2")
+	q.Set("version", "iptables-v3")
 	q.Set("secret", c.Secret)
 	q.Set("http", "0")
 	q.Set("tls", "0")
@@ -80,6 +80,52 @@ func Handle(m *engine.Manager, data []byte) ([]byte, error) {
 	r := response{Type: cmd.Type + "Response", RequestID: cmd.RequestID, Message: "OK", Success: true}
 	var e error
 	switch cmd.Type {
+	case "RequireCreditPolicy":
+		e = m.RequireCreditPolicy()
+		r.Data = m.Info()
+	case "RequestCredit":
+		r.Data, e = m.Report()
+	case "InstallCredit":
+		var ack engine.Acknowledgement
+		if e = json.Unmarshal(cmd.Data, &ack); e == nil {
+			e = m.Acknowledge(ack)
+		}
+		if e == nil {
+			e = m.InstallGrants(ack.Grants)
+		}
+		var query struct {
+			ServiceID string `json:"serviceId"`
+		}
+		_ = json.Unmarshal(cmd.Data, &query)
+		r.Data = map[string]bool{"ready": m.CreditReady(query.ServiceID)}
+
+	case "CollectCounters":
+		var count int
+		count, e = m.Collect(time.Minute)
+		r.Data = map[string]int{"removed": count}
+	case "GetCapabilities":
+		r.Data = m.Info()
+	case "SubmitBatch":
+		var b engine.Batch
+		if e = json.Unmarshal(cmd.Data, &b); e == nil {
+			r.Data, e = m.Submit(b)
+		}
+	case "GetBatchStatus":
+		var d struct {
+			ID string `json:"id"`
+		}
+		if e = json.Unmarshal(cmd.Data, &d); e == nil {
+			r.Data, e = m.Job(d.ID)
+		}
+	case "GetEngineStatePage":
+		var d struct {
+			After      string  `json:"after"`
+			Limit      int     `json:"limit"`
+			Generation *uint64 `json:"generation"`
+		}
+		if e = json.Unmarshal(cmd.Data, &d); e == nil {
+			r.Data, e = m.Page(d.After, d.Limit, d.Generation)
+		}
 	case "ApplyForward":
 		var s engine.Spec
 		if e = json.Unmarshal(cmd.Data, &s); e == nil {
@@ -119,12 +165,18 @@ func Run(ctx context.Context, c Config, m *engine.Manager) error {
 	if c.IntervalSeconds < 1 {
 		c.IntervalSeconds = 5
 	}
+	m.StartJobs(ctx)
+	wake := make(chan struct{}, 1)
+	var connectionMu sync.Mutex
+	var live *websocket.Conn
+	connectionBoot := ""
 	var workers sync.WaitGroup
 	workers.Add(2)
 	defer workers.Wait()
 	go func() {
 		defer workers.Done()
 		tick := time.NewTicker(time.Second)
+		nextGC := time.Now().Add(time.Minute)
 		defer tick.Stop()
 		for {
 			select {
@@ -133,6 +185,12 @@ func Run(ctx context.Context, c Config, m *engine.Manager) error {
 			case <-tick.C:
 				if e := m.EnforceExpiration(); e != nil {
 					log.Printf("local expiration enforcement failed: %v", e)
+				}
+				if time.Now().After(nextGC) {
+					if _, e := m.Collect(5 * time.Minute); e != nil {
+						log.Printf("counter collection deferred: %v", e)
+					}
+					nextGC = time.Now().Add(time.Minute)
 				}
 			}
 		}
@@ -147,13 +205,34 @@ func Run(ctx context.Context, c Config, m *engine.Manager) error {
 			case <-ctx.Done():
 				return
 			case <-tick.C:
+			case <-wake:
+			}
+			{
 				r, e := m.Report()
 				if e != nil {
 					log.Printf("statistics collection failed: %v", e)
 					continue
 				}
+				if r.CreditMode {
+					tick.Reset(time.Second)
+				} else {
+					tick.Reset(time.Duration(c.IntervalSeconds) * time.Second)
+				}
+				connectionMu.Lock()
+				if live != nil && connectionBoot != "" && r.BootID != connectionBoot {
+					pending, _ := m.Info()["maintenancePending"].(bool)
+					if !pending {
+						_ = live.Close()
+					}
+				}
+				connectionMu.Unlock()
 				b, _ := json.Marshal(r)
-				req, e := http.NewRequestWithContext(ctx, "POST", httpURL, bytes.NewReader(b))
+				v2URL := strings.Replace(httpURL, "/flow/engine/v1/traffic", "/flow/engine/v2/traffic", 1)
+				pendingMaintenance, _ := m.Info()["maintenancePending"].(bool)
+				if pendingMaintenance {
+					v2URL = strings.Replace(v2URL, "/traffic", "/maintenance", 1)
+				}
+				req, e := http.NewRequestWithContext(ctx, "POST", v2URL, bytes.NewReader(b))
 				if e != nil {
 					continue
 				}
@@ -164,9 +243,38 @@ func Run(ctx context.Context, c Config, m *engine.Manager) error {
 					log.Print("traffic report unavailable; cumulative totals retained")
 					continue
 				}
-				body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+				if resp.StatusCode == 404 || resp.StatusCode == 405 {
+					resp.Body.Close()
+					req, e = http.NewRequestWithContext(ctx, "POST", httpURL, bytes.NewReader(b))
+					if e != nil {
+						continue
+					}
+					req.Header.Set("Authorization", "Bearer "+c.Secret)
+					req.Header.Set("Content-Type", "application/json")
+					resp, e = client.Do(req)
+					if e != nil {
+						continue
+					}
+				}
+				body, _ := io.ReadAll(io.LimitReader(resp.Body, 16<<20))
 				resp.Body.Close()
-				if resp.StatusCode != 200 || strings.TrimSpace(string(body)) != "ok" {
+				if resp.StatusCode == 200 && strings.TrimSpace(string(body)) != "ok" {
+					var ack engine.Acknowledgement
+					if e = json.Unmarshal(body, &ack); e == nil {
+						e = m.Acknowledge(ack)
+					}
+					if e == nil && pendingMaintenance {
+						e = m.CompleteMaintenance(ack)
+					}
+					if e == nil {
+						e = m.InstallGrants(ack.Grants)
+					}
+					if e != nil {
+						log.Printf("report acknowledgement rejected: %v", e)
+					}
+				} else if resp.StatusCode == 200 && strings.TrimSpace(string(body)) == "ok" {
+					m.TransportAcknowledged()
+				} else if resp.StatusCode != 200 || strings.TrimSpace(string(body)) != "ok" {
 					log.Printf("traffic report rejected: HTTP %d", resp.StatusCode)
 				}
 			}
@@ -184,7 +292,12 @@ func Run(ctx context.Context, c Config, m *engine.Manager) error {
 			}
 		}
 		log.Print("iptables agent connected")
-		conn.SetReadLimit(1 << 20)
+		m.Connected(true)
+		connectionMu.Lock()
+		live = conn
+		connectionBoot, _ = m.Info()["bootId"].(string)
+		connectionMu.Unlock()
+		conn.SetReadLimit(16 << 20)
 		var write sync.Mutex
 		writeFrame := func(b []byte) error {
 			v, e := Encrypt(b, c.Secret)
@@ -195,6 +308,11 @@ func Run(ctx context.Context, c Config, m *engine.Manager) error {
 			defer write.Unlock()
 			conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 			return conn.WriteMessage(websocket.TextMessage, v)
+		}
+		hello, _ := json.Marshal(map[string]interface{}{"type": "EngineHello", "info": m.Info()})
+		if e = writeFrame(hello); e != nil {
+			conn.Close()
+			continue
 		}
 		done := make(chan struct{})
 		go func() {
@@ -230,11 +348,23 @@ func Run(ctx context.Context, c Config, m *engine.Manager) error {
 				log.Printf("invalid command: %v", e)
 				continue
 			}
+			if reply != nil && (strings.Contains(string(plain), "ApplyForward") || strings.Contains(string(plain), "SetForwardState") || strings.Contains(string(plain), "DeleteForward") || strings.Contains(string(plain), "SubmitBatch")) {
+				select {
+				case wake <- struct{}{}:
+				default:
+				}
+			}
 			if reply != nil && writeFrame(reply) != nil {
 				break
 			}
 		}
 		close(done)
+		m.Connected(false)
+		connectionMu.Lock()
+		if live == conn {
+			live = nil
+		}
+		connectionMu.Unlock()
 		conn.Close()
 	}
 	return nil

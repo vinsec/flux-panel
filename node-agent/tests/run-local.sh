@@ -17,13 +17,15 @@ else
   [[ -x "$WORK/build/flux-agent" && -f "$ROOT/springboot-backend/target/admin-0.0.1-SNAPSHOT.jar" ]] || exit 2
 fi
 cleanup() {
+  docker inspect "$RUN_ID-mysql" --format '{{json .State}}' >"$WORK/evidence/mysql-state.json" 2>/dev/null || true
+  docker logs "$RUN_ID-mysql" >"$WORK/evidence/mysql.log" 2>&1 || true
   docker rm -f "$RUN_ID-runner" "$RUN_ID-mysql" "$RUN_ID-build" >/dev/null 2>&1 || true
   docker network rm "$RUN_ID" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT INT TERM
 wait_container() {
   local name="$1" state
-  local deadline=$((SECONDS + 240))
+  local deadline=$((SECONDS + 900))
   while (( SECONDS < deadline )); do
     state="$(docker inspect "$name" --format '{{.State.Status}}')"
     if [[ "$state" == exited ]]; then docker inspect "$name" --format '{{.State.ExitCode}}'; return; fi
@@ -43,12 +45,12 @@ docker rm "$RUN_ID-build" >/dev/null
 fi
 docker network create --internal --label flux-iptables-test=true "$RUN_ID" >/dev/null
 docker create --name "$RUN_ID-mysql" --network "$RUN_ID" --network-alias mysql \
-  --memory=256m --tmpfs /var/lib/mysql:rw,size=192m \
+  --memory="${FLUX_TEST_MYSQL_MEMORY:-384m}" --tmpfs /var/lib/mysql:rw,size=256m \
   -e MYSQL_ROOT_PASSWORD=isolated-test-db-only -e MYSQL_ROOT_HOST=% -e MYSQL_DATABASE=flux_test \
   "${FLUX_TEST_MYSQL_IMAGE:-mysql:8.2}" --innodb-buffer-pool-size=32M --innodb-log-file-size=8M --key-buffer-size=8M --performance-schema=OFF --max-connections=20 >"$WORK/evidence/mysql-container.txt"
 python3 "$ROOT/node-agent/tests/start-container.py" "$RUN_ID-mysql"
 docker create --name "$RUN_ID-runner" --cap-add NET_ADMIN --cap-add SYS_ADMIN --security-opt seccomp=unconfined --security-opt apparmor=unconfined --network "$RUN_ID" --memory=640m --cpus=1 \
-  -e IPTABLES_BACKEND="$BACKEND" -v "$ROOT:/repo:ro" -v "$WORK/build:/build:ro" -v "$WORK/evidence:/evidence" \
+  -e IPTABLES_BACKEND="$BACKEND" -e FLUX_TEST_SCALE="${FLUX_TEST_SCALE:-0}" -v "$ROOT:/repo:ro" -v "$WORK/build:/build:ro" -v "$WORK/evidence:/evidence" \
   "$IMAGE" python3 /repo/node-agent/tests/integration.py >"$WORK/evidence/runner-container.txt"
 python3 "$ROOT/node-agent/tests/start-container.py" "$RUN_ID-runner"
 STATUS="$(wait_container "$RUN_ID-runner")"

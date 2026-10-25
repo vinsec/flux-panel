@@ -37,4 +37,11 @@ public class WebSocketConfig implements WebSocketConfigurer {
         return new WebSocketServer();
     }
 
+    @Bean
+    public org.springframework.web.socket.server.standard.ServletServerContainerFactoryBean webSocketContainer(){
+        var container=new org.springframework.web.socket.server.standard.ServletServerContainerFactoryBean();
+        container.setMaxTextMessageBufferSize(16*1024*1024);
+        container.setMaxBinaryMessageBufferSize(16*1024*1024);
+        return container;
+    }
 }

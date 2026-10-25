@@ -14,10 +14,14 @@ import (
 type setElement struct {
 	Key, Comment string
 	Bytes        uint64
+	Packets      uint64
 }
 type setDefinition struct{ Name, Type, Options, Sentinel string }
 
 var setDefinitions = []setDefinition{
+	{metaSet, "hash:ip", "family inet comment", "192.0.2.255"},
+	{creditSet, "hash:ip,mark", "family inet markmask 0xffffff00 hashsize 4096 maxelem 65536 timeout 60 counters comment", "192.0.2.255,0x0"},
+	{limitedSet, "hash:ip,mark", "family inet markmask 0xffffff00 hashsize 4096 maxelem 65536 comment", "192.0.2.255,0x0"},
 	{bindingSet, "hash:ip,port", "family inet hashsize 4096 maxelem 1048576 comment skbinfo", "192.0.2.255,tcp:0"},
 	{bindingSet + "_NEW", "hash:ip,port", "family inet hashsize 4096 maxelem 1048576 comment skbinfo", "192.0.2.255,tcp:0"},
 	{allowSet, "hash:ip,mark", "family inet markmask 0xffffff00 hashsize 4096 maxelem 262144 comment", "192.0.2.255,0x0"},
@@ -45,6 +49,8 @@ func parseSet(text string) map[string]setElement {
 		v := setElement{Key: canonicalSetKey(f[2])}
 		for i := 3; i+1 < len(f); i++ {
 			switch f[i] {
+			case "packets":
+				v.Packets, _ = strconv.ParseUint(f[i+1], 10, 64)
 			case "bytes":
 				v.Bytes, _ = strconv.ParseUint(f[i+1], 10, 64)
 			case "comment":
@@ -72,7 +78,12 @@ func (k *IPTables) initializeSets() error {
 				return e
 			}
 			header := strings.Split(saved, "\n")[0]
-			if !strings.HasPrefix(header, "create "+d.Name+" "+d.Type+" ") || !strings.Contains(saved, "comment \""+owner+"\"") && !strings.Contains(saved, "comment "+owner) {
+			if !strings.Contains(header, "family inet ") {
+				return fmt.Errorf("ipset %s has incompatible address family", d.Name)
+			}
+			marker := parseSet(saved)[canonicalSetKey(d.Sentinel)].Comment
+			epochMarker := d.Name == metaSet && strings.HasPrefix(marker, owner+"|epoch=")
+			if !strings.HasPrefix(header, "create "+d.Name+" "+d.Type+" ") || !epochMarker && !strings.Contains(saved, "comment \""+owner+"\"") && !strings.Contains(saved, "comment "+owner) && !strings.Contains(saved, "comment \""+previousOwner+"\"") && !strings.Contains(saved, "comment "+previousOwner) {
 				return fmt.Errorf("ipset %s exists without v2 ownership/type", d.Name)
 			}
 			for _, required := range []string{"counters", "skbinfo"} {
@@ -88,7 +99,11 @@ func (k *IPTables) initializeSets() error {
 			if _, e = k.run("ipset", "", args...); e != nil {
 				return e
 			}
-			if _, e = k.run("ipset", "", "add", d.Name, d.Sentinel, "comment", owner); e != nil {
+			markerArgs := []string{"add", d.Name, d.Sentinel, "comment", owner}
+			if strings.Contains(d.Options, "timeout ") {
+				markerArgs = append(markerArgs, "timeout", "0")
+			}
+			if _, e = k.run("ipset", "", markerArgs...); e != nil {
 				return e
 			}
 		}
@@ -153,7 +168,7 @@ func (k *IPTables) plans(plan []Spec) (map[string]string, map[string]string, err
 				bindings[key] = fmt.Sprintf("skbmark 0x%x/%s comment flux:v2:%s:binding", flowMark(s), markMask, s.ID)
 			}
 		}
-		if s.Active() {
+		if s.Active() && !s.LeaseRequired {
 			active[targetKey(s)] = "comment flux:v2:" + s.ID + ":active"
 		}
 	}

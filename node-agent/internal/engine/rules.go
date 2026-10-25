@@ -7,7 +7,8 @@ import (
 	"strings"
 )
 
-const owner = "flux-owner:v2"
+const owner = "flux-owner:v3"
+const previousOwner = "flux-owner:v2"
 const mark = "0xf1000000/0xff000000"
 const markMask = "0xffffff00"
 const bindingSet = "FPV2_BIND"
@@ -15,7 +16,7 @@ const allowSet = "FPV2_ALLOW"
 const upSet = "FPV2_UP"
 const downSet = "FPV2_DOWN"
 
-var chains = map[string][]string{"mangle": {"FP_MARK"}, "nat": {"FP_PRE", "FP_POST"}, "filter": {"FP_FWD", "FP_CUP", "FP_CDOWN"}}
+var chains = map[string][]string{"mangle": {"FP_MARK"}, "nat": {"FP_PRE", "FP_POST"}, "filter": {"FP_FWD", "FP_CUP", "FP_CDOWN", "FP_ICMP", "FP_IROOT"}}
 
 type Hook struct{ Table, Parent, Child string }
 
@@ -52,6 +53,12 @@ func Render(rules map[string]Spec, _ map[string]uint64) map[string]string {
 		}
 		plan = append(plan, s)
 	}
+	limited := false
+	for _, s := range plan {
+		if !s.Deleted && s.LeaseRequired {
+			limited = true
+		}
+	}
 	out := map[string]string{}
 	for table, static := range chains {
 		cs := append([]string{}, static...)
@@ -87,8 +94,13 @@ func Render(rules map[string]Spec, _ map[string]uint64) map[string]string {
 			fmt.Fprintf(&b, "-A FP_MARK -m conntrack --ctdir ORIGINAL -m addrtype --dst-type LOCAL -m set --match-set %s dst,dst -j SET --map-set %s dst,dst --map-mark\n", bindingSet, bindingSet)
 			fmt.Fprintf(&b, "-A FP_MARK -m mark --mark %s -j CONNMARK --save-mark --nfmask %s --ctmask %s\n", mark, markMask, markMask)
 		case "filter":
+			fmt.Fprintf(&b, "-A FP_FWD -p icmp -m connmark --mark %s -j FP_ICMP\n", mark)
 			fmt.Fprintf(&b, "-A FP_FWD -m connmark --mark %s -m conntrack --ctdir ORIGINAL -m set --match-set %s dst,dst -j FP_CUP\n", mark, allowSet)
 			fmt.Fprintf(&b, "-A FP_FWD -m connmark --mark %s -m conntrack --ctdir REPLY -m set --match-set %s src,src -j FP_CDOWN\n", mark, allowSet)
+			if limited {
+				fmt.Fprintf(&b, "-A FP_FWD -m connmark --mark %s -m conntrack --ctdir ORIGINAL -m set --match-set %s dst,dst --bytes-lt %d -j FP_CUP\n", mark, creditSet, creditCeiling)
+				fmt.Fprintf(&b, "-A FP_FWD -m connmark --mark %s -m conntrack --ctdir REPLY -m set --match-set %s src,src --bytes-lt %d -j FP_CDOWN\n", mark, creditSet, creditCeiling)
+			}
 			fmt.Fprintf(&b, "-A FP_FWD -m connmark --mark %s -j DROP\n", mark)
 			fmt.Fprintf(&b, "-A FP_CUP -m set --match-set %s dst,dst -j ACCEPT\n", upSet)
 			fmt.Fprintf(&b, "-A FP_CDOWN -m set --match-set %s src,src -j ACCEPT\n", downSet)

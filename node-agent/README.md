@@ -1,4 +1,4 @@
-# 独立 iptables Agent（实验版 v2）
+# 独立 iptables Agent（实验版 v3）
 
 本模块不依赖或启动 GOST。管理通信使用面板的 WSS 协议，业务数据在 Linux 内核完成 IPv4 TCP/UDP DNAT/SNAT。
 
@@ -60,3 +60,6 @@ v2 用 `FPV2_BIND` 哈希分类、connmark 恢复标记、固定深度 NAT 树�
 规则重建不再重置计数，但两个方向的导出不是同一瞬间的快照；规则/集合/状态文件之间也不是全局原子。主机断电前未持久化的计数窗口和在线配额的控制延迟仍需按实验版边界理解。
 
 本轮优化、同拓扑 GOST/v1/v2 对照见 [v2 性能报告](../doc/forward-performance-v2.md)；域名、IPv6 与完整待办方案见 [实施路线](../doc/forward-engine-roadmap.md)。
+
+
+第一批基础能力与升级/计费/安装语义见 [v3 说明](../doc/forward-foundation-v3.md)。发布包须固定校验和；生产启用仍需独立部署计划。

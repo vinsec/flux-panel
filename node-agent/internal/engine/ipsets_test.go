@@ -20,7 +20,7 @@ func TestPacketPathDoesNotGrowWithForwardCount(t *testing.T) {
 		if got := strings.Count(tables["mangle"], "-A FP_MARK "); got != 5 {
 			t.Fatalf("%d forwards generate %d packet classification rules", n, got)
 		}
-		if got := strings.Count(tables["filter"], "-A "); got != 8 {
+		if got := strings.Count(tables["filter"], "-A "); got != 11 {
 			t.Fatalf("%d forwards generate %d filter rules", n, got)
 		}
 		if strings.Contains(tables["filter"], "--ctorigdstport") || strings.Contains(tables["mangle"], "--dport") {

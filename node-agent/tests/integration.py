@@ -103,6 +103,10 @@ try:
         while c.nextset():pass
         c.execute((ROOT/'springboot-backend/migrations/001-forward-engines.sql').read_text())
         while c.nextset():pass
+    with db.cursor() as c:
+        for _ in range(2):
+            c.execute((ROOT/'springboot-backend/migrations/002-engine-foundation.sql').read_text())
+            while c.nextset():pass
     check('database migration is repeatable; legacy rows default to gost',sql("SELECT engine FROM node WHERE name='legacy-schema'")[0]['engine']=='gost')
     env=os.environ.copy();env.update(DB_HOST='mysql',DB_NAME='flux_test',DB_USER='root',DB_PASSWORD='isolated-test-db-only',JWT_SECRET='isolated-test-jwt-only',LOG_DIR='/tmp/panel-logs')
     log=open(OUT/'panel.log','w');panel=subprocess.Popen(['java','-Xmx192m','-XX:ActiveProcessorCount=1','-jar',str(JAR)],stdout=log,stderr=subprocess.STDOUT,env=env);processes.append(panel)
@@ -117,7 +121,7 @@ try:
     check('panel creates IPv4 TCP and UDP DNAT/SNAT forward',probe()=='tcp_udp_ok')
     config=json.loads(pathlib.Path('/tmp/flux-agent-config.json').read_text());config['statePath']='/tmp/missing-state.json';pathlib.Path('/tmp/lost-config.json').write_text(json.dumps(config))
     lost=subprocess.run(['ip','netns','exec','router',str(AGENT),'--config','/tmp/lost-config.json'],capture_output=True,text=True,timeout=8)
-    check('lost accounting state refuses to adopt historical kernel counters',lost.returncode!=0 and 'persistent state missing' in lost.stderr and probe()=='tcp_udp_ok')
+    check('a second state path cannot adopt counters from a managed namespace',lost.returncode!=0 and ('persistent state missing' in lost.stderr or 'network namespace is already managed' in lost.stderr) and probe()=='tcp_udp_ok')
     duplicate=subprocess.run(['ip','netns','exec','router',str(AGENT),'--config','/tmp/flux-agent-config.json'],capture_output=True,text=True,timeout=8)
     check('second agent cannot share the active state directory',duplicate.returncode!=0 and 'another agent' in duplicate.stderr)
     wait(lambda:usage_total(f['id'])>0)
@@ -172,11 +176,54 @@ try:
     check('quota pauses every forwarding with its own service id',probe(18002,'blocked')=='tcp_udp_blocked' and probe(18003,'blocked')=='tcp_udp_blocked')
     sql('UPDATE user SET flow=1000,in_flow=0,out_flow=0 WHERE id=%s',(normal,));api('forward/resume',{'id':nf1['id']});api('forward/resume',{'id':nf2['id']})
     check('normal forwards recover after quota reset',probe(18002)=='tcp_udp_ok' and probe(18003)=='tcp_udp_ok')
+    # Two real Agents in different router namespaces share one nearly-empty
+    # user budget. Every data packet remains on private veth links.
+    for extra in ['client2','router2']:
+        cmd('ip','netns','add',extra);cmd('ip','-n',extra,'link','set','lo','up')
+    for left,right,ln,rn,la,ra in [('c2','r20','client2','router2','10.203.6.2/24','10.203.6.1/24'),('r21','t2','router2','target','10.203.5.1/24','10.203.5.2/24')]:
+        cmd('ip','link','add',left,'type','veth','peer','name',right);cmd('ip','link','set',left,'netns',ln);cmd('ip','link','set',right,'netns',rn)
+        for ns_name,interface,address in [(ln,left,la),(rn,right,ra)]:cmd('ip','-n',ns_name,'addr','add',address,'dev',interface);cmd('ip','-n',ns_name,'link','set',interface,'up')
+    cmd('ip','link','add','control2','type','veth','peer','name','r22');cmd('ip','link','set','r22','netns','router2');cmd('ip','addr','add','10.203.7.1/24','dev','control2');cmd('ip','link','set','control2','up');cmd('ip','-n','router2','addr','add','10.203.7.2/24','dev','r22');cmd('ip','-n','router2','link','set','r22','up')
+    cmd('ip','-n','client2','route','add','default','via','10.203.6.1');cmd('ip','netns','exec','router2','sh','-c','mount -o remount,rw /proc/sys && sysctl -w net.ipv4.ip_forward=1')
+    cmd('ip','netns','exec','router2','iptables','-P','FORWARD','DROP')
+    api('node/create',{'name':'second-lease-node','engine':'iptables','ip':'10.203.6.1','serverIp':'10.203.5.1','portSta':18200,'portEnd':18220})
+    n2=sql("SELECT * FROM node WHERE name='second-lease-node'")[0]
+    cfg2=pathlib.Path('/tmp/agent2-config.json');cfg2.write_text(json.dumps({'addr':'http://10.203.7.1:6365','secret':n2['secret'],'statePath':'/tmp/agent2-state.json','apply':True,'allowInsecure':True,'intervalSeconds':1}))
+    agent2=start(['ip','netns','exec','router2',str(AGENT),'--config',str(cfg2)],'agent2.log');wait(lambda:sql('SELECT status FROM node WHERE id=%s',(n2['id'],))[0]['status']==1)
+    api('engine/capabilities',{'nodeId':n2['id']})
+    lt=tunnel(n2,'shared-credit-second-node')
+    sql('INSERT INTO user(user,pwd,role_id,exp_time,flow,num,created_time,status,flow_reset_time,in_flow,out_flow) VALUES(%s,%s,1,%s,1,1000,%s,1,0,%s,0)',('shared_credit','unused',now+3600000,now,1073741824-65536))
+    shared=sql("SELECT id FROM user WHERE user='shared_credit'")[0]['id']
+    for tid in [t['id'],lt['id']]:sql('INSERT INTO user_tunnel(user_id,tunnel_id,speed_id,num,flow,flow_reset_time,exp_time,status) VALUES(%s,%s,NULL,100,1000,0,%s,1)',(shared,tid,now+3600000))
+    sf1=forward(t,'shared-credit-first',18020,shared,1);sf2=forward(lt,'shared-credit-second',18200,shared,1,target='10.203.5.2:19000')
+    wait(lambda:sql('SELECT COUNT(*) n FROM engine_credit_lease WHERE user_id=%s',(shared,))[0]['n']>0)
+    reserved=sql('SELECT COALESCE(SUM(reserved_bill),0) n FROM engine_credit_lease WHERE user_id=%s AND closed=0',(shared,))[0]['n']
+    check('two nodes cannot reserve the same remaining user quota',0<reserved<=65536)
+    flood_code="import socket;s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.settimeout(.01)\nfor _ in range(100):\n s.sendto(b'x'*1000,('GATEWAY',PORT))\n try:s.recv(2048)\n except socket.timeout:pass"
+    clients=[]
+    for namespace,gateway,port in [('client','10.203.1.1',18020),('client2','10.203.6.1',18200)]:
+        clients.append(subprocess.Popen(['ip','netns','exec',namespace,'python3','-c',flood_code.replace('GATEWAY',gateway).replace('PORT',str(port))]))
+    for client in clients:assert client.wait(timeout=10)==0
+    wait(lambda:usage_total(sf1['id'])+usage_total(sf2['id'])>0);time.sleep(1.2)
+    total=sql('SELECT in_flow+out_flow n FROM user WHERE id=%s',(shared,))[0]['n']
+    check('concurrent bidirectional kernel credit stays within the shared 64 KiB remainder',total<=1073741824 and usage_total(sf1['id'])+usage_total(sf2['id'])<=65536)
+    # Consume the sub-datagram tail after the coordinator renews the same
+    # cumulative reservation. A denied large packet must not fake extra quota.
+    small="import socket;s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.settimeout(.001)\nfor _ in range(100):\n s.sendto(b'x',('GATEWAY',PORT))\n try:s.recv(100)\n except socket.timeout:pass"
+    for _ in range(3):
+        for namespace,gateway,port in [('client','10.203.1.1',18020),('client2','10.203.6.1',18200)]:cmd('ip','netns','exec',namespace,'python3','-c',small.replace('GATEWAY',gateway).replace('PORT',str(port)))
+        time.sleep(1.1)
+    check('exhausted shared budget blocks both forwarding nodes',probe(18020,'blocked')=='tcp_udp_blocked' and cmd('ip','netns','exec','client2','python3','-c',"import socket;s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.settimeout(.5);s.sendto(b'test',('10.203.6.1',18200))\ntry:s.recv(100);raise AssertionError('quota bypass')\nexcept socket.timeout:print('blocked')")=='blocked')
+    api('forward/delete',{'id':sf1['id']});api('forward/delete',{'id':sf2['id']});agent2.terminate();agent2.wait(timeout=5)
     # Real existing GOST binary regression on a separate logical node/port.
     g=node('legacy-gost','gost');gd=pathlib.Path('/tmp/gost');gd.mkdir();(gd/'config.json').write_text(json.dumps({'addr':'ws://10.203.3.1:6365','secret':g['secret']}));(gd/'gost.json').write_text('{}')
     gost_binary='gost-arm64' if os.uname().machine in ['aarch64','arm64'] else 'gost-amd64'
-    gost=start(['ip','netns','exec','router',str(ROOT/'go-gost'/gost_binary)],'gost.log',str(gd));wait(lambda:sql('SELECT status FROM node WHERE id=%s',(g['id'],))[0]['status']==1)
+    gost_path=pathlib.Path('/build/gost') if pathlib.Path('/build/gost').exists() else ROOT/'go-gost'/gost_binary
+    gost=start(['ip','netns','exec','router',str(gost_path)],'gost.log',str(gd));wait(lambda:sql('SELECT status FROM node WHERE id=%s',(g['id'],))[0]['status']==1)
     gt=tunnel(g,'legacy-gost','gost')
+    sql('INSERT INTO user_tunnel(user_id,tunnel_id,speed_id,num,flow,flow_reset_time,exp_time,status) VALUES(%s,%s,NULL,100,1000,0,%s,1)',(normal,gt['id'],now+3600000))
+    mixed=api('forward/create',{'name':'reject-shared-legacy','tunnelId':gt['id'],'remoteAddr':'10.203.2.2:19000','inPort':18012,'strategy':'fifo'},normal,1,expect=False)
+    check('a leased shared-quota owner cannot silently add a legacy forwarding peer',mixed['code']!=0 and probe(18002)=='tcp_udp_ok')
     gf=forward(gt,'legacy-regression',18001);check('real legacy GOST adapter still forwards TCP/UDP',probe(18001)=='tcp_udp_ok')
     wait(lambda:usage_total(gf['id'])>0,15);check('legacy GOST traffic reporting still updates the original ledger')
     conflict=api('forward/create',{'name':'occupied-gost-port','tunnelId':t['id'],'remoteAddr':'10.203.2.2:19000','inPort':18001},expect=False)
@@ -195,6 +242,21 @@ try:
     try:urllib.request.urlopen(req,timeout=3)
     except urllib.error.HTTPError as e:rejected=e.code==403
     check('engine identity mismatch rejected',rejected)
+    if os.getenv('FLUX_TEST_SCALE')=='1':
+        # Exercise the actual Java DB-driven reconciler, not only the Go batch
+        # API. Together with the two live normal forwards this totals 10k.
+        sql('UPDATE node SET port_end=60000 WHERE id=%s',(n['id'],))
+        bulk=[(1,'admin','foundation-scale-'+str(i),t['id'],20000+i,'10.203.2.2:19000','fifo',now,now,1) for i in range(9998)]
+        with db.cursor() as c:c.executemany('INSERT INTO forward(user_id,user_name,name,tunnel_id,in_port,remote_addr,strategy,created_time,updated_time,status) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)',bulk)
+        started=time.monotonic();submitted=api('engine/reconcile',{'nodeId':n['id']})['data'];assert submitted.get('id'),submitted
+        wait(lambda:api('engine/batch-status',{'nodeId':n['id'],'id':submitted['id']})['data']['status']=='succeeded',180)
+        check('real Java reconciler cold-applies 10k desired forwards through one batch',probe(29997)=='tcp_udp_ok' and len([v for v in json.loads(pathlib.Path('/tmp/flux-agent-state.json').read_text())['rules'].values() if not v.get('deleted')])==10000)
+        cold=time.monotonic()-started
+        sql("DELETE FROM forward WHERE name LIKE 'foundation-scale-%'")
+        submitted=api('engine/reconcile',{'nodeId':n['id']})['data'];assert submitted.get('id'),submitted
+        wait(lambda:api('engine/batch-status',{'nodeId':n['id'],'id':submitted['id']})['data']['status']=='succeeded',180)
+        check('real Java bulk reconciliation removes 9998 orphans and keeps live forwards',probe(18002)=='tcp_udp_ok' and probe(29997,'blocked')=='tcp_udp_blocked')
+        (OUT/'panel-scale.json').write_text(json.dumps({'forwards':10000,'cold_seconds':cold,'total_seconds':time.monotonic()-started},indent=2))
     # A new short-lived permission is enforced by the agent while the panel
     # process is completely stopped. Older, still-valid forwards remain live.
     et=tunnel(n,'offline-expiration');deadline=int(time.time()*1000)+5000
@@ -214,7 +276,7 @@ try:
     print('ALL CHECKS PASSED',len(checks),flush=True)
 except Exception:
     import traceback;traceback.print_exc()
-    for f in ['agent.log','panel.log','gost.log']:
+    for f in ['agent.log','agent2.log','panel.log','gost.log']:
         p=OUT/f
         if p.exists():print('LOG',f,p.read_text(errors='replace')[-7000:])
     raise

@@ -39,7 +39,16 @@ class Sink(http.server.BaseHTTPRequestHandler):
  protocol_version='HTTP/1.1'
  def log_message(self,*args):pass
  def do_POST(self):
-  n=int(self.headers.get('Content-Length','0'));assert n<4*1024*1024;self.rfile.read(n);self.send_response(200);self.send_header('Content-Length','2');self.end_headers();self.wfile.write(b'ok')
+  n=int(self.headers.get('Content-Length','0'));assert n<16*1024*1024;raw=self.rfile.read(n);body=b'ok'
+  if os.getenv('FLUX_BENCH_FOUNDATION_CREDIT_ONLY')=='1':
+   v=json.loads(raw);grants=[]
+   if 'usage' in v:
+    for ident in v.get('requests',[]):
+     key=v['epoch']+ident
+     if key not in self.server.leases:self.server.leases[key]={'id':hashlib.md5(key.encode()).hexdigest(),'serviceId':ident,'epoch':v['epoch'],'bootId':v['bootId'],'generation':1,'totalGranted':2147483648,'windowBytes':2147483648,'requestSequence':v['sequence'],'validForMillis':60000}
+     grants.append(self.server.leases[key])
+    body=json.dumps({'epoch':v['epoch'],'sequence':v['sequence'],'usage':v['usage'],'counters':v.get('counters',[]),'closedLeases':[x['id'] for x in v.get('leases',[]) if x['closed']],'leaseWatermarks':v.get('leases',[]),'grants':grants}).encode()
+  self.send_response(200);self.send_header('Content-Length',str(len(body)));self.end_headers();self.wfile.write(body)
  def do_GET(self):
   if self.headers.get('Upgrade','').lower()!='websocket':self.send_error(404);return
   key=self.headers.get('Sec-WebSocket-Key','');accept=base64.b64encode(hashlib.sha1((key+'258EAFA5-E914-47DA-95CA-C5AB0DC85B11').encode()).digest()).decode()
@@ -76,7 +85,7 @@ def clean_rules():
  for table in ['mangle','nat','filter']:router('iptables','-t',table,'-F');router('iptables','-t',table,'-X')
  if os.getenv('FLUX_BENCH_V2')=='1':
   for name in router('ipset','list','-name').splitlines():
-   assert name.startswith('FPV2_'),name
+   assert name.startswith(('FPV2_','FPV3_')),name
    router('ipset','destroy',name)
  router('iptables','-P','FORWARD','DROP');router('sh','-c','conntrack -F >/dev/null 2>&1 || true')
 def specs(count):
@@ -88,6 +97,9 @@ def specs(count):
 def setup(engine,count,round_id):
  clean_rules();path=pathlib.Path(f'/tmp/{engine}-{count}-{round_id}');path.mkdir();p=None
  data=specs(count)
+ if os.getenv('FLUX_BENCH_FOUNDATION_CREDIT_ONLY')=='1' and engine=='iptables_v2':
+  for value in data.values():
+   if value['listenPort'] in [18000,18001]:value['leaseRequired']=True
  if engine=='direct':
   router('iptables','-A','FORWARD','-i','r0','-o','r1','-j','ACCEPT');router('iptables','-A','FORWARD','-i','r1','-o','r0','-j','ACCEPT')
  elif engine=='gost':
@@ -99,7 +111,7 @@ def setup(engine,count,round_id):
   p=spawn(ns('router','taskset','-c',str(CPU),'/build/gost'),f'gost-{count}-{round_id}',str(path),env)
  else:
   state={'epoch':hashlib.md5(str(path).encode()).hexdigest(),'sequence':0,'rules':data,'totals':{},'last':{}}
-  (path/'state.json').write_text(json.dumps(state));(path/'config.json').write_text(json.dumps({'addr':'ws://10.204.3.1:8000','secret':'isolated-benchmark-only','statePath':str(path/'state.json'),'apply':True,'allowInsecure':True,'intervalSeconds':5}))
+  (path/'state.json').write_text(json.dumps(state));(path/'config.json').write_text(json.dumps({'addr':'ws://10.204.3.1:8000','secret':'isolated-benchmark-only','statePath':str(path/'state.json'),'apply':True,'allowInsecure':True,'intervalSeconds':1 if os.getenv('FLUX_BENCH_FOUNDATION_CREDIT_ONLY')=='1' else 5}))
   binary='/build/flux-agent-v2' if engine=='iptables_v2' else '/build/flux-agent'
   env=os.environ.copy();env['GOMAXPROCS']='1';p=spawn(ns('router','taskset','-c',str(CPU),binary,'--config',str(path/'config.json')),f'{engine}-{count}-{round_id}',env=env)
  deadline=time.monotonic()+20
@@ -168,7 +180,7 @@ def latency(engine,count,round_id,p,extended=True):
 def collection(engine,count):
  # Raw kernel exports only, 10 repetitions. This excludes Go parsing, fsync,
  # HTTP delivery and panel SQL; it does not claim to measure the full sampler.
- commands=[['ipset','save','FPV2_UP'],['ipset','save','FPV2_DOWN']] if engine=='iptables_v2' else [['iptables-save','-c','-t','filter']]
+ commands=[['ipset','save','FPV2_UP'],['ipset','save','FPV2_DOWN']] if engine=='iptables_v2' or os.getenv('FLUX_BENCH_FOUNDATION')=='1' else [['iptables-save','-c','-t','filter']]
  values=[];sizes=[]
  for _ in range(10):
   a=snapshot();data=''.join(router(*args) for args in commands);b=snapshot();values.append(delta(a,b));sizes.append(len(data))
@@ -177,10 +189,24 @@ def collection(engine,count):
  (OUT/'collection.json').write_text(json.dumps(COLLECTION,indent=2))
 
 def main():
- topology();server=http.server.ThreadingHTTPServer(('10.204.3.1',8000),Sink);server.daemon_threads=True;threading.Thread(target=server.serve_forever,daemon=True).start()
- metadata={'kernel':run(['uname','-a']),'iperf':run(['iperf3','--version']).splitlines()[0],'cpuset':run(['taskset','-pc',str(os.getpid())]),'cpu_max':pathlib.Path('/sys/fs/cgroup/cpu.max').read_text().strip(),'baseline_source_commit':'4ea5d7bba4033dcab3b31040a7b16bbeefa65d16','binary_sha256':{n:hashlib.sha256(pathlib.Path('/build/'+n).read_bytes()).hexdigest() for n in (['flux-agent','flux-agent-v2','gost','bench-peer'] if os.getenv('FLUX_BENCH_V2')=='1' else ['flux-agent','gost','bench-peer'])},'topology':'client -> router -> target; veth MTU 1500; no external/default route','byte_limit':BYTE_LIMIT,'case_timeout_seconds':15,'offloads':router('ethtool','-k','r0')}
+ topology();server=http.server.ThreadingHTTPServer(('10.204.3.1',8000),Sink);server.daemon_threads=True;server.leases={};threading.Thread(target=server.serve_forever,daemon=True).start()
+ metadata={'kernel':run(['uname','-a']),'iperf':run(['iperf3','--version']).splitlines()[0],'cpuset':run(['taskset','-pc',str(os.getpid())]),'cpu_max':pathlib.Path('/sys/fs/cgroup/cpu.max').read_text().strip(),'baseline_source_commit':'7ed19550e3e800787f8bbb2c4542758be246582d' if os.getenv('FLUX_BENCH_FOUNDATION')=='1' else '4ea5d7bba4033dcab3b31040a7b16bbeefa65d16','binary_sha256':{n:hashlib.sha256(pathlib.Path('/build/'+n).read_bytes()).hexdigest() for n in (['flux-agent','flux-agent-v2','gost','bench-peer'] if os.getenv('FLUX_BENCH_V2')=='1' else ['flux-agent','gost','bench-peer'])},'topology':'client -> router -> target; veth MTU 1500; no external/default route','byte_limit':BYTE_LIMIT,'case_timeout_seconds':15,'offloads':router('ethtool','-k','r0')}
  (OUT/'metadata.json').write_text(json.dumps(metadata,indent=2))
- if os.getenv('FLUX_BENCH_PACED_ONLY')=='1':
+ metadata['engine_aliases']={'iptables':'iptables_v2_baseline','iptables_v2':'iptables_v3_foundation','gost':'gost'} if os.getenv('FLUX_BENCH_FOUNDATION')=='1' else {}
+ metadata['kernel_credit_enabled']=os.getenv('FLUX_BENCH_FOUNDATION_CREDIT_ONLY')=='1'
+ if os.getenv('FLUX_BENCH_FOUNDATION_CREDIT_ONLY')=='1':
+  for count in [2,1000]:
+   for round_id in [41,42,43]:
+    p=setup('iptables_v2',count,round_id)
+    try:measure('iptables_v2',count,round_id,'strict_up',p);latency('iptables_v2',count,round_id,p,False)
+    finally:stop(p)
+  os.environ['FLUX_BENCH_STRICT']='0';os.environ['FLUX_BENCH_PACED_ONLY']='1'
+  for count in [2,1000]:
+   for round_id in [51,52,53]:
+    p=setup('iptables_v2',count,round_id)
+    try:measure('iptables_v2',count,round_id,'tcp_paced',p)
+    finally:stop(p)
+ elif os.getenv('FLUX_BENCH_PACED_ONLY')=='1':
   for count in [2,1000]:
    for round_id,order in enumerate([['gost','iptables','iptables_v2'],['iptables_v2','gost','iptables'],['iptables','iptables_v2','gost']],21):
     for engine in order:

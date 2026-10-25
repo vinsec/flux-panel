@@ -18,8 +18,9 @@ type Kernel interface {
 	Apply(map[string]string) error
 }
 type IPTables struct {
-	Binary string
-	shape  string
+	Binary       string
+	shape        string
+	controlShape string
 }
 
 func (k *IPTables) Configured() (bool, error) {
@@ -99,7 +100,7 @@ func (k *IPTables) run(name, input string, args ...string) (string, error) {
 	if e != nil {
 		return "", fmt.Errorf("%s: %w: %s", name, e, strings.TrimSpace(string(out)))
 	}
-	return string(out), nil
+	return strings.TrimSpace(string(out)), nil
 }
 
 func (k *IPTables) Initialize() error {
@@ -123,15 +124,18 @@ func (k *IPTables) Initialize() error {
 			return fmt.Errorf("live v1 rules detected; pause/drain and migrate explicitly before v2")
 		}
 		for _, c := range chains[table] {
-			if strings.Contains(r, ":"+c+" ") && !strings.Contains(r, "-A "+c+" -m comment --comment "+owner+" -j RETURN") && !strings.Contains(r, "-A "+c+" -m comment --comment \""+owner+"\" -j RETURN") {
+			if strings.Contains(r, ":"+c+" ") && !strings.Contains(r, "-A "+c+" -m comment --comment "+owner+" -j RETURN") && !strings.Contains(r, "-A "+c+" -m comment --comment \""+owner+"\" -j RETURN") && !knownOwnedChain(r, c) {
 				return fmt.Errorf("chain %s exists without ownership marker", c)
 			}
 		}
 		for _, l := range strings.Split(r, "\n") {
-			if reservedMark.MatchString(l) && !strings.Contains(l, "-A FP_") {
+			if reservedMark.MatchString(l) && !strings.Contains(l, "-A FP_") && !strings.Contains(l, gateComment) {
 				return fmt.Errorf("reserved connmark namespace is already used")
 			}
 		}
+	}
+	if _, e := k.Preflight(); e != nil {
+		return e
 	}
 	return k.initializeSets()
 }
@@ -154,6 +158,7 @@ func (k *IPTables) Apply(tables map[string]string) error {
 		return e
 	}
 	if full {
+		k.controlShape = ""
 		if e = k.stageSet(bindingSet, bindings); e != nil {
 			return e
 		}
@@ -173,12 +178,28 @@ func (k *IPTables) Apply(tables map[string]string) error {
 			}
 		}
 		for _, h := range Hooks {
-			args := []string{"--wait", "2", "-t", h.Table, "-C", h.Parent, "-m", "comment", "--comment", "flux-hook:v2", "-j", h.Child}
+			args := []string{"--wait", "2", "-t", h.Table, "-C", h.Parent, "-m", "comment", "--comment", "flux-hook:v3", "-j", h.Child}
 			if _, e = k.run(k.Binary, "", args...); e != nil {
 				args[4] = "-I"
-				args = append(args[:6], append([]string{"1"}, args[6:]...)...)
+				position := "1"
+				if h.Table == "filter" {
+					gates, err := k.gateRules()
+					if err != nil {
+						return err
+					}
+					position = fmt.Sprint(1 + len(gates))
+				}
+				args = append(args[:6], append([]string{position}, args[6:]...)...)
 				if _, e = k.run(k.Binary, "", args...); e != nil {
 					return e
+				}
+			}
+		}
+		for _, h := range Hooks {
+			for {
+				args := []string{"--wait", "2", "-t", h.Table, "-D", h.Parent, "-m", "comment", "--comment", "flux-hook:v2", "-j", h.Child}
+				if _, err := k.run(k.Binary, "", args...); err != nil {
+					break
 				}
 			}
 		}
@@ -200,17 +221,20 @@ func ownedChain(text, name string) bool {
 	return strings.Contains(text, "-A "+name+" -m comment --comment "+owner+" -j RETURN") || strings.Contains(text, "-A "+name+" -m comment --comment \""+owner+"\" -j RETURN")
 }
 func (k *IPTables) cleanStaleNAT(desired string) (string, error) {
-	current, e := k.run(k.Binary+"-save", "", "-t", "nat")
+	return k.cleanStaleChains(desired, "nat", natNode)
+}
+func (k *IPTables) cleanStaleChains(desired, table string, node *regexp.Regexp) (string, error) {
+	current, e := k.run(k.Binary+"-save", "", "-t", table)
 	if e != nil {
 		return "", e
 	}
 	newNames := map[string]bool{}
-	for _, m := range natNode.FindAllStringSubmatch(desired, -1) {
+	for _, m := range node.FindAllStringSubmatch(desired, -1) {
 		newNames[m[1]] = true
 	}
 	stale := []string{}
-	for _, m := range natNode.FindAllStringSubmatch(current, -1) {
-		if !ownedChain(current, m[1]) {
+	for _, m := range node.FindAllStringSubmatch(current, -1) {
+		if !knownOwnedChain(current, m[1]) {
 			return "", fmt.Errorf("NAT trie chain %s has no ownership marker", m[1])
 		}
 		if !newNames[m[1]] {
@@ -223,6 +247,10 @@ func (k *IPTables) cleanStaleNAT(desired string) (string, error) {
 		decl += ":" + name + " - [0:0]\n"
 		remove += "-X " + name + "\n"
 	}
-	desired = strings.Replace(desired, "*nat\n", "*nat\n"+decl, 1)
+	desired = strings.Replace(desired, "*"+table+"\n", "*"+table+"\n"+decl, 1)
 	return strings.Replace(desired, "COMMIT\n", remove+"COMMIT\n", 1), nil
+}
+
+func knownOwnedChain(text, name string) bool {
+	return ownedChain(text, name) || strings.Contains(text, "-A "+name+" -m comment --comment "+previousOwner+" -j RETURN") || strings.Contains(text, "-A "+name+" -m comment --comment \""+previousOwner+"\" -j RETURN")
 }

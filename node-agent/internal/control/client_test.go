@@ -43,13 +43,23 @@ func TestTrustedWSSAndHTTPS(t *testing.T) {
 		b, _ = Encrypt(b, secret)
 		conn.WriteMessage(websocket.TextMessage, b)
 		conn.SetReadDeadline(time.Now().Add(3 * time.Second))
-		_, b, e = conn.ReadMessage()
-		if e == nil {
-			b, e = Decrypt(b, secret)
-		}
 		var v response
-		if e == nil {
-			e = json.Unmarshal(b, &v)
+		for attempt := 0; attempt < 3; attempt++ {
+			_, b, e = conn.ReadMessage()
+			if e != nil {
+				break
+			}
+			b, e = Decrypt(b, secret)
+			if e != nil {
+				break
+			}
+			if e = json.Unmarshal(b, &v); e != nil {
+				break
+			}
+			if v.Type == "EngineHello" {
+				continue
+			}
+			break
 		}
 		select {
 		case frameOK <- e == nil && v.Success && v.RequestID == "tls-test":

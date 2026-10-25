@@ -21,11 +21,12 @@ public class EngineReconciler {
     @Resource private UserMapper users;
     @Resource private UserTunnelMapper permissions;
     @Resource private IptablesForwardingEngine engine;
+    @Resource private EngineBatchReconciler batches;
 
     @Scheduled(fixedDelay=30000,initialDelay=10000)
     public void reconcile() {
         for(Node n:nodes.selectList(new QueryWrapper<Node>().eq("engine","iptables").eq("status",1))) {
-            try {reconcile(n);}catch(Exception e){log.warn("iptables node {} reconciliation failed: {}",n.getId(),e.getMessage());}
+            try {if(EngineCapabilities.supports(n.getId(),"batch"))batches.reconcile(n.getId());else reconcile(n);}catch(Exception e){log.warn("iptables node {} reconciliation failed: {}",n.getId(),e.getMessage());}
         }
     }
     private void reconcile(Node n) {

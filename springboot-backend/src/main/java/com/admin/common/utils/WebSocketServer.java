@@ -2,6 +2,7 @@ package com.admin.common.utils;
 
 
 import com.admin.common.dto.GostConfigDto;
+import com.admin.common.engine.EngineCapabilities;
 import com.admin.common.dto.GostDto;
 import com.admin.common.task.CheckGostConfigAsync;
 import com.admin.entity.Node;
@@ -76,11 +77,17 @@ public class WebSocketServer extends TextWebSocketHandler {
                 // 尝试解密消息
                 String decryptedPayload = decryptMessageIfNeeded(message.getPayload(), nodeSecret);
 
+                JSONObject event=JSONObject.parseObject(decryptedPayload);
+                if("EngineHello".equals(event.getString("type")) && Objects.equals(type,"1")){
+                    Long nodeId=Long.valueOf(id);
+                    if(nodeSessions.get(nodeId)==session)EngineCapabilities.register(nodeId,session.getId(),event.getJSONObject("info"));
+                    return;
+                }
                 if (decryptedPayload.contains("memory_usage")){
                     // 先发送确认消息
                     sendToUser(session, "{\"type\":\"call\"}", nodeSecret);
                 }else if (decryptedPayload.contains("requestId")) {
-                    log.info("收到消息: {}", decryptedPayload);
+                    if(!"1".equals(type)||!String.valueOf(session.getAttributes().get("nodeVersion")).startsWith("iptables"))log.info("收到消息: {}", decryptedPayload);
                     // 处理命令响应消息
                     try {
                         JSONObject responseJson = JSONObject.parseObject(decryptedPayload);
@@ -215,7 +222,7 @@ public class WebSocketServer extends TextWebSocketHandler {
         try {
             String id = session.getAttributes().get("id").toString();
             String type = session.getAttributes().get("type").toString();
-            
+            session.setTextMessageSizeLimit(16*1024*1024);
             if (!Objects.equals(type, "1")) {
                 // 网页管理员连接
                 activeSessions.add(session);
@@ -336,6 +343,7 @@ public class WebSocketServer extends TextWebSocketHandler {
                 log.info("节点 {} 当前活跃连接关闭，开始验证并更新状态", nodeId);
                 
                     nodeSessions.remove(nodeId);
+                    EngineCapabilities.remove(nodeId,sessionId);
                     
                     // 更新节点状态为离线
                     Node node = nodeService.getById(nodeId);
@@ -434,6 +442,8 @@ public class WebSocketServer extends TextWebSocketHandler {
     }
 
 
+
+    public static String nodeSessionId(Long node){WebSocketSession s=nodeSessions.get(node);return s==null?null:s.getId();}
 
     public static GostDto send_msg(Long node_id, Object msg, String type) {
         WebSocketSession nodeSession = nodeSessions.get(node_id);
