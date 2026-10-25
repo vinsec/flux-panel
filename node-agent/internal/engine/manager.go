@@ -712,9 +712,6 @@ func (m *Manager) Report() (Report, error) {
 			delete(m.state.RequestTimes, seq)
 		}
 	}
-	if e := m.save(); e != nil {
-		return Report{}, e
-	}
 	r := Report{BootID: m.state.BootID, Epoch: m.state.Epoch, Sequence: m.state.Sequence, Usage: []Usage{}, Generation: m.state.Generation, CheckpointAt: m.state.LastDurableAt, Recovery: m.state.Recovery}
 	forced := map[string]bool{}
 	for _, c := range m.lastCounters {
@@ -773,6 +770,55 @@ func (m *Manager) Report() (Report, error) {
 			}
 		}
 	}
+	selected := map[string]bool{}
+	if len(r.Usage) > 10000 {
+		all := r.Usage
+		start := sort.Search(len(all), func(i int) bool { return all[i].ID > m.state.ReportCursor })
+		if start == len(all) {
+			start = 0
+		}
+		page := make([]Usage, 0, 10000)
+		for i := 0; i < 10000; i++ {
+			page = append(page, all[(start+i)%len(all)])
+		}
+		r.Usage = page
+	}
+	for _, u := range r.Usage {
+		selected[u.ID] = true
+	}
+	if len(r.Usage) > 0 {
+		m.state.ReportCursor = r.Usage[len(r.Usage)-1].ID
+	}
+	counters := []CounterWatermark{}
+	for _, c := range r.Counters {
+		if selected[c.ID] && len(counters) < 20000 {
+			counters = append(counters, c)
+		}
+	}
+	r.Counters = counters
+	claims := []LeaseUsage{}
+	claimIDs := map[string]bool{}
+	for _, l := range r.Leases {
+		ack, seen := m.state.LeaseAcks[l.ID]
+		if selected[l.ServiceID] || seen && ack == l.Used {
+			claims = append(claims, l)
+			claimIDs[l.ServiceID] = true
+		}
+	}
+	r.Leases = claims
+	requests := []string{}
+	for _, id := range r.Requests {
+		u := m.state.Totals[id]
+		_, leased := m.state.Leases[id]
+		if selected[id] || claimIDs[id] || !leased && u.Up == 0 && u.Down == 0 {
+			requests = append(requests, id)
+		}
+	}
+	r.Requests = requests
+	if e := m.save(); e != nil {
+		return Report{}, e
+	}
+	r.CheckpointAt = m.state.LastDurableAt
 	return r, nil
 }
 func (m *Manager) EnforceExpiration() error {

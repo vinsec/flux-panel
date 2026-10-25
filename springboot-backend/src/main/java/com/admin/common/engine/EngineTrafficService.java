@@ -63,7 +63,7 @@ public class EngineTrafficService {
             for (Map<String, Object> r :
                     jdbc.queryForList(
                             "SELECT service_id,ratio,flow_type FROM engine_credit_lease WHERE"
-                                + " lease_id IN ("
+                                    + " lease_id IN ("
                                     + slots(ids.size())
                                     + ") AND node_id=? AND epoch=? AND boot_id=?",
                             args.toArray()))
@@ -103,6 +103,30 @@ public class EngineTrafficService {
                 throw new IllegalArgumentException("invalid service ID");
             }
         }
+        List<String> zero = new ArrayList<>();
+        for (var e : input.entrySet())
+            if (exact(e.getValue().get("up")) == 0 && exact(e.getValue().get("down")) == 0)
+                zero.add(e.getKey());
+        if (!zero.isEmpty()) {
+            List<Object> zeroArgs = new ArrayList<>();
+            zeroArgs.add(node.getId());
+            zeroArgs.add(epoch);
+            zeroArgs.addAll(zero);
+            for (var old :
+                    jdbc.queryForList(
+                            "SELECT service_id,sequence FROM engine_usage WHERE node_id=? AND"
+                                + " epoch=? AND service_id IN ("
+                                    + slots(zero.size())
+                                    + ") AND (up_bytes>0 OR down_bytes>0)",
+                            zeroArgs.toArray()))
+                if (seq > number(old, "sequence"))
+                    throw new IllegalArgumentException("cumulative counters regressed");
+            for (String id : zero) input.remove(id);
+            forwardIDs.clear();
+            for (String id : input.keySet()) forwardIDs.add(Long.parseLong(id.split("_")[0]));
+        }
+        // A zero cumulative record has no money to transfer. Acknowledge it
+        // without creating/updating four ledger rows for an idle forwarding.
         if (input.isEmpty()) return;
         Map<Long, List<Map<String, Object>>> metadata = new HashMap<>();
         List<Object> args = new ArrayList<>(forwardIDs);
@@ -147,8 +171,8 @@ public class EngineTrafficService {
         for (String id : valid.keySet()) inserts.add(new Object[] {node.getId(), epoch, id});
         jdbc.batchUpdate(
                 "INSERT IGNORE INTO"
-                    + " engine_usage(node_id,epoch,service_id,sequence,up_bytes,down_bytes)"
-                    + " VALUES(?,?,?,0,0,0)",
+                        + " engine_usage(node_id,epoch,service_id,sequence,up_bytes,down_bytes)"
+                        + " VALUES(?,?,?,0,0,0)",
                 inserts);
         List<Object> keys = new ArrayList<>();
         keys.add(node.getId());
@@ -158,7 +182,7 @@ public class EngineTrafficService {
         for (var r :
                 jdbc.queryForList(
                         "SELECT service_id,sequence,up_bytes,down_bytes FROM engine_usage WHERE"
-                            + " node_id=? AND epoch=? AND service_id IN ("
+                                + " node_id=? AND epoch=? AND service_id IN ("
                                 + slots(valid.size())
                                 + ") ORDER BY service_id FOR UPDATE",
                         keys.toArray())) previous.put(r.get("service_id").toString(), r);
@@ -195,7 +219,7 @@ public class EngineTrafficService {
         }
         jdbc.batchUpdate(
                 "UPDATE engine_usage SET sequence=?,up_bytes=?,down_bytes=? WHERE node_id=? AND"
-                    + " epoch=? AND service_id=?",
+                        + " epoch=? AND service_id=?",
                 watermarks);
         update("forward", forwardDelta);
         update("user", userDelta);

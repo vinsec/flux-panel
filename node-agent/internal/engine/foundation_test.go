@@ -475,3 +475,34 @@ func TestTTLOnlyRenewalNeverFencesOrResetsTheDataBudget(t *testing.T) {
 		t.Fatal("TTL refresh rebuilt or fenced the dataplane")
 	}
 }
+
+func TestUsageOutboxPagesRetiredAndActiveServicesWithoutDroppingAny(t *testing.T) {
+	m, _ := fixture(t)
+	for i := 0; i < 20005; i++ {
+		s := valid()
+		s.ID = fmt.Sprintf("%06d_2_3", i)
+		s.Deleted = true
+		s.Token = uint32(i + 1)
+		m.state.Rules[s.ID] = s
+		m.state.Totals[s.ID] = Usage{ID: s.ID, Up: 1}
+	}
+	seen := map[string]bool{}
+	for i := 0; i < 3; i++ {
+		r, e := m.Report()
+		if e != nil {
+			t.Fatal(e)
+		}
+		if len(r.Usage) > 10000 {
+			t.Fatal("unbounded report")
+		}
+		for _, u := range r.Usage {
+			seen[u.ID] = true
+		}
+		if e = m.Acknowledge(Acknowledgement{Epoch: r.Epoch, Sequence: r.Sequence, Usage: r.Usage}); e != nil {
+			t.Fatal(e)
+		}
+	}
+	if len(seen) != 20005 {
+		t.Fatalf("outbox lost services: %d", len(seen))
+	}
+}

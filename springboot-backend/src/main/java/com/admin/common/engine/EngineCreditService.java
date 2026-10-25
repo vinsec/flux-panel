@@ -142,7 +142,7 @@ public class EngineCreditService {
             throw new IllegalArgumentException("report boot does not match active node session");
         jdbc.update(
                 "INSERT INTO engine_report_cursor(node_id,epoch,sequence) VALUES(?,?,0) ON"
-                    + " DUPLICATE KEY UPDATE sequence=sequence",
+                        + " DUPLICATE KEY UPDATE sequence=sequence",
                 node.getId(),
                 epoch);
         long cursor =
@@ -172,7 +172,13 @@ public class EngineCreditService {
         response.put("counters", validatedCounters(report.getJSONArray("counters"), usage));
         response.put("closedLeases", new JSONArray());
         response.put("grants", new JSONArray());
-        if (sequence <= cursor) return response; // older requests never renew credit.
+        if (sequence <= cursor) {
+            // Report pages are independent cumulative watermarks. A newer
+            // page need not contain an older page's services; settle the old
+            // page before acknowledging it, but never renew old credit.
+            traffic.ingest(node, report);
+            return response;
+        }
         Set<String> serviceIDs = new TreeSet<>();
         for (Object value : requests) {
             String id = String.valueOf(value);

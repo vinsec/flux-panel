@@ -75,6 +75,7 @@ type RecoveryInfo struct {
 	Reason        string `json:"reason,omitempty"`
 }
 type State struct {
+	ReportCursor       string            `json:"reportCursor,omitempty"`
 	StrictCredit       bool              `json:"strictCredit,omitempty"`
 	AccountingBlocked  bool              `json:"accountingBlocked,omitempty"`
 	MaintenanceBootID  string            `json:"maintenanceBootId,omitempty"`
