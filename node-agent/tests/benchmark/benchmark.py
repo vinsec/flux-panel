@@ -47,7 +47,7 @@ class Sink(http.server.BaseHTTPRequestHandler):
      key=v['epoch']+ident
      if key not in self.server.leases:self.server.leases[key]={'id':hashlib.md5(key.encode()).hexdigest(),'serviceId':ident,'epoch':v['epoch'],'bootId':v['bootId'],'generation':1,'totalGranted':2147483648,'windowBytes':2147483648,'requestSequence':v['sequence'],'validForMillis':60000}
      grants.append(self.server.leases[key])
-    if v.get('creditMode'):
+    if v.get('creditMode') and os.getenv('FLUX_BENCH_CREDIT_STRESS','1')=='1':
      for key,g in self.server.leases.items():
       if g['epoch']!=v['epoch'] or any(x['id']==g['id'] for x in grants):continue
       g['generation']+=1;g['requestSequence']=v['sequence'];grants.append(dict(g))
@@ -147,7 +147,7 @@ def measure(engine,count,round_id,profile,p):
   row['core_idle_adjusted_seconds_per_gib']=max(0,row['test_core_cpu_seconds']-idle['test_core_cpu_seconds']/idle['wall_seconds']*d['wall_seconds'])/(v['bytes']/1024**3)
   ROWS.append(row);(OUT/'throughput.json').write_text(json.dumps(ROWS,indent=2));print('STRICT',count,engine,round_id,profile,round(row['mbps'],2),'Mbps',round(row['cgroup_cpu_seconds_per_gib'],3),'CPU-s/GiB',flush=True);return
  args=['iperf3','-c',ip,'-p',port,'-J']
- if profile=='tcp_paced':args+=['-t','5' if os.getenv('FLUX_BENCH_PACED_ONLY')=='1' else '3','-b','150M']
+ if profile=='tcp_paced':args+=['-t',os.getenv('FLUX_BENCH_PACED_SECONDS') or ('5' if os.getenv('FLUX_BENCH_PACED_ONLY')=='1' else '3'),'-b','150M']
  elif profile.startswith('tcp'):
   args+=['-n',str(64*1024**2)]
   if profile=='tcp_down':args+=['-R']
@@ -198,6 +198,7 @@ def main():
  (OUT/'metadata.json').write_text(json.dumps(metadata,indent=2))
  metadata['engine_aliases']={'iptables':'iptables_v2_baseline','iptables_v2':'iptables_v3_foundation','gost':'gost'} if os.getenv('FLUX_BENCH_FOUNDATION')=='1' else {}
  metadata['kernel_credit_enabled']=os.getenv('FLUX_BENCH_FOUNDATION_CREDIT_ONLY')=='1'
+ metadata['kernel_credit_stress']=os.getenv('FLUX_BENCH_CREDIT_STRESS','1')=='1' and metadata['kernel_credit_enabled']
  if os.getenv('FLUX_BENCH_FOUNDATION_CREDIT_ONLY')=='1':
   for count in [2,1000]:
    for round_id in [41,42,43]:
@@ -209,6 +210,12 @@ def main():
    for round_id in [51,52,53]:
     p=setup('iptables_v2',count,round_id)
     try:measure('iptables_v2',count,round_id,'tcp_paced',p)
+    finally:stop(p)
+ elif os.getenv('FLUX_BENCH_PAIR_CPU_ONLY')=='1':
+  for round_id,order in enumerate([['iptables','iptables_v2'],['iptables_v2','iptables'],['iptables_v2','iptables'],['iptables','iptables_v2']],61):
+   for engine in order:
+    p=setup(engine,1000,round_id)
+    try:measure(engine,1000,round_id,'tcp_paced',p)
     finally:stop(p)
  elif os.getenv('FLUX_BENCH_PACED_ONLY')=='1':
   for count in [2,1000]:
