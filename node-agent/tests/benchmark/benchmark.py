@@ -8,7 +8,7 @@ import os,json,time,subprocess,pathlib,hashlib,base64,struct,http.server,threadi
 
 OUT=pathlib.Path('/evidence');OUT.mkdir(exist_ok=True);HZ=os.sysconf('SC_CLK_TCK');CPU=1
 (OUT/'failed.json').unlink(missing_ok=True)
-PROCESSES=[];ROWS=[];LATENCY=[];PHASES=[];TOTAL_BYTES=int(os.getenv('FLUX_BENCH_PRIOR_BYTES','0'));BYTE_LIMIT=int(os.getenv('FLUX_BENCH_BYTE_LIMIT',str(3*1024**3)));START=time.monotonic()
+PROCESSES=[];ROWS=[];LATENCY=[];PHASES=[];COLLECTION=[];TOTAL_BYTES=int(os.getenv('FLUX_BENCH_PRIOR_BYTES','0'));BYTE_LIMIT=int(os.getenv('FLUX_BENCH_BYTE_LIMIT',str(3*1024**3)));START=time.monotonic()
 os.sched_setaffinity(0,{0})
 def run(args,timeout=15):
  p=subprocess.run(args,capture_output=True,text=True,timeout=timeout)
@@ -74,6 +74,10 @@ def topology():
 
 def clean_rules():
  for table in ['mangle','nat','filter']:router('iptables','-t',table,'-F');router('iptables','-t',table,'-X')
+ if os.getenv('FLUX_BENCH_V2')=='1':
+  for name in router('ipset','list','-name').splitlines():
+   assert name.startswith('FPV2_'),name
+   router('ipset','destroy',name)
  router('iptables','-P','FORWARD','DROP');router('sh','-c','conntrack -F >/dev/null 2>&1 || true')
 def specs(count):
  out={}
@@ -96,7 +100,8 @@ def setup(engine,count,round_id):
  else:
   state={'epoch':hashlib.md5(str(path).encode()).hexdigest(),'sequence':0,'rules':data,'totals':{},'last':{}}
   (path/'state.json').write_text(json.dumps(state));(path/'config.json').write_text(json.dumps({'addr':'ws://10.204.3.1:8000','secret':'isolated-benchmark-only','statePath':str(path/'state.json'),'apply':True,'allowInsecure':True,'intervalSeconds':5}))
-  env=os.environ.copy();env['GOMAXPROCS']='1';p=spawn(ns('router','taskset','-c',str(CPU),'/build/flux-agent','--config',str(path/'config.json')),f'iptables-{count}-{round_id}',env=env)
+  binary='/build/flux-agent-v2' if engine=='iptables_v2' else '/build/flux-agent'
+  env=os.environ.copy();env['GOMAXPROCS']='1';p=spawn(ns('router','taskset','-c',str(CPU),binary,'--config',str(path/'config.json')),f'{engine}-{count}-{round_id}',env=env)
  deadline=time.monotonic()+20
  while True:
   if p and p.poll() is not None:raise RuntimeError(engine+' failed to start: '+(OUT/f'{engine}-{count}-{round_id}.log').read_text()[-1000:])
@@ -111,7 +116,7 @@ def setup(engine,count,round_id):
 
 def measure(engine,count,round_id,profile,p):
  global TOTAL_BYTES
- if time.monotonic()-START>360:raise RuntimeError('global benchmark deadline')
+ if time.monotonic()-START>(900 if os.getenv('FLUX_BENCH_V2')=='1' else 360):raise RuntimeError('global benchmark deadline')
  a=snapshot();time.sleep(.35);b=snapshot();idle=delta(a,b)
  ip='10.204.2.2' if engine=='direct' else '10.204.1.1';port='5201' if engine=='direct' else '18000'
  if profile.startswith('strict'):
@@ -126,7 +131,7 @@ def measure(engine,count,round_id,profile,p):
   row['core_idle_adjusted_seconds_per_gib']=max(0,row['test_core_cpu_seconds']-idle['test_core_cpu_seconds']/idle['wall_seconds']*d['wall_seconds'])/(v['bytes']/1024**3)
   ROWS.append(row);(OUT/'throughput.json').write_text(json.dumps(ROWS,indent=2));print('STRICT',count,engine,round_id,profile,round(row['mbps'],2),'Mbps',round(row['cgroup_cpu_seconds_per_gib'],3),'CPU-s/GiB',flush=True);return
  args=['iperf3','-c',ip,'-p',port,'-J']
- if profile=='tcp_paced':args+=['-t','3','-b','150M']
+ if profile=='tcp_paced':args+=['-t','5' if os.getenv('FLUX_BENCH_PACED_ONLY')=='1' else '3','-b','150M']
  elif profile.startswith('tcp'):
   args+=['-n',str(64*1024**2)]
   if profile=='tcp_down':args+=['-R']
@@ -160,11 +165,52 @@ def latency(engine,count,round_id,p,extended=True):
   print('LATENCY',count,engine,round_id,v['profile'],'p50/p95/p99(us)',v['p50_us'],v['p95_us'],v['p99_us'],flush=True)
  (OUT/'latency.json').write_text(json.dumps(LATENCY,indent=2))
 
+def collection(engine,count):
+ # Raw kernel exports only, 10 repetitions. This excludes Go parsing, fsync,
+ # HTTP delivery and panel SQL; it does not claim to measure the full sampler.
+ commands=[['ipset','save','FPV2_UP'],['ipset','save','FPV2_DOWN']] if engine=='iptables_v2' else [['iptables-save','-c','-t','filter']]
+ values=[];sizes=[]
+ for _ in range(10):
+  a=snapshot();data=''.join(router(*args) for args in commands);b=snapshot();values.append(delta(a,b));sizes.append(len(data))
+ counts={t:sum(l.startswith('-A FP_') for l in router('iptables-save','-t',t).splitlines()) for t in ['mangle','filter','nat']}
+ COLLECTION.append({'engine':engine,'forwards':count,'samples':values,'export_bytes':sizes,'owned_rule_counts':counts})
+ (OUT/'collection.json').write_text(json.dumps(COLLECTION,indent=2))
+
 def main():
  topology();server=http.server.ThreadingHTTPServer(('10.204.3.1',8000),Sink);server.daemon_threads=True;threading.Thread(target=server.serve_forever,daemon=True).start()
- metadata={'kernel':run(['uname','-a']),'iperf':run(['iperf3','--version']).splitlines()[0],'cpuset':run(['taskset','-pc',str(os.getpid())]),'cpu_max':pathlib.Path('/sys/fs/cgroup/cpu.max').read_text().strip(),'source_commit':'58eba4aa64423cae36f39436f979b0e38cd484ad','binary_sha256':{n:hashlib.sha256(pathlib.Path('/build/'+n).read_bytes()).hexdigest() for n in ['flux-agent','gost','bench-peer']},'topology':'client -> router -> target; veth MTU 1500; no external/default route','byte_limit':BYTE_LIMIT,'case_timeout_seconds':15,'offloads':router('ethtool','-k','r0')}
+ metadata={'kernel':run(['uname','-a']),'iperf':run(['iperf3','--version']).splitlines()[0],'cpuset':run(['taskset','-pc',str(os.getpid())]),'cpu_max':pathlib.Path('/sys/fs/cgroup/cpu.max').read_text().strip(),'baseline_source_commit':'4ea5d7bba4033dcab3b31040a7b16bbeefa65d16','binary_sha256':{n:hashlib.sha256(pathlib.Path('/build/'+n).read_bytes()).hexdigest() for n in (['flux-agent','flux-agent-v2','gost','bench-peer'] if os.getenv('FLUX_BENCH_V2')=='1' else ['flux-agent','gost','bench-peer'])},'topology':'client -> router -> target; veth MTU 1500; no external/default route','byte_limit':BYTE_LIMIT,'case_timeout_seconds':15,'offloads':router('ethtool','-k','r0')}
  (OUT/'metadata.json').write_text(json.dumps(metadata,indent=2))
- if os.getenv('FLUX_BENCH_SCALE_ONLY')=='1':
+ if os.getenv('FLUX_BENCH_PACED_ONLY')=='1':
+  for count in [2,1000]:
+   for round_id,order in enumerate([['gost','iptables','iptables_v2'],['iptables_v2','gost','iptables'],['iptables','iptables_v2','gost']],21):
+    for engine in order:
+     p=setup(engine,count,round_id)
+     try:measure(engine,count,round_id,'tcp_paced',p)
+     finally:stop(p)
+ elif os.getenv('FLUX_BENCH_V2')=='1':
+  for count in [2,100,1000]:
+   for round_id,order in enumerate([['gost','iptables','iptables_v2'],['iptables_v2','gost','iptables'],['iptables','iptables_v2','gost']],1):
+    for engine in order:
+     p=setup(engine,count,round_id)
+     try:
+      profiles=['strict_up']
+      if count==2:profiles+=['strict_down','strict_parallel']
+      for profile in profiles:measure(engine,count,round_id,profile,p)
+      latency(engine,count,round_id,p,count==2)
+      if round_id==1 and engine!='gost':collection(engine,count)
+     finally:stop(p)
+  # UDP iperf uses its own TCP control session. The strict bulk endpoint
+  # deliberately implements another protocol, so configure the same two
+  # forwards for iperf in separate phases rather than mixing wire protocols.
+  os.environ['FLUX_BENCH_STRICT']='0'
+  for count in [2,1000]:
+   for round_id,order in enumerate([['gost','iptables','iptables_v2'],['iptables_v2','gost','iptables'],['iptables','iptables_v2','gost']],11):
+    for engine in order:
+     p=setup(engine,count,round_id)
+     try:
+      for profile in ['udp_1200','udp_64']:measure(engine,count,round_id,profile,p)
+     finally:stop(p)
+ elif os.getenv('FLUX_BENCH_SCALE_ONLY')=='1':
   for count in [100,1000]:
    for round_id in [2,3]:
     for engine in (['gost','iptables'] if round_id==2 else ['iptables','gost']):

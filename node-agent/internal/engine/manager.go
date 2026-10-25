@@ -66,6 +66,36 @@ func New(path string, k Kernel) (*Manager, error) {
 	if m.state.Last == nil {
 		m.state.Last = map[string]uint64{}
 	}
+	if m.state.FormatVersion > 2 {
+		return nil, fmt.Errorf("unsupported state format")
+	}
+	if m.state.NextToken == 0 {
+		m.state.NextToken = 1
+	}
+	used := map[uint32]bool{}
+	for _, s := range m.state.Rules {
+		if s.Token > 65535 || (s.Token != 0 && used[s.Token]) {
+			return nil, fmt.Errorf("invalid or duplicate persistent token")
+		}
+		if s.Token != 0 {
+			used[s.Token] = true
+			if s.Token >= m.state.NextToken {
+				m.state.NextToken = s.Token + 1
+			}
+		}
+	}
+	for _, id := range keys(m.state.Rules) {
+		s := m.state.Rules[id]
+		if s.Token == 0 {
+			if m.state.NextToken > 65535 {
+				return nil, fmt.Errorf("connection token capacity exhausted")
+			}
+			s.Token = m.state.NextToken
+			m.state.NextToken++
+			m.state.Rules[id] = s
+		}
+	}
+	m.state.FormatVersion = 2
 	for _, s := range m.state.Rules {
 		if e = s.Validate(); e != nil {
 			return nil, e
@@ -76,11 +106,7 @@ func New(path string, k Kernel) (*Manager, error) {
 	}
 	// Old owned counters are preserved on process restart; after host reboot the
 	// cumulative ledger survives and only the kernel baseline begins again.
-	counters, e := k.Snapshot()
-	if e != nil {
-		return nil, e
-	}
-	if e = k.Apply(Render(m.state.Rules, counters)); e != nil {
+	if e = k.Apply(Render(m.state.Rules, nil)); e != nil {
 		return nil, e
 	}
 	for id, s := range m.state.Rules {
@@ -172,6 +198,11 @@ func (m *Manager) Apply(s Spec) error {
 		}
 	}
 	old, exists := m.state.Rules[s.ID]
+	if exists {
+		s.Token = old.Token
+	} else {
+		s.Token = 0
+	}
 	if exists && s.Revision < old.Revision {
 		return fmt.Errorf("stale revision")
 	}
@@ -186,21 +217,25 @@ func (m *Manager) Apply(s Spec) error {
 			return fmt.Errorf("listener conflicts with %s", id)
 		}
 	}
+	if !exists {
+		if m.state.NextToken > 65535 {
+			return fmt.Errorf("connection token capacity exhausted")
+		}
+		s.Token = m.state.NextToken
+		m.state.NextToken++
+	}
 	if e := m.sample(); e != nil {
 		return e
 	}
-	c, e := m.Kernel.Snapshot()
-	if e != nil {
-		return e
-	}
+	var e error
 	m.state.Rules[s.ID] = s
-	if e = m.Kernel.Apply(Render(m.state.Rules, c)); e != nil {
+	if e = m.Kernel.Apply(Render(m.state.Rules, nil)); e != nil {
 		if exists {
 			m.state.Rules[s.ID] = old
 		} else {
 			delete(m.state.Rules, s.ID)
 		}
-		if re := m.Kernel.Apply(Render(m.state.Rules, c)); re != nil {
+		if re := m.Kernel.Apply(Render(m.state.Rules, nil)); re != nil {
 			return fmt.Errorf("apply: %v; rollback: %w", e, re)
 		}
 		return e
@@ -209,7 +244,7 @@ func (m *Manager) Apply(s Spec) error {
 		if cleaner, ok := m.Kernel.(interface{ Forget(Spec) error }); ok {
 			if e = cleaner.Forget(old); e != nil {
 				m.state.Rules[s.ID] = old
-				if re := m.Kernel.Apply(Render(m.state.Rules, c)); re != nil {
+				if re := m.Kernel.Apply(Render(m.state.Rules, nil)); re != nil {
 					return fmt.Errorf("cleanup: %v; rollback: %w", e, re)
 				}
 				return e
@@ -222,7 +257,7 @@ func (m *Manager) Apply(s Spec) error {
 		} else {
 			delete(m.state.Rules, s.ID)
 		}
-		if re := m.Kernel.Apply(Render(m.state.Rules, c)); re != nil {
+		if re := m.Kernel.Apply(Render(m.state.Rules, nil)); re != nil {
 			return fmt.Errorf("persist: %v; rollback: %w", e, re)
 		}
 		return e
@@ -290,11 +325,7 @@ func (m *Manager) enforceLocked() error {
 		if e := m.sample(); e != nil {
 			return e
 		}
-		c, e := m.Kernel.Snapshot()
-		if e != nil {
-			return e
-		}
-		if e = m.Kernel.Apply(Render(m.state.Rules, c)); e != nil {
+		if e := m.Kernel.Apply(Render(m.state.Rules, nil)); e != nil {
 			return e
 		}
 		for id, s := range m.state.Rules {

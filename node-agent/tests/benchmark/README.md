@@ -56,3 +56,23 @@ GOST 含原版本系统监控，新 Agent 未提供同样的系统监控，CPU �
 每个子测试有超时，单轮脚本有总时长上限，默认累计应用负载预算 3 GiB。多阶段时把已发送总量传给 `FLUX_BENCH_PRIOR_BYTES`；校准后可显式设置 `FLUX_BENCH_BYTE_LIMIT`，不要无记录地重置累计预算。2026-10-25 完整校准累计约 4.982 GiB，显式预算 5 GiB，全部经 veth，无公网路由。
 
 输出包含逐轮原始 JSON、延迟样本、二进制哈希与元数据；只清理本次命名的临时容器。不要为了改进数字而临时关闭统计、暂停控制，或修改被测引擎代码。
+
+
+## v2 三方对照
+
+新增优化 Agent 后，在 `build/` 中保留原 `flux-agent`（v1），另放 `flux-agent-v2`。测试镜像需包含 ipset。运行：
+
+```sh
+FLUX_BENCH_ROOT=/root/flux-forward-benchmark-v2-20261025 \
+FLUX_BENCH_IMAGE=flux-ipset-v2-verifier:local \
+FLUX_BENCH_V2=1 FLUX_BENCH_STRICT=1 \
+FLUX_BENCH_BYTE_LIMIT=5368709120 code/run.sh
+```
+
+v2 矩阵：2/100/1000 条转发，GOST/v1/v2 按三种顺序交错，各三轮；TCP 使用 64 MiB 接收端回执。两条转发组另测下载和四流。延迟覆盖长连接；基础组另测新连接和 UDP。UDP iperf 与 TCP 定长端点在分开的配置阶段运行，避免协议混用。UDP 为 2/1000 条规则、50 Mbps×1200B 及 5 Mbps×64B。
+
+`collection.json` 用每组十次原始导出测内核计数读取成本和输出量，v1 是一次 filter save，v2 是两次 ipset save；**不包含 Go 解析、fsync、HTTP 或数据库开销**，不能说成完整统计链路成本。也记录真实内核中的 mangle/filter/nat 规则数。
+
+单独固定 150 Mbps、5 秒 TCP CPU 对照：`FLUX_BENCH_V2=1 FLUX_BENCH_PACED_ONLY=1`，不设 STRICT；2/1000 条规则各三轮。把前阶段 `metadata.json` 的 sent_payload_bytes 传给 PRIOR_BYTES，继续使用同一 5 GiB 总预算。吞吐主表与固定速率 CPU 表分开。5 秒传输覆盖至少一次正常 5 秒采样，保留其解析/持久化开销。
+
+主矩阵总时长上限 900 秒，容器清理上限 960 秒，单案例 15 秒（定长传输 20 秒）。失败校准目录单独保留，已知发出负载计入后续预算；失败案例不混入有效三轮统计。

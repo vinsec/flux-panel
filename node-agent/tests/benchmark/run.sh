@@ -14,10 +14,10 @@ trap cleanup EXIT INT TERM
 docker create --name "$NAME" --network none --memory=512m --cpus=.75 --cpu-shares=128 --pids-limit=256 --ulimit nofile=8192:8192 \
   --cap-add NET_ADMIN --cap-add SYS_ADMIN --security-opt seccomp=unconfined --security-opt apparmor=unconfined \
   -v "$ROOT/build:/build:ro" -v "$ROOT/code:/code:ro" -v "$EVIDENCE:/evidence" \
-  -e FLUX_BENCH_SCALE_ONLY="${FLUX_BENCH_SCALE_ONLY:-0}" -e FLUX_BENCH_FIRST_ONLY="${FLUX_BENCH_FIRST_ONLY:-0}" -e FLUX_BENCH_STRICT_BYTES="${FLUX_BENCH_STRICT_BYTES:-67108864}" -e FLUX_BENCH_STRICT="${FLUX_BENCH_STRICT:-0}" -e FLUX_BENCH_BYTE_LIMIT="${FLUX_BENCH_BYTE_LIMIT:-3221225472}" -e FLUX_BENCH_EXTRA="${FLUX_BENCH_EXTRA:-0}" -e FLUX_BENCH_PRIOR_BYTES="${FLUX_BENCH_PRIOR_BYTES:-0}" -e FLUX_BENCH_HOT_FIRST="${FLUX_BENCH_HOT_FIRST:-0}" \
-  flux-forward-benchmark:local nice -n 19 python3 /code/benchmark.py >"$ROOT/container-id.txt"
+  -e FLUX_BENCH_PACED_ONLY="${FLUX_BENCH_PACED_ONLY:-0}" -e FLUX_BENCH_V2="${FLUX_BENCH_V2:-0}" -e FLUX_BENCH_SCALE_ONLY="${FLUX_BENCH_SCALE_ONLY:-0}" -e FLUX_BENCH_FIRST_ONLY="${FLUX_BENCH_FIRST_ONLY:-0}" -e FLUX_BENCH_STRICT_BYTES="${FLUX_BENCH_STRICT_BYTES:-67108864}" -e FLUX_BENCH_STRICT="${FLUX_BENCH_STRICT:-0}" -e FLUX_BENCH_BYTE_LIMIT="${FLUX_BENCH_BYTE_LIMIT:-3221225472}" -e FLUX_BENCH_EXTRA="${FLUX_BENCH_EXTRA:-0}" -e FLUX_BENCH_PRIOR_BYTES="${FLUX_BENCH_PRIOR_BYTES:-0}" -e FLUX_BENCH_HOT_FIRST="${FLUX_BENCH_HOT_FIRST:-0}" \
+  "${FLUX_BENCH_IMAGE:-flux-forward-benchmark:local}" nice -n 19 python3 /code/benchmark.py >"$ROOT/container-id.txt"
 docker start "$NAME" >/dev/null
-deadline=$((SECONDS+420))
+deadline=$((SECONDS+960))
 while [[ "$(docker inspect "$NAME" --format '{{.State.Status}}')" == running ]]; do
   (( SECONDS < deadline )) || { echo 'benchmark deadline exceeded' >&2; exit 1; }
   sleep 1

@@ -69,7 +69,7 @@ func main() {
 	if e = k.Initialize(); e != nil {
 		log.Fatal(e)
 	}
-	m, e := engine.New(c.StatePath, k)
+	m, e := engine.New(c.StatePath, &k)
 	if e != nil {
 		log.Fatal(e)
 	}

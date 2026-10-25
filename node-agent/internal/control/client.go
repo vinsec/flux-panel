@@ -49,7 +49,7 @@ func (c Config) URLs() (string, string, error) {
 	q := ws.Query()
 	q.Set("type", "1")
 	q.Set("engine", "iptables")
-	q.Set("version", "iptables-v1")
+	q.Set("version", "iptables-v2")
 	q.Set("secret", c.Secret)
 	q.Set("http", "0")
 	q.Set("tls", "0")

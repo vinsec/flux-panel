@@ -58,6 +58,13 @@ def forward(t,name,port=18000,uid=1,role=0,target='10.203.2.2:19000'):
 def probe(port=18000,action='probe'):
     return cmd('ip','netns','exec','client','python3','/repo/node-agent/tests/traffic_client.py',str(port),action)
 def router(*args):return cmd('ip','netns','exec','router',*args)
+def counted_bytes(text,comment):
+    import shlex
+    total=0
+    for line in text.splitlines():
+        fields=shlex.split(line)
+        if comment in fields and 'bytes' in fields:total+=int(fields[fields.index('bytes')+1])
+    return total
 def namespaces():
     for n in ['client','router','target']:cmd('ip','netns','add',n);cmd('ip','-n',n,'link','set','lo','up')
     for a,b,na,nb,ia,ib in [('c0','r0','client','router','10.203.1.2/24','10.203.1.1/24'),('t0','r1','target','router','10.203.2.2/24','10.203.2.1/24')]:
@@ -132,6 +139,13 @@ try:
     check('pause blocks existing TCP and UDP despite external ESTABLISHED ACCEPT')
     check('pause blocks new TCP and UDP',probe(action='blocked')=='tcp_udp_blocked')
     api('forward/resume',{'id':f['id']});check('resume restores TCP/UDP',probe()=='tcp_udp_ok')
+    before_pause=router('ipset','save','FPV2_UP')
+    peer=forward(t,'same-target-peer',18005)
+    api('forward/pause',{'id':f['id']})
+    check('per-forward hash policy isolates two forwards to the same target',probe(action='blocked')=='tcp_udp_blocked' and probe(18005)=='tcp_udp_ok')
+    api('forward/resume',{'id':f['id']});probe()
+    check('counter entries retain cumulative bytes across pause and resume',counted_bytes(before_pause,f'flux:v2:{key}:up')>0 and counted_bytes(router('ipset','save','FPV2_UP'),f'flux:v2:{key}:up')>=counted_bytes(before_pause,f'flux:v2:{key}:up'))
+    api('forward/delete',{'id':peer['id']})
     agent.terminate();agent.wait(timeout=5);wait(lambda:sql('SELECT status FROM node WHERE id=%s',(n['id'],))[0]['status']==0)
     agent=start_agent(n);wait(lambda:sql('SELECT status FROM node WHERE id=%s',(n['id'],))[0]['status']==1)
     check('agent restart restores rules and ledger epoch',json.loads(pathlib.Path('/tmp/flux-agent-state.json').read_text())['epoch']==state['epoch'] and probe()=='tcp_udp_ok')
@@ -139,7 +153,8 @@ try:
     check('target change succeeds with targeted conntrack cleanup',probe()=='tcp_udp_ok')
     bad=api('forward/create',{'name':'unsupported','tunnelId':t['id'],'remoteAddr':'example.com:443','inPort':18009},expect=False)
     check('domain target rejected without disturbing existing forward',bad['code']!=0 and probe()=='tcp_udp_ok')
-    api('forward/delete',{'id':f['id']});check('delete blocks traffic and removes per-forward rules',probe(action='blocked')=='tcp_udp_blocked' and ('flux:v1:'+key+':') not in router('iptables-save'))
+    api('forward/delete',{'id':f['id']});check('delete blocks traffic and removes dispatch and binding entries',probe(action='blocked')=='tcp_udp_blocked' and '-j DNAT' not in router('iptables-save','-t','nat') and f'flux:v2:{key}:binding' not in router('ipset','save','FPV2_BIND'))
+    check('deletion removes empty NAT trie chains but retains final accounting',':FP_N' not in router('iptables-save','-t','nat') and f'flux:v2:{key}:up' in router('ipset','save','FPV2_UP'))
     check('unrelated firewall chain and default DROP preserved','must-survive' in router('iptables-save') and '-P FORWARD DROP' in router('iptables','-S','FORWARD'))
     # Non-admin accounting and quota fan-out exercise the original business
     # services through the new engine adapter, rather than calling the agent.

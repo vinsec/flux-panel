@@ -8,6 +8,7 @@ import (
 )
 
 type Spec struct {
+	Token      uint32 `json:"token,omitempty"`
 	ID         string `json:"id"`
 	Revision   int64  `json:"revision"`
 	ListenIP   string `json:"listenIP"`
@@ -56,9 +57,11 @@ type Report struct {
 	Usage    []Usage `json:"usage"`
 }
 type State struct {
-	Epoch    string            `json:"epoch"`
-	Sequence int64             `json:"sequence"`
-	Rules    map[string]Spec   `json:"rules"`
-	Totals   map[string]Usage  `json:"totals"`
-	Last     map[string]uint64 `json:"last"`
+	FormatVersion int               `json:"formatVersion,omitempty"`
+	NextToken     uint32            `json:"nextToken,omitempty"`
+	Epoch         string            `json:"epoch"`
+	Sequence      int64             `json:"sequence"`
+	Rules         map[string]Spec   `json:"rules"`
+	Totals        map[string]Usage  `json:"totals"`
+	Last          map[string]uint64 `json:"last"`
 }
