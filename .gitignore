@@ -257,3 +257,9 @@ gitee/
 doraemon.jks
 device.id
 commit.sh
+
+# 本地和 qcloud-sg 的运行数据、构建成品
+/backups/
+/go-gost/gost
+/go-gost/gost-amd64
+/go-gost/gost-arm64
