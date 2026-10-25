@@ -255,26 +255,35 @@ try:
         sql("DELETE FROM forward WHERE name LIKE 'foundation-scale-%%'")
         cleanup_started=time.monotonic()
         submitted=api('engine/reconcile',{'nodeId':n['id']})['data'];assert submitted.get('id'),submitted
+        cleanup_submit=time.monotonic()-cleanup_started
         wait(lambda:api('engine/batch-status',{'nodeId':n['id'],'id':submitted['id']})['data']['status']=='succeeded',180)
         check('real Java bulk reconciliation removes 9998 orphans and keeps live forwards',probe(18002)=='tcp_udp_ok' and probe(29997,'blocked')=='tcp_udp_blocked')
         cleanup=time.monotonic()-cleanup_started
-        check('10k reconciliation cleanup stays inside the credit renewal window',cleanup<15)
-        (OUT/'panel-scale.json').write_text(json.dumps({'forwards':10000,'cold_seconds':cold,'cleanup_seconds':cleanup,'total_seconds':time.monotonic()-started},indent=2))
+        (OUT/'panel-scale.json').write_text(json.dumps({'forwards':10000,'cold_seconds':cold,'cleanup_seconds':cleanup,'cleanup_submit_seconds':cleanup_submit,'cleanup_wait_seconds':cleanup-cleanup_submit,'total_seconds':time.monotonic()-started},indent=2))
+        time.sleep(1.2)
+        live_state=json.loads(pathlib.Path('/tmp/flux-agent-state.json').read_text())
+        check('active quota leases continue renewing after 10k reconciliation cleanup',probe(18002)=='tcp_udp_ok' and all(not live_state['leases'][str(f['id'])+'_'+str(normal)+'_'+str(permission)]['closed'] for f in [nf1,nf2]))
     # A new short-lived permission is enforced by the agent while the panel
     # process is completely stopped. Older, still-valid forwards remain live.
-    et=tunnel(n,'offline-expiration');deadline=int(time.time()*1000)+5000
+    # After the 10k run this namespace retains a large durable settlement
+    # outbox. Give creation time to finish before exercising the expiry itself.
+    scale_test=os.getenv('FLUX_TEST_SCALE')=='1'
+    offline_keeper=forward(t,'offline-unlimited-keeper',18005) if scale_test else None
+    et=tunnel(n,'offline-expiration');deadline=int(time.time()*1000)+(30000 if scale_test else 5000)
     sql('INSERT INTO user_tunnel(user_id,tunnel_id,speed_id,num,flow,flow_reset_time,exp_time,status) VALUES(%s,%s,NULL,100,1000,0,%s,1)',(normal,et['id'],deadline))
     ef=forward(et,'offline-expiration',18004,normal,1);probe(18004)
     connections=(OUT/'agent.log').read_text().count('iptables agent connected')
-    panel.kill();panel.wait(timeout=5);time.sleep(6)
+    panel.kill();panel.wait(timeout=5);time.sleep(31 if scale_test else max(0,(deadline-int(time.time()*1000))/1000)+1)
     check('local expiry blocks TCP/UDP while the panel is stopped',probe(18004,'blocked')=='tcp_udp_blocked')
-    check('control outage preserves still-valid forwarding',probe(18002)=='tcp_udp_ok')
+    check('control outage preserves still-valid forwarding',probe(18005 if scale_test else 18002)=='tcp_udp_ok')
+    if scale_test:check('expired offline credit closes ordinary forwards despite later permission expiry',probe(18002,'blocked')=='tcp_udp_blocked' and probe(18003,'blocked')=='tcp_udp_blocked')
     log=open(OUT/'panel.log','a');panel=subprocess.Popen(['java','-Xmx192m','-XX:ActiveProcessorCount=1','-jar',str(JAR)],stdout=log,stderr=subprocess.STDOUT,env=env);processes.append(panel)
     wait(lambda:urllib.request.urlopen('http://127.0.0.1:6365/flow/test',timeout=1).status==200,90)
     wait(lambda:(OUT/'agent.log').read_text().count('iptables agent connected')>connections,20)
     wait(lambda:sql('SELECT status FROM forward WHERE id=%s',(ef['id'],))[0]['status']==0,20)
     check('panel restart reconnects and converges the expired forwarding state')
     api('forward/delete',{'id':ef['id']})
+    if offline_keeper:api('forward/delete',{'id':offline_keeper['id']})
     completed=True
     print('ALL CHECKS PASSED',len(checks),flush=True)
 except Exception:

@@ -32,10 +32,19 @@ while True:
   page=PANEL.rpc('GetEngineStatePage',data)['data'];generation=page['generation'];seen.update(x['id'] for x in page['items']);after=page.get('next','')
   if not after:break
  check('generation-consistent paginated snapshot includes all 10k rules',len(seen)==10000)
+ batch_timing={}
+ for count in [10000,1000]:
+  current=state()['rules'];ids=['1_1_0']+[ident for ident in sorted(current) if ident!='1_1_0'][:count-1]
+  paused=[dict(current[ident],revision=current[ident]['revision']+1,enabled=False) for ident in ids]
+  tick=time.monotonic();assert job({'id':'native-pause-'+str(count),'specs':paused})['status']=='succeeded';batch_timing[str(count)+'_pause_seconds']=time.monotonic()-tick
+  snapshot=state()['rules'];check(str(count)+'-forward atomic pause blocks existing data paths',probe(blocked=True) and all(not snapshot[ident]['enabled'] for ident in ids))
+  resumed=[dict(value,revision=value['revision']+1,enabled=True) for value in paused]
+  tick=time.monotonic();assert job({'id':'native-resume-'+str(count),'specs':resumed})['status']=='succeeded';batch_timing[str(count)+'_resume_seconds']=time.monotonic()-tick
+  snapshot=state()['rules'];check(str(count)+'-forward atomic resume restores TCP and UDP',probe() and all(snapshot[ident]['enabled'] for ident in ids))
  # Populate connection state across several adjacent token prefixes before
  # deletion. Surviving token 1 must retain its original conntrack mapping.
  run(ns('client','python3','-c',"import socket\nfor port in range(20000,20064):\n s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.settimeout(2);s.sendto(b'bulk-ct',('10.205.1.1',port));assert s.recv(64)==b'bulk-ct';s.close()"))
- removes=[{'id':x['id'],'revision':2,'deleted':True} for x in desired];delete_started=time.monotonic();check('bulk delete reconciles without leaving a live orphan dispatch',job({'id':'native-delete','specs':removes})['status']=='succeeded' and probe())
+ current=state()['rules'];removes=[{'id':x['id'],'revision':current[x['id']]['revision']+1,'deleted':True} for x in desired];delete_started=time.monotonic();check('bulk delete reconciles without leaving a live orphan dispatch',job({'id':'native-delete','specs':removes})['status']=='succeeded' and probe())
  cleanup_seconds=time.monotonic()-delete_started
  ct=router('conntrack','-L','-f','ipv4','--mark','0xf1000000/0xff000000')
  check('compressed bulk conntrack cleanup removes revoked flows and preserves the survivor',all('mark=4043309312' in line for line in ct.splitlines() if line.startswith(('tcp ','udp '))) and cleanup_seconds<15)
@@ -48,7 +57,7 @@ while True:
  gc_started=time.monotonic();collected=PANEL.rpc('CollectCounters',timeout=40)['data']['removed'];gc_seconds=time.monotonic()-gc_started;assert traffic.wait(timeout=10)==0
  check('native batched GC reclaims 9999 retired tokens while other traffic continues',collected==19998 and len(state()['rules'])==1 and len(state().get('freeTokens',[]))>=9999 and probe())
  (OUT/'gc-scale.json').write_text(json.dumps({'removedCounters':collected,'freedTokens':len(state().get('freeTokens',[])),'seconds':gc_seconds},indent=2))
- (OUT/'scale.json').write_text(json.dumps({'forwards':10000,'cold_delta_seconds':elapsed,'cleanup_seconds':cleanup_seconds,'snapshot_count':len(seen)},indent=2))
+ (OUT/'scale.json').write_text(json.dumps({'forwards':10000,'cold_delta_seconds':elapsed,'cleanup_seconds':cleanup_seconds,'snapshot_count':len(seen),**batch_timing},indent=2))
  # Each killed process leaves only an old or new complete committed revision.
  for i,point in enumerate(['prepared','quiesced','kernel','credits','conntrack','counters','checkpoint','committed','activated']):
   stop(a);a=agent(point);old=state()['rules']['1_1_0']['revision'];new=spec(revision=old+1);new['targetPort']=19001 if state()['rules']['1_1_0']['targetPort']==19000 else 19000

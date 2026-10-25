@@ -6,8 +6,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 )
 
 func identity() string {
@@ -68,11 +70,26 @@ func digest(v any) string {
 	return hex.EncodeToString(h[:])
 }
 func cloneState(s State) State {
-	b, _ := json.Marshal(s)
-	var r State
-	if e := json.Unmarshal(b, &r); e != nil {
-		panic(e)
+	r := s
+	r.Rules = maps.Clone(s.Rules)
+	for id, spec := range r.Rules {
+		spec.Protocols = slices.Clone(spec.Protocols)
+		r.Rules[id] = spec
 	}
+	r.Totals = maps.Clone(s.Totals)
+	r.Last = maps.Clone(s.Last)
+	r.Ack = maps.Clone(s.Ack)
+	r.Quarantine = maps.Clone(s.Quarantine)
+	r.LeaseAcks = maps.Clone(s.LeaseAcks)
+	r.AckCounters = maps.Clone(s.AckCounters)
+	r.CounterRetiredAt = maps.Clone(s.CounterRetiredAt)
+	r.ClosedLeaseAcks = maps.Clone(s.ClosedLeaseAcks)
+	r.Floors = maps.Clone(s.Floors)
+	r.RetiredAt = maps.Clone(s.RetiredAt)
+	r.Leases = maps.Clone(s.Leases)
+	r.RequestTimes = maps.Clone(s.RequestTimes)
+	r.FreeTokens = slices.Clone(s.FreeTokens)
+	r.Receipts = slices.Clone(s.Receipts)
 	if r.Quarantine == nil {
 		r.Quarantine = map[uint32]int64{}
 	}
@@ -123,7 +140,19 @@ type journalEnvelope struct {
 }
 
 func (m *Manager) journal(t transaction) error {
-	return atomicJSON(m.Path+".journal", journalEnvelope{digest(t), t})
+	data, e := json.Marshal(t)
+	if e != nil {
+		return e
+	}
+	checksum := sha256.Sum256(data)
+	// Persist the same serialized transaction used for the checksum. Avoid a
+	// second traversal/serialization of both complete states on every renewal.
+	prefix := []byte(`{"checksum":"` + hex.EncodeToString(checksum[:]) + `","transaction":`)
+	body := make([]byte, 0, len(prefix)+len(data)+1)
+	body = append(body, prefix...)
+	body = append(body, data...)
+	body = append(body, '}')
+	return atomicBytes(m.Path+".journal", body)
 }
 func (m *Manager) recover() error {
 	b, e := os.ReadFile(m.Path + ".journal")

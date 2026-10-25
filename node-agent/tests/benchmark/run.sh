@@ -9,6 +9,12 @@ ROOT="${FLUX_BENCH_ROOT:-/root/flux-forward-benchmark-20261025}"
 NAME="flux-forward-benchmark-$$"
 EVIDENCE="${FLUX_BENCH_EVIDENCE:-$ROOT/evidence}"
 mkdir -p "$ROOT/build" "$EVIDENCE"
+for binary in flux-agent gost bench-peer; do
+  [[ -x "$ROOT/build/$binary" ]] || { echo "Missing executable benchmark artifact: $binary" >&2; exit 2; }
+done
+if [[ "${FLUX_BENCH_V2:-0}" == 1 ]]; then
+  [[ -x "$ROOT/build/flux-agent-v2" ]] || { echo 'Missing executable comparison Agent' >&2; exit 2; }
+fi
 cleanup(){ docker rm -f "$NAME" >/dev/null 2>&1 || true; }
 trap cleanup EXIT INT TERM
 docker create --name "$NAME" --network none --memory=512m --cpus=.75 --cpu-shares=128 --pids-limit=256 --ulimit nofile=8192:8192 \

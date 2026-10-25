@@ -8,6 +8,10 @@ ENDPOINT="$(docker context inspect --format '{{(index .Endpoints "docker").Host}
 RUN_ID="flux-iptables-test-${BACKEND}-$$"
 WORK="${FLUX_TEST_WORK:-$ROOT/node-agent/.test-work/$BACKEND}"
 mkdir -p "$WORK/build" "$WORK/evidence"
+if [[ -n "${FLUX_TEST_GOST:-}" ]]; then
+  [[ -f "$FLUX_TEST_GOST" ]] || { echo 'FLUX_TEST_GOST must point to a verified GOST binary' >&2; exit 2; }
+  install -m 755 "$FLUX_TEST_GOST" "$WORK/build/gost"
+fi
 case "$(docker info --format '{{.Architecture}}')" in aarch64|arm64) ARCH=arm64;; x86_64|amd64) ARCH=amd64;; *) exit 2;; esac
 IMAGE="${FLUX_TEST_IMAGE:-flux-iptables-test:local}"
 if [[ "${FLUX_TEST_SKIP_BUILD:-0}" != 1 ]]; then

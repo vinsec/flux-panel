@@ -157,17 +157,20 @@ func (m *Manager) InstallGrants(grants []LeaseGrant) error {
 }
 func (m *Manager) closeExpiredLocked() error {
 	now := bootMillis()
-	changed := false
-	after := cloneState(m.state)
-	for id, l := range after.Leases {
+	expired := []string{}
+	for id, l := range m.state.Leases {
 		if !l.Closed && now >= l.DeadlineBootMillis {
-			l.Closed = true
-			after.Leases[id] = l
-			changed = true
+			expired = append(expired, id)
 		}
 	}
-	if !changed {
+	if len(expired) == 0 {
 		return nil
+	}
+	after := cloneState(m.state)
+	for _, id := range expired {
+		l := after.Leases[id]
+		l.Closed = true
+		after.Leases[id] = l
 	}
 	return m.commit(after, nil, "credit expiry", nil)
 }

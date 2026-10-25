@@ -10,6 +10,70 @@ import (
 	"testing"
 )
 
+func BenchmarkIdleExpirationSweep(b *testing.B) {
+	k := &guardedKernel{memoryKernel: memoryKernel{counters: map[string]uint64{}}}
+	m, e := New(filepath.Join(b.TempDir(), "state.json"), k)
+	if e != nil {
+		b.Fatal(e)
+	}
+	for i := 0; i < 1000; i++ {
+		s := valid()
+		s.ID = fmt.Sprintf("%d_2_3", i+1)
+		s.Token = uint32(i + 1)
+		m.state.Rules[s.ID] = s
+		m.active[s.ID] = s.Active()
+	}
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if e := m.EnforceExpiration(); e != nil {
+			b.Fatal(e)
+		}
+	}
+}
+
+func TestTransactionSnapshotDoesNotAliasMutableState(t *testing.T) {
+	s := State{}
+	fields := reflect.ValueOf(&s).Elem()
+	for i := 0; i < fields.NumField(); i++ {
+		field := fields.Field(i)
+		if field.Kind() != reflect.Map {
+			continue
+		}
+		field.Set(reflect.MakeMap(field.Type()))
+		key := reflect.New(field.Type().Key()).Elem()
+		switch key.Kind() {
+		case reflect.String:
+			key.SetString("marker")
+		case reflect.Int64:
+			key.SetInt(1)
+		case reflect.Uint32:
+			key.SetUint(1)
+		default:
+			t.Fatal("new map key needs a snapshot isolation case", key.Kind())
+		}
+		field.SetMapIndex(key, reflect.Zero(field.Type().Elem()))
+	}
+	s.Rules["1_2_3"] = Spec{Protocols: []string{"tcp", "udp"}}
+	s.FreeTokens = []uint32{123}
+	s.Receipts = []Receipt{{ID: "durable-before"}}
+	before, _ := json.Marshal(s)
+	after := cloneState(s)
+	after.Rules["1_2_3"].Protocols[0] = "changed"
+	after.FreeTokens[0] = 456
+	after.Receipts[0].ID = "changed"
+	fields = reflect.ValueOf(&after).Elem()
+	for i := 0; i < fields.NumField(); i++ {
+		if field := fields.Field(i); field.Kind() == reflect.Map {
+			field.Clear()
+		}
+	}
+	unchanged, _ := json.Marshal(s)
+	if string(before) != string(unchanged) {
+		t.Fatal("mutating the candidate transaction changed the rollback snapshot")
+	}
+}
+
 func TestForgetBlocksNeverIncludeSurvivingTokens(t *testing.T) {
 	for _, stride := range []uint32{1, 2, 3, 17, 257} {
 		specs := []Spec{}
@@ -320,11 +384,18 @@ func TestAcknowledgedCounterGCAndSafeTokenReuse(t *testing.T) {
 	next := valid()
 	next.ID = "99_2_3"
 	next.ListenPort++
+	m.state.NextToken = 65536 // Only verified reclaimed tokens remain available.
 	if e = m.Apply(next); e != nil {
 		t.Fatal(e)
 	}
 	if m.Rules()[next.ID].Token != s.Token {
 		t.Fatal("verified free token not reused")
+	}
+	exhausted := next
+	exhausted.ID = "100_2_3"
+	exhausted.ListenPort++
+	if e = m.Apply(exhausted); e == nil || len(m.Rules()) != 1 {
+		t.Fatal("exhausted token space was reused without reclamation")
 	}
 }
 func TestFailedTokenReservationIsQuarantinedThenReclaimed(t *testing.T) {
