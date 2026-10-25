@@ -2,12 +2,14 @@ package engine
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 )
 
 const creditSet = "FPV3_CREDIT"
 const limitedSet = "FPV3_LIMITED"
+const liveSet = "FPV3_LIVE"
 const gateComment = "flux-transaction:v3"
 
 func (k *IPTables) Quiesce() error { return k.QuiesceTokens(nil) }
@@ -89,6 +91,7 @@ func (k *IPTables) SyncCredits(s State) error {
 	existing := parseSet(text)
 	delete(existing, "192.0.2.255,0x0")
 	want := map[string]string{}
+	liveWant := map[string]string{}
 	limited := map[string]string{}
 	now := bootMillis()
 	for _, id := range keys(s.Rules) {
@@ -102,8 +105,9 @@ func (k *IPTables) SyncCredits(s State) error {
 		if !ok || l.Closed || l.DeadlineBootMillis <= now {
 			continue
 		}
-		owner := fmt.Sprintf("credit:%s:%d", l.Grant.ID, l.Grant.Generation)
+		owner := fmt.Sprintf("credit:%s:%d", l.Grant.ID, l.Grant.TotalGranted)
 		want[key] = owner
+		liveWant[key] = fmt.Sprint(secondsUntil(l.DeadlineBootMillis, now))
 		if old, ok := existing[key]; ok && old.Comment == owner {
 			continue
 		}
@@ -117,8 +121,30 @@ func (k *IPTables) SyncCredits(s State) error {
 			delete(want, key)
 			continue
 		} // floor expiry; never use ipset timeout=0 (permanent).
-		if _, e = k.run("ipset", "", "-exist", "add", creditSet, key, "timeout", fmt.Sprint(seconds), "bytes", fmt.Sprint(creditCeiling-remaining), "packets", "0", "comment", owner); e != nil {
+		if _, e = k.run("ipset", "", "-exist", "add", creditSet, key, "bytes", fmt.Sprint(creditCeiling-remaining), "packets", "0", "comment", owner); e != nil {
 			return e
+		}
+	}
+	for key, seconds := range liveWant {
+		if seconds == "0" {
+			continue
+		}
+		if _, e = k.run("ipset", "", "-exist", "add", liveSet, key, "timeout", seconds, "comment", "lease-live"); e != nil {
+			return e
+		}
+	}
+	liveSaved, e := k.readSet(liveSet)
+	if e != nil {
+		return e
+	}
+	for key, v := range parseSet(liveSaved) {
+		if v.Comment == owner {
+			continue
+		}
+		if _, ok := liveWant[key]; !ok {
+			if _, e = k.run("ipset", "", "-exist", "del", liveSet, key); e != nil {
+				return e
+			}
 		}
 	}
 	for key := range existing {
@@ -158,4 +184,57 @@ func (k *IPTables) updatePlainSet(name string, want map[string]string) error {
 	sort.Strings(list)
 	_, e = k.run("ipset", strings.Join(list, "\n")+"\n", "-exist", "restore")
 	return e
+}
+
+// TTL-only renewal updates only the non-counter live set. The permanent byte
+// budget never gets recreated by expiry, and receives no counter writes.
+func (k *IPTables) CanRenewCredits(before, after State) (bool, error) {
+	saved, e := k.readSet(creditSet)
+	if e != nil {
+		return false, e
+	}
+	entries := parseSet(saved)
+	now := bootMillis()
+	changed := false
+	for id, l := range after.Leases {
+		old, ok := before.Leases[id]
+		if reflect.DeepEqual(l, old) {
+			continue
+		}
+		changed = true
+		s, exists := after.Rules[id]
+		if !ok || !exists || !s.Active() || l.Closed || old.Closed || l.Grant.ID != old.Grant.ID || l.Grant.TotalGranted != old.Grant.TotalGranted || old.DeadlineBootMillis-now < 1000 {
+			return false, nil
+		}
+		v, present := entries[targetKey(s)]
+		if !present || !strings.HasPrefix(v.Comment, "credit:"+old.Grant.ID+":") {
+			return false, nil
+		}
+	}
+	return changed, nil
+}
+func secondsUntil(deadline, now int64) int64 {
+	n := (deadline - now) / 1000
+	if n < 1 {
+		return 0
+	}
+	return n
+}
+func (k *IPTables) RenewCredits(before, after State) error {
+	now := bootMillis()
+	for id, l := range after.Leases {
+		old := before.Leases[id]
+		if reflect.DeepEqual(l, old) {
+			continue
+		}
+		seconds := secondsUntil(l.DeadlineBootMillis, now)
+		if seconds < 1 {
+			return fmt.Errorf("renewal deadline already elapsed")
+		}
+		key := targetKey(after.Rules[id])
+		if _, e := k.run("ipset", "", "-exist", "add", liveSet, key, "timeout", fmt.Sprint(seconds), "comment", "lease-live"); e != nil {
+			return e
+		}
+	}
+	return nil
 }

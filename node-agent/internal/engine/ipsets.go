@@ -20,7 +20,8 @@ type setDefinition struct{ Name, Type, Options, Sentinel string }
 
 var setDefinitions = []setDefinition{
 	{metaSet, "hash:ip", "family inet comment", "192.0.2.255"},
-	{creditSet, "hash:ip,mark", "family inet markmask 0xffffff00 hashsize 4096 maxelem 65536 timeout 60 counters comment", "192.0.2.255,0x0"},
+	{liveSet, "hash:ip,mark", "family inet markmask 0xffffff00 hashsize 4096 maxelem 65536 timeout 60 comment", "192.0.2.255,0x0"},
+	{creditSet, "hash:ip,mark", "family inet markmask 0xffffff00 hashsize 4096 maxelem 65536 counters comment", "192.0.2.255,0x0"},
 	{limitedSet, "hash:ip,mark", "family inet markmask 0xffffff00 hashsize 4096 maxelem 65536 comment", "192.0.2.255,0x0"},
 	{bindingSet, "hash:ip,port", "family inet hashsize 4096 maxelem 1048576 comment skbinfo", "192.0.2.255,tcp:0"},
 	{bindingSet + "_NEW", "hash:ip,port", "family inet hashsize 4096 maxelem 1048576 comment skbinfo", "192.0.2.255,tcp:0"},
@@ -78,6 +79,9 @@ func (k *IPTables) initializeSets() error {
 				return e
 			}
 			header := strings.Split(saved, "\n")[0]
+			if d.Name == creditSet && strings.Contains(header, " timeout ") {
+				return fmt.Errorf("credit set schema changed; perform paused migration before v3 renewal mode")
+			}
 			if !strings.Contains(header, "family inet ") {
 				return fmt.Errorf("ipset %s has incompatible address family", d.Name)
 			}

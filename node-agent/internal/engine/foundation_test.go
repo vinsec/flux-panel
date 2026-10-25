@@ -426,3 +426,52 @@ func TestStrictCreditPolicyClosesPreexistingFiniteForwardsAndCannotDowngrade(t *
 		t.Fatal("individual request downgraded the node policy")
 	}
 }
+
+type renewalKernel struct {
+	guardedKernel
+	renewed     int
+	renewedOpen bool
+}
+
+func (k *renewalKernel) CanRenewCredits(before, after State) (bool, error) {
+	for id, l := range after.Leases {
+		old, ok := before.Leases[id]
+		if !ok || old.Grant.ID != l.Grant.ID || old.Grant.TotalGranted != l.Grant.TotalGranted {
+			return false, nil
+		}
+	}
+	return len(after.Leases) > 0, nil
+}
+func (k *renewalKernel) RenewCredits(State, State) error {
+	k.renewed++
+	k.renewedOpen = !k.gated
+	return nil
+}
+func TestTTLOnlyRenewalNeverFencesOrResetsTheDataBudget(t *testing.T) {
+	k := &renewalKernel{guardedKernel: guardedKernel{memoryKernel: memoryKernel{counters: map[string]uint64{}}}}
+	m, e := New(filepath.Join(t.TempDir(), "s.json"), k)
+	if e != nil {
+		t.Fatal(e)
+	}
+	s := valid()
+	s.LeaseRequired = true
+	if e = m.Apply(s); e != nil {
+		t.Fatal(e)
+	}
+	r, e := m.Report()
+	if e != nil {
+		t.Fatal(e)
+	}
+	g := LeaseGrant{ID: identity(), ServiceID: s.ID, Epoch: r.Epoch, BootID: r.BootID, Generation: 1, TotalGranted: 4096, RequestSequence: r.Sequence, ValidForMillis: 30000}
+	if e = m.InstallGrants([]LeaseGrant{g}); e != nil {
+		t.Fatal(e)
+	}
+	calls := k.calls
+	g.Generation++
+	if e = m.InstallGrants([]LeaseGrant{g}); e != nil {
+		t.Fatal(e)
+	}
+	if !k.renewedOpen || k.renewed != 1 || k.calls != calls {
+		t.Fatal("TTL refresh rebuilt or fenced the dataplane")
+	}
+}

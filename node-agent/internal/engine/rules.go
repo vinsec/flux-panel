@@ -98,8 +98,8 @@ func Render(rules map[string]Spec, _ map[string]uint64) map[string]string {
 			fmt.Fprintf(&b, "-A FP_FWD -m connmark --mark %s -m conntrack --ctdir ORIGINAL -m set --match-set %s dst,dst -j FP_CUP\n", mark, allowSet)
 			fmt.Fprintf(&b, "-A FP_FWD -m connmark --mark %s -m conntrack --ctdir REPLY -m set --match-set %s src,src -j FP_CDOWN\n", mark, allowSet)
 			if limited {
-				fmt.Fprintf(&b, "-A FP_FWD -m connmark --mark %s -m conntrack --ctdir ORIGINAL -m set --match-set %s dst,dst --bytes-lt %d -j FP_CUP\n", mark, creditSet, creditCeiling)
-				fmt.Fprintf(&b, "-A FP_FWD -m connmark --mark %s -m conntrack --ctdir REPLY -m set --match-set %s src,src --bytes-lt %d -j FP_CDOWN\n", mark, creditSet, creditCeiling)
+				fmt.Fprintf(&b, "-A FP_FWD -m connmark --mark %s -m conntrack --ctdir ORIGINAL -m set --match-set %s dst,dst -m set --match-set %s dst,dst --bytes-lt %d -j FP_CUP\n", mark, liveSet, creditSet, creditCeiling)
+				fmt.Fprintf(&b, "-A FP_FWD -m connmark --mark %s -m conntrack --ctdir REPLY -m set --match-set %s src,src -m set --match-set %s src,src --bytes-lt %d -j FP_CDOWN\n", mark, liveSet, creditSet, creditCeiling)
 			}
 			fmt.Fprintf(&b, "-A FP_FWD -m connmark --mark %s -j DROP\n", mark)
 			fmt.Fprintf(&b, "-A FP_CUP -m set --match-set %s dst,dst -j ACCEPT\n", upSet)

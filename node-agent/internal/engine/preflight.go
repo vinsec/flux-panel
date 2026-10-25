@@ -98,6 +98,16 @@ func (k *IPTables) Preflight() (PreflightResult, error) {
 	if _, e = k.run("ipset", "", "add", c, "192.0.2.1,0xf1000100", "bytes", fmt.Sprint(creditCeiling-100), "timeout", "1"); e != nil {
 		return result, e
 	}
+	if _, e = k.run("ipset", "", "-exist", "add", c, "192.0.2.1,0xf1000100", "timeout", "1", "comment", "ttl-renewal-probe"); e != nil {
+		return result, e
+	}
+	renewed, e := k.readSet(c)
+	if e != nil {
+		return result, e
+	}
+	if parseSet(renewed)["192.0.2.1,0xf1000100"].Bytes != creditCeiling-100 {
+		return result, fmt.Errorf("kernel cannot safely renew timeout without resetting counters")
+	}
 	plan := fmt.Sprintf("*mangle\n:%s - [0:0]\n-A %s -m set --match-set %s dst,dst -j SET --map-set %s dst,dst --map-mark\nCOMMIT\n", prefix, prefix, b, b)
 	if _, e = k.run(k.Binary+"-restore", plan, "--test", "--noflush", "--wait", "2"); e != nil {
 		return result, e
@@ -109,7 +119,7 @@ func (k *IPTables) Preflight() (PreflightResult, error) {
 	if _, e = k.run("ipset", "", "swap", b, swap); e != nil {
 		return result, e
 	}
-	result.Probes = []string{"hash:ip,port skbinfo/map-mark", "hash:ip,mark counters/timeout/bytes-lt", "RELATED ICMP", "atomic ipset swap", "backend exclusivity", "native nft flow-offload/mark audit"}
+	result.Probes = []string{"hash:ip,port skbinfo/map-mark", "hash:ip,mark counters/timeout/bytes-lt", "RELATED ICMP", "counter-preserving TTL renewal", "atomic ipset swap", "backend exclusivity", "native nft flow-offload/mark audit"}
 	return result, nil
 }
 func markOwners(saved string) map[string]bool {

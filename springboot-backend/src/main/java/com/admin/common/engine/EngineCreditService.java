@@ -61,6 +61,7 @@ public class EngineCreditService {
     }
 
     public void enable(Long node) {
+        if(strict(node)&&EngineCapabilities.info(node)!=null&&EngineCapabilities.info(node).getBooleanValue("strictCreditPolicy"))return;
         JSONObject info = EngineCapabilities.info(node);
         if (info == null || !info.getBooleanValue("strictCreditPolicy")) {
             EngineCapabilities.require(node, "creditPolicy");
@@ -138,7 +139,7 @@ public class EngineCreditService {
                 && !boot.equals(advertised.getString("bootId")))
             throw new IllegalArgumentException("report boot does not match active node session");
         jdbc.update(
-                "INSERT IGNORE INTO engine_report_cursor(node_id,epoch,sequence) VALUES(?,?,0)",
+                "INSERT INTO engine_report_cursor(node_id,epoch,sequence) VALUES(?,?,0) ON DUPLICATE KEY UPDATE sequence=sequence",
                 node.getId(),
                 epoch);
         long cursor =
@@ -410,6 +411,7 @@ public class EngineCreditService {
                                 ratio,
                                 flow,
                                 Math.max(0, Math.min(maxGrant - remaining, 1L << 32)));
+                if(old!=null&&remaining>=Math.max(1,maxGrant*3/4))extra=0;
                 if (old == null && extra < 128) continue;
                 long total = old == null ? extra : Math.addExact(n(old, "total_raw"), extra);
                 long generation = old == null ? 1 : n(old, "generation") + 1;

@@ -287,6 +287,8 @@ finally:
         for link in links:
             stats=link.get('stats64',link.get('stats',{}));link_bytes[link['ifname']]={'rx':stats.get('rx',{}).get('bytes',0),'tx':stats.get('tx',{}).get('bytes',0)}
     except Exception:pass
+    checkpoint=pathlib.Path('/tmp/flux-agent-state.json')
+    if checkpoint.exists():shutil.copyfile(checkpoint,OUT/'agent-state.json')
     (OUT/'result.json').write_text(json.dumps({'artifact_sha256':artifacts,'virtual_link_bytes':link_bytes,'external_forward_test_targets':[],'success':completed,'backend':os.getenv('IPTABLES_BACKEND','nft'),'passed':checks,'count':len(checks)},ensure_ascii=False,indent=2))
     for p in reversed(processes):
         if p.poll() is None:

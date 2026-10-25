@@ -298,6 +298,7 @@ public class ForwardServiceImpl extends ServiceImpl<ForwardMapper, Forward> impl
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional
     public R resumeForward(Long id) {
         return changeForwardStatus(id, FORWARD_STATUS_ACTIVE, "恢复", "ResumeService");
     }

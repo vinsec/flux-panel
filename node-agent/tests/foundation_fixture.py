@@ -97,7 +97,7 @@ def topology():
   run(['ip','link','add',a,'type','veth','peer','name',b]);run(['ip','link','set',a,'netns',an]);run(['ip','link','set',b,'netns',bn])
   for n,i,addr in [(an,a,aa),(bn,b,ba)]:run(['ip','-n',n,'addr','add',addr,'dev',i]);run(['ip','-n',n,'link','set',i,'up'])
  run(['ip','link','add','control','type','veth','peer','name','r2']);run(['ip','link','set','r2','netns','router']);run(['ip','addr','add','10.205.4.1/24','dev','control']);run(['ip','link','set','control','up']);run(['ip','-n','router','addr','add','10.205.4.2/24','dev','r2']);run(['ip','-n','router','link','set','r2','up'])
- for n in ['router','transit']:run(ns(n,'sh','-c','mount -o remount,rw /proc/sys && sysctl -w net.ipv4.ip_forward=1'))
+ for n in ['router','transit']:run(ns(n,'sh','-c','(mount -o remount,rw /proc/sys 2>/dev/null || true); sysctl -w net.ipv4.ip_forward=1'))
  run(['ip','-n','router','route','add','10.205.3.0/24','via','10.205.2.2']);run(['ip','-n','transit','route','add','10.205.1.0/24','via','10.205.2.1']);run(['ip','-n','client','route','add','default','via','10.205.1.1']);run(['ip','-n','target','route','add','default','via','10.205.3.1'])
  router('iptables','-P','FORWARD','DROP');router('iptables','-N','UNRELATED_FOUNDATION');router('iptables','-A','UNRELATED_FOUNDATION','-m','comment','--comment','keep-unrelated','-j','RETURN');router('iptables','-A','FORWARD','-m','conntrack','--ctstate','ESTABLISHED,RELATED','-j','ACCEPT')
  assert not any('default' in l for l in router('ip','route').splitlines())

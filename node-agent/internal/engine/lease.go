@@ -141,6 +141,18 @@ func (m *Manager) InstallGrants(grants []LeaseGrant) error {
 	if digest(after.Leases) == digest(m.state.Leases) {
 		return nil
 	}
+	if renew, ok := m.Kernel.(interface {
+		CanRenewCredits(State, State) (bool, error)
+		RenewCredits(State, State) error
+	}); ok {
+		eligible, e := renew.CanRenewCredits(m.state, after)
+		if e != nil {
+			return e
+		}
+		if eligible {
+			return m.commitRenewal(after, renew)
+		}
+	}
 	return m.commit(after, nil, "credit grant", nil)
 }
 func (m *Manager) closeExpiredLocked() error {
@@ -172,4 +184,34 @@ func (m *Manager) CreditReady(id string) bool {
 	}
 	l, ok := m.state.Leases[id]
 	return ok && !l.Closed && l.DeadlineBootMillis-bootMillis() >= 1000 && l.Grant.TotalGranted-used(&m.state, id, l) >= 128
+}
+
+func (m *Manager) commitRenewal(after State, k interface{ RenewCredits(State, State) error }) error {
+	if m.blocked {
+		return fmt.Errorf("recovery required")
+	}
+	before := cloneState(m.state)
+	after.CommitID = identity()
+	after.LastDurableAt = time.Now().UnixMilli()
+	t := transaction{Version: 1, Before: before, After: after, Reason: "credit TTL renewal"}
+	if e := m.journal(t); e != nil {
+		return e
+	}
+	m.fault("renewal-prepared")
+	m.state = after
+	if e := m.save(); e != nil {
+		m.state = before
+		return e
+	}
+	m.fault("renewal-checkpoint")
+	if e := k.RenewCredits(before, after); e != nil {
+		_ = m.quiesce()
+		m.blocked = true
+		return e
+	}
+	m.fault("renewal-kernel")
+	if e := removeDurable(m.Path + ".journal"); e != nil {
+		return e
+	}
+	return nil
 }

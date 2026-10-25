@@ -47,6 +47,10 @@ class Sink(http.server.BaseHTTPRequestHandler):
      key=v['epoch']+ident
      if key not in self.server.leases:self.server.leases[key]={'id':hashlib.md5(key.encode()).hexdigest(),'serviceId':ident,'epoch':v['epoch'],'bootId':v['bootId'],'generation':1,'totalGranted':2147483648,'windowBytes':2147483648,'requestSequence':v['sequence'],'validForMillis':60000}
      grants.append(self.server.leases[key])
+    if v.get('creditMode'):
+     for key,g in self.server.leases.items():
+      if g['epoch']!=v['epoch'] or any(x['id']==g['id'] for x in grants):continue
+      g['generation']+=1;g['requestSequence']=v['sequence'];grants.append(dict(g))
     body=json.dumps({'epoch':v['epoch'],'sequence':v['sequence'],'usage':v['usage'],'counters':v.get('counters',[]),'closedLeases':[x['id'] for x in v.get('leases',[]) if x['closed']],'leaseWatermarks':v.get('leases',[]),'grants':grants}).encode()
   self.send_response(200);self.send_header('Content-Length',str(len(body)));self.end_headers();self.wfile.write(body)
  def do_GET(self):
