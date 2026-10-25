@@ -459,12 +459,8 @@ func (m *Manager) commit(after State, forget []Spec, reason string, gc []counter
 		}
 	}
 	m.fault("credits")
-	for _, s := range forget {
-		if k, ok := m.Kernel.(interface{ Forget(Spec) error }); ok {
-			if e := k.Forget(s); e != nil {
-				return rollback(e)
-			}
-		}
+	if e := m.forget(forget); e != nil {
+		return rollback(e)
 	}
 	m.fault("conntrack")
 	if e := m.capture(&after); e != nil {

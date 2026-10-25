@@ -10,6 +10,33 @@ import (
 	"testing"
 )
 
+func TestForgetBlocksNeverIncludeSurvivingTokens(t *testing.T) {
+	for _, stride := range []uint32{1, 2, 3, 17, 257} {
+		specs := []Spec{}
+		want := map[uint32]bool{}
+		for token := uint32(3); token < 10003; token += stride {
+			specs = append(specs, Spec{Token: token})
+			want[token] = true
+		}
+		blocks := forgetBlocks(specs)
+		got := map[uint32]bool{}
+		for _, b := range blocks {
+			if b.end-b.first != 1<<b.bits || b.first%(1<<b.bits) != 0 {
+				t.Fatal("unaligned deletion mask", b)
+			}
+			for token := b.first; token < b.end; token++ {
+				got[uint32(token)] = true
+			}
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Fatal("deletion mask includes a survivor or misses a revoked token")
+		}
+		if stride == 1 && len(blocks) > 30 {
+			t.Fatal("contiguous bulk cleanup should use logarithmic masks", len(blocks))
+		}
+	}
+}
+
 type guardedKernel struct {
 	memoryKernel
 	gated       bool

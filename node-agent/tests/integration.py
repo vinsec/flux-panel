@@ -253,10 +253,13 @@ try:
         check('real Java reconciler cold-applies 10k desired forwards through one batch',probe(29997)=='tcp_udp_ok' and len([v for v in json.loads(pathlib.Path('/tmp/flux-agent-state.json').read_text())['rules'].values() if not v.get('deleted')])==10000)
         cold=time.monotonic()-started
         sql("DELETE FROM forward WHERE name LIKE 'foundation-scale-%%'")
+        cleanup_started=time.monotonic()
         submitted=api('engine/reconcile',{'nodeId':n['id']})['data'];assert submitted.get('id'),submitted
         wait(lambda:api('engine/batch-status',{'nodeId':n['id'],'id':submitted['id']})['data']['status']=='succeeded',180)
         check('real Java bulk reconciliation removes 9998 orphans and keeps live forwards',probe(18002)=='tcp_udp_ok' and probe(29997,'blocked')=='tcp_udp_blocked')
-        (OUT/'panel-scale.json').write_text(json.dumps({'forwards':10000,'cold_seconds':cold,'total_seconds':time.monotonic()-started},indent=2))
+        cleanup=time.monotonic()-cleanup_started
+        check('10k reconciliation cleanup stays inside the credit renewal window',cleanup<15)
+        (OUT/'panel-scale.json').write_text(json.dumps({'forwards':10000,'cold_seconds':cold,'cleanup_seconds':cleanup,'total_seconds':time.monotonic()-started},indent=2))
     # A new short-lived permission is enforced by the agent while the panel
     # process is completely stopped. Older, still-valid forwards remain live.
     et=tunnel(n,'offline-expiration');deadline=int(time.time()*1000)+5000
@@ -289,6 +292,10 @@ finally:
     except Exception:pass
     checkpoint=pathlib.Path('/tmp/flux-agent-state.json')
     if checkpoint.exists():shutil.copyfile(checkpoint,OUT/'agent-state.json')
+    if not completed:
+        for name,args in [('failed-filter.txt',['iptables-save','-t','filter']),('failed-sets.txt',['ipset','save']),('failed-conntrack.txt',['conntrack','-L'])]:
+            try:(OUT/name).write_text(cmd('ip','netns','exec','router',*args))
+            except Exception:pass
     (OUT/'result.json').write_text(json.dumps({'artifact_sha256':artifacts,'virtual_link_bytes':link_bytes,'external_forward_test_targets':[],'success':completed,'backend':os.getenv('IPTABLES_BACKEND','nft'),'passed':checks,'count':len(checks)},ensure_ascii=False,indent=2))
     for p in reversed(processes):
         if p.poll() is None:

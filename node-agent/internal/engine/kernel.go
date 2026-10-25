@@ -89,6 +89,90 @@ func (k *IPTables) Forget(s Spec) error {
 	return nil
 }
 
+// The transaction guard is already installed before this method runs. Revoked
+// tokens cannot confirm new connections, so one conntrack dump safely excludes
+// empty tokens without spawning two processes for every deleted forwarding.
+func (k *IPTables) ForgetMany(specs []Spec) error {
+	if len(specs) <= 16 {
+		for _, s := range specs {
+			if e := k.Forget(s); e != nil {
+				return e
+			}
+		}
+		return nil
+	}
+	refs, e := k.References()
+	if e != nil {
+		return e
+	}
+	for _, block := range forgetBlocks(specs) {
+		live := false
+		for token := block.first; token < block.end; token++ {
+			if refs[fmt.Sprintf("mark:0x%x", uint32(0xf1000000)|(uint32(token)<<8))] {
+				live = true
+				break
+			}
+		}
+		if !live {
+			continue
+		}
+		// Sibling tokens are combined only when every token in the prefix is
+		// revoked. A surviving forwarding can never match this deletion mask.
+		value := uint32(0xf1000000) | uint32(block.first)<<8
+		mask := uint32(0xffffffff) << uint(8+block.bits)
+		_, e = k.run("conntrack", "", "-D", "-f", "ipv4", "--mark", fmt.Sprintf("0x%x/0x%x", value, mask))
+		if e != nil && !strings.Contains(e.Error(), "0 flow entries") {
+			return e
+		}
+	}
+	return nil
+}
+
+type tokenBlock struct{ first, end, bits int }
+
+func forgetBlocks(specs []Spec) []tokenBlock {
+	selected := make([]int, 65537)
+	for _, s := range specs {
+		if s.Token > 0 && s.Token <= 65535 {
+			selected[s.Token+1] = 1
+		}
+	}
+	for i := 1; i < len(selected); i++ {
+		selected[i] += selected[i-1]
+	}
+	blocks := []tokenBlock{}
+	var visit func(int, int)
+	visit = func(first, bits int) {
+		end := first + 1<<bits
+		count := selected[end] - selected[first]
+		if count == 0 {
+			return
+		}
+		if count == end-first {
+			blocks = append(blocks, tokenBlock{first, end, bits})
+			return
+		}
+		visit(first, bits-1)
+		visit(first+1<<(bits-1), bits-1)
+	}
+	visit(0, 16)
+	return blocks
+}
+
+func (m *Manager) forget(specs []Spec) error {
+	if k, ok := m.Kernel.(interface{ ForgetMany([]Spec) error }); ok {
+		return k.ForgetMany(specs)
+	}
+	if k, ok := m.Kernel.(interface{ Forget(Spec) error }); ok {
+		for _, s := range specs {
+			if e := k.Forget(s); e != nil {
+				return e
+			}
+		}
+	}
+	return nil
+}
+
 func (k *IPTables) run(name, input string, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 	defer cancel()

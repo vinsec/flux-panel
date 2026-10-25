@@ -32,7 +32,13 @@ while True:
   page=PANEL.rpc('GetEngineStatePage',data)['data'];generation=page['generation'];seen.update(x['id'] for x in page['items']);after=page.get('next','')
   if not after:break
  check('generation-consistent paginated snapshot includes all 10k rules',len(seen)==10000)
- removes=[{'id':x['id'],'revision':2,'deleted':True} for x in desired];check('bulk delete reconciles without leaving a live orphan dispatch',job({'id':'native-delete','specs':removes})['status']=='succeeded' and probe())
+ # Populate connection state across several adjacent token prefixes before
+ # deletion. Surviving token 1 must retain its original conntrack mapping.
+ run(ns('client','python3','-c',"import socket\nfor port in range(20000,20064):\n s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.settimeout(2);s.sendto(b'bulk-ct',('10.205.1.1',port));assert s.recv(64)==b'bulk-ct';s.close()"))
+ removes=[{'id':x['id'],'revision':2,'deleted':True} for x in desired];delete_started=time.monotonic();check('bulk delete reconciles without leaving a live orphan dispatch',job({'id':'native-delete','specs':removes})['status']=='succeeded' and probe())
+ cleanup_seconds=time.monotonic()-delete_started
+ ct=router('conntrack','-L','-f','ipv4','--mark','0xf1000000/0xff000000')
+ check('compressed bulk conntrack cleanup removes revoked flows and preserves the survivor',all('mark=4043309312' in line for line in ct.splitlines() if line.startswith(('tcp ','udp '))) and cleanup_seconds<15)
  wait(lambda:len(state().get('ackCounters',{}))>=19998,15)
  stop(a);retired=state();oldtime=int(time.time()*1000)-120000
  for key in retired.get('counterRetiredAt',{}):retired['counterRetiredAt'][key]=oldtime
@@ -42,7 +48,7 @@ while True:
  gc_started=time.monotonic();collected=PANEL.rpc('CollectCounters',timeout=40)['data']['removed'];gc_seconds=time.monotonic()-gc_started;assert traffic.wait(timeout=10)==0
  check('native batched GC reclaims 9999 retired tokens while other traffic continues',collected==19998 and len(state()['rules'])==1 and len(state().get('freeTokens',[]))>=9999 and probe())
  (OUT/'gc-scale.json').write_text(json.dumps({'removedCounters':collected,'freedTokens':len(state().get('freeTokens',[])),'seconds':gc_seconds},indent=2))
- (OUT/'scale.json').write_text(json.dumps({'forwards':10000,'cold_delta_seconds':elapsed,'snapshot_count':len(seen)},indent=2))
+ (OUT/'scale.json').write_text(json.dumps({'forwards':10000,'cold_delta_seconds':elapsed,'cleanup_seconds':cleanup_seconds,'snapshot_count':len(seen)},indent=2))
  # Each killed process leaves only an old or new complete committed revision.
  for i,point in enumerate(['prepared','quiesced','kernel','credits','conntrack','counters','checkpoint','committed','activated']):
   stop(a);a=agent(point);old=state()['rules']['1_1_0']['revision'];new=spec(revision=old+1);new['targetPort']=19001 if state()['rules']['1_1_0']['targetPort']==19000 else 19000

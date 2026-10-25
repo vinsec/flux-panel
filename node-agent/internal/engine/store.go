@@ -160,12 +160,8 @@ func (m *Manager) recover() error {
 		return e
 	}
 	if committed {
-		for _, s := range t.Forget {
-			if r, ok := m.Kernel.(interface{ Forget(Spec) error }); ok {
-				if e = r.Forget(s); e != nil {
-					return e
-				}
-			}
+		if e = m.forget(t.Forget); e != nil {
+			return e
 		}
 	}
 	if e = m.capture(&m.state); e != nil {
