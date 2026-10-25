@@ -1,5 +1,9 @@
 # flux-panel转发面板 哆啦A梦转发面板
 
+## 本分支的可选转发引擎实验
+
+保留默认 GOST 引擎，新增独立 iptables Agent。实验版说明、能力边界、数据库迁移和验证结果见 [可选转发引擎 v1](doc/forward-engines-v1.md)；节点构建和配置见 [node-agent](node-agent/README.md)。本分支尚未替换现有线上部署。
+
 ## 项目更新说明
 由于一些个人原因，**flux-panel** 将暂停更新一段时间，**恢复更新时间暂不确定**。
 

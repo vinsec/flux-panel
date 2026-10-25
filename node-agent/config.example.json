@@ -1,0 +1,9 @@
+{
+  "addr": "wss://panel.example",
+  "secret": "replace-with-node-secret",
+  "apply": true,
+  "statePath": "/var/lib/flux-agent/state.json",
+  "iptables": "iptables",
+  "intervalSeconds": 5,
+  "allowInsecure": false
+}

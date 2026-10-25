@@ -1,6 +1,7 @@
 package com.admin.service.impl;
 
 import cn.hutool.core.util.IdUtil;
+import com.admin.common.engine.EngineRegistry;
 import cn.hutool.core.util.StrUtil;
 import com.admin.common.dto.GostDto;
 import com.admin.common.dto.NodeDto;
@@ -90,6 +91,8 @@ public class NodeServiceImpl extends ServiceImpl<NodeMapper, Node> implements No
      */
     @Override
     public R createNode(NodeDto nodeDto) {
+        try { nodeDto.setEngine(EngineRegistry.normalize(nodeDto.getEngine())); }
+        catch(IllegalArgumentException e) { return R.err(e.getMessage()); }
         Node node = buildNewNode(nodeDto);
         boolean result = this.save(node);
         return result ? R.ok(SUCCESS_CREATE_MSG) : R.err(ERROR_CREATE_MSG);
@@ -123,6 +126,12 @@ public class NodeServiceImpl extends ServiceImpl<NodeMapper, Node> implements No
         if (node == null) {
             return R.err(ERROR_NODE_NOT_FOUND);
         }
+
+        String requestedEngine;
+        try { requestedEngine=EngineRegistry.normalize(nodeUpdateDto.getEngine()); }
+        catch(IllegalArgumentException e) { return R.err(e.getMessage()); }
+        if(!requestedEngine.equals(EngineRegistry.normalize(node.getEngine()))) return R.err("节点引擎不可原地切换，请新建节点后迁移");
+        if("iptables".equals(requestedEngine) && ((nodeUpdateDto.getHttp()!=null && nodeUpdateDto.getHttp()!=0) || (nodeUpdateDto.getTls()!=null && nodeUpdateDto.getTls()!=0) || (nodeUpdateDto.getSocks()!=null && nodeUpdateDto.getSocks()!=0))) return R.err("iptables v1 不支持应用协议屏蔽");
 
         //1.1 如果节点在线 且传入更新的 http/tls/socks 任意一项与数据库不一致，则通过 WS 通知节点更新设置
         boolean online = node.getStatus() != null && node.getStatus() == 1;
@@ -230,6 +239,7 @@ public class NodeServiceImpl extends ServiceImpl<NodeMapper, Node> implements No
         validatePortRange(node.getPortSta(), node.getPortEnd());
         
         // 设置默认属性
+        node.setEngine(nodeDto.getEngine());
         node.setSecret(IdUtil.simpleUUID());
         node.setStatus(NODE_STATUS_ACTIVE);
         
@@ -250,6 +260,7 @@ public class NodeServiceImpl extends ServiceImpl<NodeMapper, Node> implements No
     private Node buildUpdateNode(NodeUpdateDto nodeUpdateDto) {
         Node node = new Node();
         node.setId(nodeUpdateDto.getId());
+        node.setEngine(nodeUpdateDto.getEngine());
         node.setName(nodeUpdateDto.getName());
         node.setIp(nodeUpdateDto.getIp());
         node.setServerIp(nodeUpdateDto.getServerIp());
@@ -360,6 +371,13 @@ public class NodeServiceImpl extends ServiceImpl<NodeMapper, Node> implements No
         ViteConfig viteConfig = viteConfigService.getOne(new QueryWrapper<ViteConfig>().eq("name", "ip"));
         if (viteConfig == null) return R.err("请先前往网站配置中设置ip");
 
+        if("iptables".equals(node.getEngine())) {
+            String addr=viteConfig.getValue();if(!addr.matches("^[a-z]+://.*")) addr="wss://"+addr;
+            JSONObject config=new JSONObject();config.put("addr",addr);config.put("secret",node.getSecret());
+            config.put("apply",true);config.put("statePath","/var/lib/flux-agent/state.json");config.put("intervalSeconds",5);
+            return R.ok("# 将已校验的 flux-agent 安装到 /usr/local/bin，并确认 IPv4 forwarding 已开启\n"+
+                "umask 077\nmkdir -p /etc/flux-agent /var/lib/flux-agent\ncat > /etc/flux-agent/config.json <<'FLUX_CONFIG'\n"+config.toJSONString()+"\nFLUX_CONFIG\nchmod 600 /etc/flux-agent/config.json\n/usr/local/bin/flux-agent --config /etc/flux-agent/config.json");
+        }
         StringBuilder command = new StringBuilder();
         
         // 第一部分：下载安装脚本  

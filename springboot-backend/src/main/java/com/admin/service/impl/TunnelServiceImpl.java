@@ -1,5 +1,7 @@
 package com.admin.service.impl;
 
+import com.admin.common.engine.EngineRegistry;
+import com.admin.common.engine.IptablesForwardingEngine;
 import cn.hutool.core.util.StrUtil;
 import com.admin.common.dto.*;
 
@@ -128,6 +130,12 @@ public class TunnelServiceImpl extends ServiceImpl<TunnelMapper, Tunnel> impleme
             return R.err(inNodeValidation.getErrorMessage());
         }
 
+        String engine;
+        try { engine=EngineRegistry.normalize(tunnelDto.getEngine()); }
+        catch(IllegalArgumentException e) { return R.err(e.getMessage()); }
+        if(!engine.equals(EngineRegistry.normalize(inNodeValidation.getNode().getEngine()))) return R.err("隧道与入口节点的转发引擎不匹配");
+        if("iptables".equals(engine) && (tunnelDto.getType()!=1 || !IptablesForwardingEngine.ipv4(tunnelDto.getTcpListenAddr()) || !tunnelDto.getTcpListenAddr().equals(tunnelDto.getUdpListenAddr()) || (tunnelDto.getInterfaceName()!=null && !tunnelDto.getInterfaceName().isBlank()))) return R.err("iptables v1 仅支持相同 IPv4 监听地址的端口转发，暂不支持指定网卡");
+        tunnelDto.setEngine(engine);
         // 4. 构建隧道实体
         Tunnel tunnel = buildTunnelEntity(tunnelDto, inNodeValidation.getNode());
 
@@ -169,6 +177,8 @@ public class TunnelServiceImpl extends ServiceImpl<TunnelMapper, Tunnel> impleme
             return R.err(ERROR_TUNNEL_NOT_FOUND);
         }
 
+        if(!EngineRegistry.normalize(existingTunnel.getEngine()).equals(EngineRegistry.normalize(tunnelUpdateDto.getEngine()))) return R.err("隧道引擎不可原地切换，请新建隧道迁移");
+        if("iptables".equals(existingTunnel.getEngine()) && (!IptablesForwardingEngine.ipv4(tunnelUpdateDto.getTcpListenAddr()) || !tunnelUpdateDto.getTcpListenAddr().equals(tunnelUpdateDto.getUdpListenAddr()) || (tunnelUpdateDto.getInterfaceName()!=null && !tunnelUpdateDto.getInterfaceName().isBlank()))) return R.err("iptables v1 需要相同的 IPv4 监听地址，且不支持指定网卡");
         // 2. 验证隧道名称唯一性（排除自身）
         R nameValidationResult = validateTunnelNameUniquenessForUpdate(tunnelUpdateDto.getName(), tunnelUpdateDto.getId());
         if (nameValidationResult.getCode() != 0) {

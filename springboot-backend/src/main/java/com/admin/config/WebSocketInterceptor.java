@@ -2,6 +2,7 @@ package com.admin.config;
 
 
 import com.admin.common.utils.IpUtils;
+import com.admin.common.engine.EngineRegistry;
 import com.admin.common.utils.JwtUtil;
 import com.admin.entity.Node;
 import com.admin.service.NodeService;
@@ -42,12 +43,16 @@ public class WebSocketInterceptor extends HttpSessionHandshakeInterceptor {
         String tls = serverHttpRequest.getServletRequest().getParameter("tls");
         String socks = serverHttpRequest.getServletRequest().getParameter("socks");
         if (Objects.equals(type, "1")) {
-            System.out.println("type: " + type + " - version: " + version + " - secret: " + secret + " - IP: " + getClientIp(request));
+            log.info("节点连接请求，版本: {}，IP: {}",version,getClientIp(request));
             Node node = nodeService.getOne(new QueryWrapper<Node>().eq("secret", secret));
             if (node == null) {
                 log.info("节点验证失败：未找到匹配的secret");
                 return false;
             }
+            String requestedEngine;
+            try { requestedEngine=EngineRegistry.normalize(serverHttpRequest.getServletRequest().getParameter("engine")); }
+            catch(IllegalArgumentException e) { return false; }
+            if(!requestedEngine.equals(EngineRegistry.normalize(node.getEngine()))) {response.setStatusCode(org.springframework.http.HttpStatus.FORBIDDEN);return false;}
             attributes.put("id", node.getId());
             attributes.put("nodeSecret", secret);
             attributes.put("nodeVersion", version);

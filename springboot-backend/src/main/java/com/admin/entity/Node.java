@@ -20,6 +20,8 @@ public class Node extends BaseEntity {
 
     private String name;
 
+    private String engine = "gost";
+
     private String secret;
 
     private String ip;

@@ -1328,9 +1328,17 @@ public class ForwardServiceImpl extends ServiceImpl<ForwardMapper, Forward> impl
      */
     private Set<Integer> getAllUsedPortsOnNode(Long nodeId, Long excludeForwardId) {
         Set<Integer> usedPorts = new HashSet<>();
+        // Logical GOST/iptables agents on the same physical server share ports.
+        // Keep legacy GOST-only allocation unchanged; the serverIp identifies a
+        // co-located pair and conservative port reservation applies to both.
+        Set<Long> peerIds=new HashSet<>();peerIds.add(nodeId);
+        Node owner=nodeService.getById(nodeId);
+        if(owner!=null) for(Node peer:nodeService.list()) {
+            if(Objects.equals(owner.getServerIp(),peer.getServerIp()) && ("iptables".equals(owner.getEngine()) || "iptables".equals(peer.getEngine()))) peerIds.add(peer.getId());
+        }
 
         // 1. 收集该节点作为入口时占用的端口
-        List<Tunnel> inTunnels = tunnelService.list(new QueryWrapper<Tunnel>().eq("in_node_id", nodeId));
+        List<Tunnel> inTunnels = tunnelService.list(new QueryWrapper<Tunnel>().in("in_node_id", peerIds));
         if (!inTunnels.isEmpty()) {
             Set<Long> inTunnelIds = inTunnels.stream()
                     .map(Tunnel::getId)
@@ -1350,7 +1358,7 @@ public class ForwardServiceImpl extends ServiceImpl<ForwardMapper, Forward> impl
         }
 
         // 2. 收集该节点作为出口时占用的端口
-        List<Tunnel> outTunnels = tunnelService.list(new QueryWrapper<Tunnel>().eq("out_node_id", nodeId));
+        List<Tunnel> outTunnels = tunnelService.list(new QueryWrapper<Tunnel>().in("out_node_id", peerIds));
         if (!outTunnels.isEmpty()) {
             Set<Long> outTunnelIds = outTunnels.stream()
                     .map(Tunnel::getId)

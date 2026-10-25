@@ -1,397 +1,68 @@
 package com.admin.common.utils;
 
-import com.admin.common.dto.GostConfigDto;
 import com.admin.common.dto.GostDto;
 import com.admin.entity.Tunnel;
-import com.alibaba.fastjson.JSONArray;
-import com.alibaba.fastjson.JSONObject;
-import org.apache.commons.lang3.StringUtils;
-import org.aspectj.apache.bcel.generic.RET;
+import com.admin.common.engine.*;
 
-import java.util.Objects;
-
+/** Backward-compatible facade: every lifecycle path selects a forwarding engine. */
 public class GostUtil {
-
-
     public static GostDto AddLimiters(Long node_id, Long name, String speed) {
-        JSONObject data = createLimiterData(name, speed);
-        return WebSocketServer.send_msg(node_id, data, "AddLimiters");
+        if(EngineRegistry.isIptables(node_id)) return IptablesForwardingEngine.error("iptables v1 does not support AddLimiters");
+        return LegacyGostCommands.AddLimiters(node_id,name,speed);
     }
-
     public static GostDto UpdateLimiters(Long node_id, Long name, String speed) {
-        JSONObject data = createLimiterData(name, speed);
-        JSONObject req = new JSONObject();
-        req.put("limiter", name + "");
-        req.put("data", data);
-        return WebSocketServer.send_msg(node_id, req, "UpdateLimiters");
+        if(EngineRegistry.isIptables(node_id)) return IptablesForwardingEngine.error("iptables v1 does not support UpdateLimiters");
+        return LegacyGostCommands.UpdateLimiters(node_id,name,speed);
     }
-
     public static GostDto DeleteLimiters(Long node_id, Long name) {
-        JSONObject req = new JSONObject();
-        req.put("limiter", name + "");
-        return WebSocketServer.send_msg(node_id, req, "DeleteLimiters");
+        if(EngineRegistry.isIptables(node_id)) return IptablesForwardingEngine.error("iptables v1 does not support DeleteLimiters");
+        return LegacyGostCommands.DeleteLimiters(node_id,name);
     }
-
     public static GostDto AddService(Long node_id, String name, Integer in_port, Integer limiter, String remoteAddr, Integer fow_type, Tunnel tunnel, String strategy, String interfaceName) {
-        JSONArray services = new JSONArray();
-        String[] protocols = {"tcp", "udp"};
-        for (String protocol : protocols) {
-            JSONObject service = createServiceConfig(name, in_port, limiter, remoteAddr, protocol, fow_type, tunnel, strategy, interfaceName);
-            services.add(service);
-        }
-        return WebSocketServer.send_msg(node_id, services, "AddService");
+        return EngineRegistry.forNode(node_id).apply(node_id,new ForwardSpec(name,in_port,limiter,remoteAddr,fow_type,tunnel,strategy,interfaceName),false);
     }
-
     public static GostDto UpdateService(Long node_id, String name, Integer in_port, Integer limiter, String remoteAddr, Integer fow_type, Tunnel tunnel, String strategy, String interfaceName) {
-        JSONArray services = new JSONArray();
-        String[] protocols = {"tcp", "udp"};
-        for (String protocol : protocols) {
-            JSONObject service = createServiceConfig(name, in_port, limiter, remoteAddr, protocol, fow_type, tunnel, strategy, interfaceName);
-            services.add(service);
-        }
-        return WebSocketServer.send_msg(node_id, services, "UpdateService");
+        return EngineRegistry.forNode(node_id).apply(node_id,new ForwardSpec(name,in_port,limiter,remoteAddr,fow_type,tunnel,strategy,interfaceName),true);
     }
-
     public static GostDto DeleteService(Long node_id, String name) {
-        JSONObject data = new JSONObject();
-        JSONArray services = new JSONArray();
-        services.add(name + "_tcp");
-        services.add(name + "_udp");
-        data.put("services", services);
-        return WebSocketServer.send_msg(node_id, data, "DeleteService");
+        return EngineRegistry.forNode(node_id).delete(node_id,name);
     }
-
     public static GostDto AddRemoteService(Long node_id, String name, Integer out_port, String remoteAddr,  String protocol, String strategy, String interfaceName) {
-        JSONObject data = new JSONObject();
-        data.put("name", name + "_tls");
-        data.put("addr", ":" + out_port);
-
-        if (StringUtils.isNotBlank(interfaceName)) {
-            JSONObject metadata = new JSONObject();
-            metadata.put("interface", interfaceName);
-            data.put("metadata", metadata);
-        }
-
-
-        JSONObject handler = new JSONObject();
-        handler.put("type", "relay");
-        data.put("handler", handler);
-        JSONObject listener = new JSONObject();
-        listener.put("type", protocol);
-        data.put("listener", listener);
-        JSONObject forwarder = new JSONObject();
-        JSONArray nodes = new JSONArray();
-
-        String[] split = remoteAddr.split(",");
-        int num = 1;
-        for (String addr : split) {
-            JSONObject node = new JSONObject();
-            node.put("name", "node_" + num );
-            node.put("addr", addr);
-            nodes.add(node);
-            num ++;
-        }
-        if (strategy == null || strategy.equals("")){
-            strategy = "fifo";
-        }
-        forwarder.put("nodes", nodes);
-        JSONObject selector = new JSONObject();
-        selector.put("strategy", strategy);
-        selector.put("maxFails", 1);
-        selector.put("failTimeout", "600s");
-        forwarder.put("selector", selector);
-
-        data.put("forwarder", forwarder);
-        JSONArray services = new JSONArray();
-        services.add(data);
-        return WebSocketServer.send_msg(node_id, services, "AddService");
+        if(EngineRegistry.isIptables(node_id)) return IptablesForwardingEngine.error("iptables v1 does not support AddRemoteService");
+        return LegacyGostCommands.AddRemoteService(node_id,name,out_port,remoteAddr,protocol,strategy,interfaceName);
     }
-
     public static GostDto UpdateRemoteService(Long node_id, String name, Integer out_port, String remoteAddr,String protocol, String strategy, String interfaceName) {
-        JSONObject data = new JSONObject();
-        data.put("name", name + "_tls");
-        data.put("addr", ":" + out_port);
-
-        if (StringUtils.isNotBlank(interfaceName)) {
-            JSONObject metadata = new JSONObject();
-            metadata.put("interface", interfaceName);
-            data.put("metadata", metadata);
-        }
-
-
-        JSONObject handler = new JSONObject();
-        handler.put("type", "relay");
-        data.put("handler", handler);
-        JSONObject listener = new JSONObject();
-        listener.put("type", protocol);
-        data.put("listener", listener);
-        JSONObject forwarder = new JSONObject();
-        JSONArray nodes = new JSONArray();
-
-        String[] split = remoteAddr.split(",");
-        int num = 1;
-        for (String addr : split) {
-            JSONObject node = new JSONObject();
-            node.put("name", "node_" + num );
-            node.put("addr", addr);
-            nodes.add(node);
-            num ++;
-        }
-        if (strategy == null || strategy.equals("")){
-            strategy = "fifo";
-        }
-        forwarder.put("nodes", nodes);
-        JSONObject selector = new JSONObject();
-        selector.put("strategy", strategy);
-        selector.put("maxFails", 1);
-        selector.put("failTimeout", "600s");
-        forwarder.put("selector", selector);
-
-        data.put("forwarder", forwarder);
-        JSONArray services = new JSONArray();
-        services.add(data);
-        return WebSocketServer.send_msg(node_id, services, "UpdateService");
+        if(EngineRegistry.isIptables(node_id)) return IptablesForwardingEngine.error("iptables v1 does not support UpdateRemoteService");
+        return LegacyGostCommands.UpdateRemoteService(node_id,name,out_port,remoteAddr,protocol,strategy,interfaceName);
     }
-
     public static GostDto DeleteRemoteService(Long node_id, String name) {
-        JSONArray data = new JSONArray();
-        data.add(name + "_tls");
-        JSONObject req = new JSONObject();
-        req.put("services", data);
-        return WebSocketServer.send_msg(node_id, req, "DeleteService");
+        if(EngineRegistry.isIptables(node_id)) return IptablesForwardingEngine.error("iptables v1 does not support DeleteRemoteService");
+        return LegacyGostCommands.DeleteRemoteService(node_id,name);
     }
-
     public static GostDto PauseService(Long node_id, String name) {
-        JSONObject data = new JSONObject();
-        JSONArray services = new JSONArray();
-        services.add(name + "_tcp");
-        services.add(name + "_udp");
-        data.put("services", services);
-        return WebSocketServer.send_msg(node_id, data, "PauseService");
+        return EngineRegistry.forNode(node_id).setEnabled(node_id,name,false);
     }
-
     public static GostDto ResumeService(Long node_id, String name) {
-        JSONObject data = new JSONObject();
-        JSONArray services = new JSONArray();
-        services.add(name + "_tcp");
-        services.add(name + "_udp");
-        data.put("services", services);
-        return WebSocketServer.send_msg(node_id, data, "ResumeService");
+        return EngineRegistry.forNode(node_id).setEnabled(node_id,name,true);
     }
-
     public static GostDto PauseRemoteService(Long node_id, String name) {
-        JSONObject data = new JSONObject();
-        JSONArray services = new JSONArray();
-        services.add(name + "_tls");
-        data.put("services", services);
-        return WebSocketServer.send_msg(node_id, data, "PauseService");
+        if(EngineRegistry.isIptables(node_id)) return IptablesForwardingEngine.error("iptables v1 does not support PauseRemoteService");
+        return LegacyGostCommands.PauseRemoteService(node_id,name);
     }
-
     public static GostDto ResumeRemoteService(Long node_id, String name) {
-        JSONObject data = new JSONObject();
-        JSONArray services = new JSONArray();
-        services.add(name + "_tls");
-        data.put("services", services);
-        return WebSocketServer.send_msg(node_id, data, "ResumeService");
+        if(EngineRegistry.isIptables(node_id)) return IptablesForwardingEngine.error("iptables v1 does not support ResumeRemoteService");
+        return LegacyGostCommands.ResumeRemoteService(node_id,name);
     }
-
     public static GostDto AddChains(Long node_id, String name, String remoteAddr, String protocol, String interfaceName) {
-        JSONObject dialer = new JSONObject();
-        dialer.put("type", protocol);
-        if (Objects.equals(protocol, "quic")){
-            JSONObject metadata = new JSONObject();
-            metadata.put("keepAlive", true);
-            metadata.put("ttl", "10s");
-            dialer.put("metadata", metadata);
-        }
-
-
-
-
-        JSONObject connector = new JSONObject();
-        connector.put("type", "relay");
-
-        JSONObject node = new JSONObject();
-        node.put("name", "node-" + name);
-        node.put("addr", remoteAddr);
-        node.put("connector", connector);
-        node.put("dialer", dialer);
-
-        if (StringUtils.isNotBlank(interfaceName)) {
-            node.put("interface", interfaceName);
-        }
-
-
-        JSONArray nodes = new JSONArray();
-        nodes.add(node);
-
-        JSONObject hop = new JSONObject();
-        hop.put("name", "hop-" + name);
-        hop.put("nodes", nodes);
-
-        JSONArray hops = new JSONArray();
-        hops.add(hop);
-
-        JSONObject data = new JSONObject();
-        data.put("name", name + "_chains");
-        data.put("hops", hops);
-
-        return WebSocketServer.send_msg(node_id, data, "AddChains");
+        if(EngineRegistry.isIptables(node_id)) return IptablesForwardingEngine.error("iptables v1 does not support AddChains");
+        return LegacyGostCommands.AddChains(node_id,name,remoteAddr,protocol,interfaceName);
     }
-
     public static GostDto UpdateChains(Long node_id, String name, String remoteAddr, String protocol, String interfaceName) {
-        JSONObject dialer = new JSONObject();
-        dialer.put("type", protocol);
-
-        if (Objects.equals(protocol, "quic")){
-            JSONObject metadata = new JSONObject();
-            metadata.put("keepAlive", true);
-            metadata.put("ttl", "10s");
-            dialer.put("metadata", metadata);
-        }
-
-
-        JSONObject connector = new JSONObject();
-        connector.put("type", "relay");
-
-        JSONObject node = new JSONObject();
-        node.put("name", "node-" + name);
-        node.put("addr", remoteAddr);
-        node.put("connector", connector);
-        node.put("dialer", dialer);
-
-        if (StringUtils.isNotBlank(interfaceName)) {
-            node.put("interface", interfaceName);
-        }
-
-        JSONArray nodes = new JSONArray();
-        nodes.add(node);
-
-        JSONObject hop = new JSONObject();
-        hop.put("name", "hop-" + name);
-        hop.put("nodes", nodes);
-
-        JSONArray hops = new JSONArray();
-        hops.add(hop);
-
-        JSONObject data = new JSONObject();
-        data.put("name", name + "_chains");
-        data.put("hops", hops);
-        JSONObject req = new JSONObject();
-        req.put("chain", name + "_chains");
-        req.put("data", data);
-       return WebSocketServer.send_msg(node_id, req, "UpdateChains");
+        if(EngineRegistry.isIptables(node_id)) return IptablesForwardingEngine.error("iptables v1 does not support UpdateChains");
+        return LegacyGostCommands.UpdateChains(node_id,name,remoteAddr,protocol,interfaceName);
     }
-
     public static GostDto DeleteChains(Long node_id, String name) {
-        JSONObject data = new JSONObject();
-        data.put("chain", name + "_chains");
-        return WebSocketServer.send_msg(node_id, data, "DeleteChains");
+        if(EngineRegistry.isIptables(node_id)) return IptablesForwardingEngine.error("iptables v1 does not support DeleteChains");
+        return LegacyGostCommands.DeleteChains(node_id,name);
     }
-
-    private static JSONObject createLimiterData(Long name, String speed) {
-        JSONObject data = new JSONObject();
-        data.put("name", name.toString());
-        JSONArray limits = new JSONArray();
-        limits.add("$ " + speed + "MB " + speed + "MB");
-        data.put("limits", limits);
-        return data;
-    }
-
-    private static JSONObject createServiceConfig(String name, Integer in_port, Integer limiter, String remoteAddr, String protocol, Integer fow_type, Tunnel tunnel, String strategy, String interfaceName) {
-        JSONObject service = new JSONObject();
-        service.put("name", name + "_" + protocol);
-        if (Objects.equals(protocol, "tcp")){
-            service.put("addr", tunnel.getTcpListenAddr() + ":" + in_port);
-        }else {
-            service.put("addr", tunnel.getUdpListenAddr() + ":" + in_port);
-        }
-
-        if (StringUtils.isNotBlank(interfaceName)) {
-            JSONObject metadata = new JSONObject();
-            metadata.put("interface", interfaceName);
-            service.put("metadata", metadata);
-        }
-
-
-        // 添加限流器配置
-        if (limiter != null) {
-            service.put("limiter", limiter.toString());
-        }
-
-        // 配置处理器
-        JSONObject handler = createHandler(protocol, name, fow_type);
-        service.put("handler", handler);
-
-        // 配置监听器
-        JSONObject listener = createListener(protocol);
-        service.put("listener", listener);
-
-        // 端口转发需要配置转发器
-        if (isPortForwarding(fow_type)) {
-            JSONObject forwarder = createForwarder(remoteAddr, strategy);
-            service.put("forwarder", forwarder);
-        }
-        return service;
-    }
-
-    private static JSONObject createHandler(String protocol, String name, Integer fow_type) {
-        JSONObject handler = new JSONObject();
-        handler.put("type", protocol);
-
-        // 隧道转发需要添加链配置
-        if (isTunnelForwarding(fow_type)) {
-            handler.put("chain", name + "_chains");
-        }
-
-        return handler;
-    }
-
-    private static JSONObject createListener(String protocol) {
-        JSONObject listener = new JSONObject();
-        listener.put("type", protocol);
-        if (Objects.equals(protocol, "udp")){
-            JSONObject metadata = new JSONObject();
-            metadata.put("keepAlive", true);
-            listener.put("metadata", metadata);
-        }
-        return listener;
-    }
-
-    private static JSONObject createForwarder(String remoteAddr, String strategy) {
-        JSONObject forwarder = new JSONObject();
-        JSONArray nodes = new JSONArray();
-
-        String[] split = remoteAddr.split(",");
-        int num = 1;
-        for (String addr : split) {
-            JSONObject node = new JSONObject();
-            node.put("name", "node_" + num );
-            node.put("addr", addr);
-            nodes.add(node);
-            num ++;
-        }
-
-        if (strategy == null || strategy.equals("")){
-            strategy = "fifo";
-        }
-
-        forwarder.put("nodes", nodes);
-
-        JSONObject selector = new JSONObject();
-        selector.put("strategy", strategy);
-        selector.put("maxFails", 1);
-        selector.put("failTimeout", "600s");
-        forwarder.put("selector", selector);
-        return forwarder;
-    }
-
-    private static boolean isPortForwarding(Integer fow_type) {
-        return fow_type != null && fow_type == 1;
-    }
-
-    private static boolean isTunnelForwarding(Integer fow_type) {
-        return fow_type != null && fow_type != 1;
-    }
-
 }

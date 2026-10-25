@@ -14,6 +14,8 @@ public class TunnelDto {
     
     @NotBlank(message = "隧道名称不能为空")
     private String name;
+
+    private String engine = "gost";
     
     @NotNull(message = "入口节点不能为空")
     private Long inNodeId;

@@ -6,6 +6,7 @@ import { Textarea } from "@heroui/input";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@heroui/modal";
 import { Chip } from "@heroui/chip";
 import { Switch } from "@heroui/switch";
+import { Select, SelectItem } from "@heroui/select";
 import { Spinner } from "@heroui/spinner";
 import { Alert } from "@heroui/alert";
 import { Progress } from "@heroui/progress";
@@ -22,6 +23,7 @@ import {
 } from "@/api";
 
 interface Node {
+  engine?: string;
   id: number;
   name: string;
   ip: string;
@@ -47,6 +49,7 @@ interface Node {
 }
 
 interface NodeForm {
+  engine: string;
   id: number | null;
   name: string;
   ipString: string;
@@ -75,6 +78,7 @@ export default function NodePage() {
     name: '',
     ipString: '',
     serverIp: '',
+    engine: 'gost',
     portSta: 1000,
     portEnd: 65535,
     http: 0,
@@ -195,6 +199,11 @@ export default function NodePage() {
               systemInfo = messageData;
             }
             
+            // v1 sends a liveness frame, not system-resource measurements.
+            // Keep resource indicators unavailable rather than showing fake 0%.
+            if (node.engine === 'iptables') {
+              return { ...node, connectionStatus: 'online', systemInfo: null };
+            }
             const currentUpload = parseInt(systemInfo.bytes_transmitted) || 0;
             const currentDownload = parseInt(systemInfo.bytes_received) || 0;
             const currentUptime = parseInt(systemInfo.uptime) || 0;
@@ -429,6 +438,7 @@ export default function NodePage() {
       name: node.name,
       ipString: node.ip ? node.ip.split(',').map(ip => ip.trim()).join('\n') : '',
       serverIp: node.serverIp || '',
+      engine: node.engine || 'gost',
       portSta: node.portSta,
       portEnd: node.portEnd,
       http: typeof node.http === 'number' ? node.http : 1,
@@ -533,6 +543,7 @@ export default function NodePage() {
         name: form.name, 
         ip: ipString,
         serverIp: form.serverIp,
+        engine: form.engine,
         portSta: form.portSta,
         portEnd: form.portEnd,
         http: form.http,
@@ -579,6 +590,7 @@ export default function NodePage() {
       name: '',
       ipString: '',
       serverIp: '',
+    engine: 'gost',
       portSta: 1000,
       portEnd: 65535,
       http: 0,
@@ -643,7 +655,7 @@ export default function NodePage() {
                   <div className="flex justify-between items-start w-full">
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-foreground truncate text-sm">{node.name}</h3>
-                      <p className="text-xs text-default-500 truncate">{node.serverIp}</p>
+                      <p className="text-xs text-default-500 truncate">{node.serverIp} · {node.engine || "gost"}</p>
                     </div>
                     <div className="flex items-center gap-1.5 ml-2">
                       <Chip 
@@ -697,6 +709,7 @@ export default function NodePage() {
                   </div>
 
                   {/* 系统监控 */}
+                  {node.engine === 'iptables' && <p className="text-xs text-default-500 mb-2">实验 Agent 暂不提供系统资源指标；转发计费流量正常记录。</p>}
                   <div className="space-y-3 mb-4">
                     <div className="grid grid-cols-2 gap-3">
                       <div>
@@ -837,6 +850,12 @@ export default function NodePage() {
             <ModalHeader>{dialogTitle}</ModalHeader>
             <ModalBody>
               <div className="space-y-4">
+                <Select label="转发引擎" selectedKeys={[form.engine]} isDisabled={isEdit}
+                  onSelectionChange={(keys) => setForm(prev => ({...prev, engine: Array.from(keys)[0] as string, http: 0, tls: 0, socks: 0}))}
+                  description="节点创建后引擎固定；切换引擎请新建节点迁移。">
+                  <SelectItem key="gost">GOST</SelectItem>
+                  <SelectItem key="iptables">iptables · IPv4 端口转发</SelectItem>
+                </Select>
                 <Input
                   label="节点名称"
                   placeholder="请输入节点名称"
@@ -922,7 +941,7 @@ export default function NodePage() {
                         <Switch
                           size="sm"
                           isSelected={form.http === 1}
-                          isDisabled={protocolDisabled}
+                          isDisabled={protocolDisabled || form.engine === 'iptables'}
                           onValueChange={(v) => setForm(prev => ({ ...prev, http: v ? 1 : 0 }))}
                         />
                       </div>
@@ -940,7 +959,7 @@ export default function NodePage() {
                         <Switch
                           size="sm"
                           isSelected={form.tls === 1}
-                          isDisabled={protocolDisabled}
+                          isDisabled={protocolDisabled || form.engine === 'iptables'}
                           onValueChange={(v) => setForm(prev => ({ ...prev, tls: v ? 1 : 0 }))}
                         />
                       </div>
@@ -958,7 +977,7 @@ export default function NodePage() {
                         <Switch
                           size="sm"
                           isSelected={form.socks === 1}
-                          isDisabled={protocolDisabled}
+                          isDisabled={protocolDisabled || form.engine === 'iptables'}
                           onValueChange={(v) => setForm(prev => ({ ...prev, socks: v ? 1 : 0 }))}
                         />
                       </div>

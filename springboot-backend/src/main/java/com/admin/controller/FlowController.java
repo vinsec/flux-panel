@@ -103,7 +103,7 @@ public class FlowController extends BaseController {
     @LogAnnotation
     public String config(@RequestBody String rawData, String secret) {
         Node node = nodeService.getOne(new QueryWrapper<Node>().eq("secret", secret));
-        if (node == null) return SUCCESS_RESPONSE;
+        if (node == null || "iptables".equals(node.getEngine())) return SUCCESS_RESPONSE;
 
         try {
             // 尝试解密数据
@@ -212,6 +212,10 @@ public class FlowController extends BaseController {
     /**
      * 处理流量数据的核心逻辑
      */
+    public String accountEngineDelta(FlowDto flowDataList) {
+        return processFlowData(flowDataList);
+    }
+
     private String processFlowData(FlowDto flowDataList) {
         String[] serviceIds = parseServiceName(flowDataList.getN());
         String forwardId = serviceIds[0];
@@ -301,11 +305,15 @@ public class FlowController extends BaseController {
 
     public void pauseService(List<Forward> forwardList, String name) {
         for (Forward forward : forwardList) {
+            if (Objects.equals(forward.getStatus(),0)) continue;
             Tunnel tunnel = tunnelService.getById(forward.getTunnelId());
             if (tunnel != null){
-                GostUtil.PauseService(tunnel.getInNodeId(), name);
+                User owner=userService.getById(forward.getUserId());
+                UserTunnel permission=owner!=null && Objects.equals(owner.getRoleId(),0)?null:userTunnelService.getOne(new QueryWrapper<UserTunnel>().eq("user_id",forward.getUserId()).eq("tunnel_id",forward.getTunnelId()));
+                String actualName=buildServiceName(forward.getId().toString(),forward.getUserId().toString(),permission==null?"0":permission.getId().toString());
+                if (!"OK".equals(GostUtil.PauseService(tunnel.getInNodeId(), actualName).getMsg())) continue;
                 if (tunnel.getType() == 2){
-                    GostUtil.PauseRemoteService(tunnel.getOutNodeId(), name);
+                    GostUtil.PauseRemoteService(tunnel.getOutNodeId(), actualName);
                 }
             }
             forward.setStatus(0);
@@ -393,7 +401,7 @@ public class FlowController extends BaseController {
     }
 
     private boolean isValidNode(String secret) {
-        int nodeCount = nodeService.count(new QueryWrapper<Node>().eq("secret", secret));
+        int nodeCount = nodeService.count(new QueryWrapper<Node>().eq("secret", secret).ne("engine", "iptables"));
         return nodeCount > 0;
     }
 

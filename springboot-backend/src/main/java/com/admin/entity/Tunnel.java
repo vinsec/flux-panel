@@ -24,6 +24,8 @@ public class Tunnel extends BaseEntity {
      */
     private String name;
 
+    private String engine = "gost";
+
     /**
      * 入口节点ID
      */

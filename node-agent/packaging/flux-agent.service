@@ -1,0 +1,17 @@
+[Unit]
+Description=Flux iptables forwarding agent
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/flux-agent --config /etc/flux-agent/config.json
+Restart=on-failure
+RestartSec=3
+StateDirectory=flux-agent
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

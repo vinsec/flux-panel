@@ -21,6 +21,7 @@ import {
 } from "@/api";
 
 interface Tunnel {
+  engine?: string;
   id: number;
   name: string;
   type: number; // 1: 端口转发, 2: 隧道转发
@@ -39,12 +40,14 @@ interface Tunnel {
 }
 
 interface Node {
+  engine?: string;
   id: number;
   name: string;
   status: number; // 1: 在线, 0: 离线
 }
 
 interface TunnelForm {
+  engine: string;
   id?: number;
   name: string;
   type: number;
@@ -100,6 +103,7 @@ export default function TunnelPage() {
     inNodeId: null,
     outNodeId: null,
     protocol: 'tls',
+    engine: 'gost',
     tcpListenAddr: '[::]',
     udpListenAddr: '[::]',
     interfaceName: '',
@@ -195,6 +199,7 @@ export default function TunnelPage() {
       inNodeId: null,
       outNodeId: null,
       protocol: 'tls',
+    engine: 'gost',
       tcpListenAddr: '[::]',
       udpListenAddr: '[::]',
       interfaceName: '',
@@ -216,6 +221,7 @@ export default function TunnelPage() {
       inNodeId: tunnel.inNodeId,
       outNodeId: tunnel.outNodeId || null,
       protocol: tunnel.protocol || 'tls',
+      engine: tunnel.engine || 'gost',
       tcpListenAddr: tunnel.tcpListenAddr || '[::]',
       udpListenAddr: tunnel.udpListenAddr || '[::]',
       interfaceName: tunnel.interfaceName || '',
@@ -632,6 +638,14 @@ export default function TunnelPage() {
                       variant="bordered"
                     />
                     
+                    <Select label="转发引擎" selectedKeys={[form.engine]} isDisabled={isEdit}
+                      onSelectionChange={(keys) => {
+                        const engine=Array.from(keys)[0] as string;
+                        setForm(prev=>({...prev,engine,inNodeId:null,type:1,outNodeId:null,tcpListenAddr:engine==='iptables'?'0.0.0.0':'[::]',udpListenAddr:engine==='iptables'?'0.0.0.0':'[::]',interfaceName:''}));
+                      }} description={form.engine==='iptables'?'首版支持单目标 IPv4 TCP/UDP；不支持限速和 GOST 中继。':'使用现有 GOST 节点能力。'}>
+                      <SelectItem key="gost">GOST</SelectItem>
+                      <SelectItem key="iptables">iptables · 内核转发</SelectItem>
+                    </Select>
                     <Select
                       label="隧道类型"
                       placeholder="请选择隧道类型"
@@ -648,11 +662,12 @@ export default function TunnelPage() {
                       isDisabled={isEdit}
                     >
                       <SelectItem key="1">端口转发</SelectItem>
-                      <SelectItem key="2">隧道转发</SelectItem>
+                      <SelectItem key="2" isDisabled={form.engine === "iptables"}>隧道转发</SelectItem>
                     </Select>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <Select
+                        description={form.engine === 'iptables' ? '按网络层包字节计量，包含协议开销；与 GOST 读写字节口径不同。' : '按 GOST 读写字节计量。'}
                         label="流量计算"
                         placeholder="请选择流量计算方式"
                         selectedKeys={[form.flow.toString()]}
@@ -666,8 +681,8 @@ export default function TunnelPage() {
                         errorMessage={errors.flow}
                         variant="bordered"
                       >
-                        <SelectItem key="1">单向计算（仅上传）</SelectItem>
-                        <SelectItem key="2">双向计算（上传+下载）</SelectItem>
+                        <SelectItem key="1">单向计费（×1）</SelectItem>
+                        <SelectItem key="2">双向计费（×2）</SelectItem>
                       </Select>
 
                       <Input
@@ -708,7 +723,7 @@ export default function TunnelPage() {
                       variant="bordered"
                       isDisabled={isEdit}
                     >
-                      {nodes.map((node) => (
+                      {nodes.filter(node => (node.engine || "gost") === form.engine).map((node) => (
                         <SelectItem 
                           key={node.id}
                           textValue={`${node.name} (${node.status === 1 ? '在线' : '离线'})`}

@@ -54,7 +54,7 @@ public class NodeController extends BaseController {
         return nodeService.deleteNode(id);
     }
 
-    @LogAnnotation
+    // Installation instructions contain the node secret; never log the response.
     @RequireRole
     @PostMapping("/install")
     public R getInstallCommand(@RequestBody Map<String, Object> params) {

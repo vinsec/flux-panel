@@ -19,6 +19,8 @@ public class TunnelUpdateDto {
     
     @NotBlank(message = "隧道名称不能为空")
     private String name;
+
+    private String engine = "gost";
     
     @NotNull(message = "流量计算类型不能为空")
     private Integer flow;
