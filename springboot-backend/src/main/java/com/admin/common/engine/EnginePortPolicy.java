@@ -19,12 +19,38 @@ public class EnginePortPolicy {
     @Resource private NodeMapper nodes;
     private final java.util.concurrent.ConcurrentHashMap<String,java.util.concurrent.locks.ReentrantLock> locks=new java.util.concurrent.ConcurrentHashMap<>();
     public <T>T locked(Tunnel tunnel,Supplier<T> action){
-        Node node=nodes.selectById(tunnel.getInNodeId());if(node==null)return action.get();String host=node.getServerIp();if(host==null||host.isBlank())host="node:"+node.getId();String key="flux-port-"+NodeCredentials.hash(host.toLowerCase(Locale.ROOT)).substring(0,40);
+        if(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
+            throw new IllegalStateException("port mutations require their own autocommit boundary");
+        Node node=nodes.selectById(tunnel.getInNodeId());if(node==null)return action.get();
+        String host=node.getServerIp();if(host==null||host.isBlank())host="node:"+node.getId();
+        String key="flux-port-"+NodeCredentials.hash(host.toLowerCase(Locale.ROOT)).substring(0,40);
         var mutex=locks.computeIfAbsent(key,k->new java.util.concurrent.locks.ReentrantLock());mutex.lock();
-        try(Connection connection=dataSource.getConnection();PreparedStatement take=connection.prepareStatement("SELECT GET_LOCK(?,10)")){
-            take.setString(1,key);try(ResultSet result=take.executeQuery()){if(!result.next()||result.getInt(1)!=1)throw new IllegalStateException("physical node port lock busy");}
-            try{return action.get();}finally{try(PreparedStatement release=connection.prepareStatement("SELECT RELEASE_LOCK(?)")){release.setString(1,key);release.executeQuery().close();}}
-        }catch(SQLException e){throw new IllegalStateException("physical node port arbitration unavailable");}finally{mutex.unlock();}
+        Connection connection=null;boolean boundHere=false,acquired=false;
+        try {
+            connection=org.springframework.jdbc.datasource.DataSourceUtils.getConnection(dataSource);
+            if(!org.springframework.transaction.support.TransactionSynchronizationManager.hasResource(dataSource)){
+                // Reuse the lock's connection for MyBatis/JDBC on this thread.
+                // No outer DB transaction is opened: writes stay visible before
+                // synchronous credit requests, while unrelated hosts cannot
+                // exhaust the pool by each waiting for a second connection.
+                org.springframework.transaction.support.TransactionSynchronizationManager.bindResource(dataSource,new org.springframework.jdbc.datasource.ConnectionHolder(connection));
+                boundHere=true;
+            }
+            try(PreparedStatement take=connection.prepareStatement("SELECT GET_LOCK(?,10)")){
+                take.setString(1,key);try(ResultSet result=take.executeQuery()){if(!result.next()||result.getInt(1)!=1)throw new IllegalStateException("physical node port lock busy");}
+            }
+            acquired=true;return action.get();
+        } catch(SQLException e){throw new IllegalStateException("physical node port arbitration unavailable");}
+        finally {
+            try {
+                if(acquired)try(PreparedStatement release=connection.prepareStatement("SELECT RELEASE_LOCK(?)")){release.setString(1,key);release.executeQuery().close();}
+            } catch(SQLException ignored) { /* closing the owned connection also releases its lock */ }
+            finally {
+                if(boundHere)org.springframework.transaction.support.TransactionSynchronizationManager.unbindResource(dataSource);
+                if(connection!=null)org.springframework.jdbc.datasource.DataSourceUtils.releaseConnection(connection,dataSource);
+                mutex.unlock();
+            }
+        }
     }
     public boolean typed(String options){return options!=null&&!options.isBlank()&&JSONObject.parseObject(options).containsKey("listeners");}
     private static JSONObject options(String value){return value==null||value.isBlank()?new JSONObject():JSONObject.parseObject(value);}

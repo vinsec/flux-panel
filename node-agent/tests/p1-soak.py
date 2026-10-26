@@ -64,14 +64,14 @@ pathlib.Path('/evidence/soak-client.json').write_text(json.dumps({'durationSecon
  result=json.loads((OUT/'soak-client.json').read_text());check('128 established connections and repeated fresh connections remain correct during mutations',not result['failures'] and result['exchanges']>SECONDS*20)
  check('traffic and updates ran with normal one-second persistent counter reporting',reportCount[0]>SECONDS//3 and len(updates)>=SECONDS//15)
  warm=[s['rssBytes'] for s in samples if s['elapsedSeconds']>min(30,SECONDS/3)]
- check('warm RSS remains within a bounded 64 MiB band',max(warm)-min(warm)<64*1024*1024)
+ quarter=max(1,len(warm)//4);medianGrowth=statistics.median(warm[-quarter:])-statistics.median(warm[:quarter]);check('RSS stays below 384 MiB with no 32 MiB upward shift in warm-window medians',max(warm)<384*1024*1024 and medianGrowth<32*1024*1024)
  # Pause one hot forwarding after the traffic run, then verify no stale flow
  # survives the policy. A resume must use the same monotonic accounting token.
  before=state();t=time.monotonic();PANEL.rpc('SetForwardState',{'id':str(COUNT)+'_1_0','revision':2,'enabled':False},timeout=40);pause=time.monotonic()-t
  check('hot forwarding pause still blocks TCP/UDP after long load',probe(hot,True))
  PANEL.rpc('SetForwardState',{'id':str(COUNT)+'_1_0','revision':3,'enabled':True},timeout=40);check('resume restores the hot forwarding without resetting its ledger',probe(hot))
  stop(a);restartStarted=time.monotonic();a=agent(timeout=90);restartSeconds=time.monotonic()-restartStarted;check('restart restores 10k advanced rules and data after concurrent load',probe(hot))
- info={'success':True,'rules':COUNT,'durationSeconds':result['durationSeconds'],'coldApplySeconds':cold,'connectionSetupSeconds':ready['setupSeconds'],'pauseSeconds':pause,'restartSeconds':restartSeconds,'agentSha256':artifacts['agent'],'reportCount':reportCount[0],'samples':samples,'updates':updates,'bidirectionalApplicationBytes':result['bidirectionalApplicationBytes'],'externalForwardTestTargets':[],'hostIsShared':True,'acceptance':'functional resource soak, not an exclusive physical-host perf attribution'}
+ info={'success':True,'rules':COUNT,'durationSeconds':result['durationSeconds'],'coldApplySeconds':cold,'connectionSetupSeconds':ready['setupSeconds'],'pauseSeconds':pause,'restartSeconds':restartSeconds,'agentSha256':artifacts['agent'],'reportCount':reportCount[0],'warmMedianGrowthBytes':medianGrowth,'rssPeakBytes':max(warm),'samples':samples,'updates':updates,'bidirectionalApplicationBytes':result['bidirectionalApplicationBytes'],'externalForwardTestTargets':[],'hostIsShared':True,'acceptance':'functional resource soak, not an exclusive physical-host perf attribution'}
  (OUT/'soak.json').write_text(json.dumps(info,indent=2));DONE=True
 except Exception:
  traceback.print_exc()

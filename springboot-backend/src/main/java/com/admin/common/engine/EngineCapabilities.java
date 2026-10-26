@@ -38,16 +38,21 @@ public final class EngineCapabilities {
     public static JSONObject negotiate(Long node) {
         JSONObject current = info(node);
         if (current != null) return current;
+        String expectedSession=WebSocketServer.nodeSessionId(node);
         GostDto result = WebSocketServer.send_msg(node, new JSONObject(), "GetCapabilities");
         if ("OK".equals(result.getMsg()) && result.getData() != null) {
             JSONObject value = (JSONObject) JSONObject.toJSON(result.getData());
             String session = WebSocketServer.nodeSessionId(node);
-            if (session != null) register(node, session, value);
+            if (session != null && session.equals(expectedSession)) register(node, session, value);
         }
         return info(node);
     }
 
     public static void require(Long node, String feature) {
+        // Short-lived credentials rotate the socket. Its new EngineHello may
+        // still be queued when a batch arrives; negotiate the current session
+        // instead of treating a missing advertisement as an unsupported engine.
+        if(info(node)==null)negotiate(node);
         if (!supports(node, feature))
             throw new IllegalArgumentException("node does not advertise capability: " + feature);
     }
