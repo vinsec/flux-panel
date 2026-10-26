@@ -239,6 +239,13 @@ print('ok')"""
  check('new wildcard address forwards UDP without resuming paused TCP',run(ns('client','python3','-c',protocol_probe.replace('10.205.1.1','10.205.1.9')))=='ok')
  run(['ip','-n','router','addr','del','10.205.1.9/24','dev','r0'])
  wait(lambda:'10.205.1.9,' not in router('ipset','save','FP4_BIND'));check('deleted local address leaves no wildcard binding')
+ router('sh','-c','(mount -o remount,rw /proc/sys 2>/dev/null || true); sysctl -w net.ipv6.conf.r0.dad_transmits=20')
+ router('ip','-6','addr','add','fd25:1::9/64','dev','r0');time.sleep(1)
+ check('IPv6 tentative addresses stay out of wildcard bindings until DAD completes','fd25:1::9,' not in router('ipset','save','FP6_BIND'))
+ router('ip','-6','addr','del','fd25:1::9/64','dev','r0');router('ip','-6','addr','add','fd25:1::9/64','dev','r0','nodad')
+ wait(lambda:'fd25:1::9,' in router('ipset','save','FP6_BIND'));router('ip','-6','addr','del','fd25:1::9/64','dev','r0')
+ wait(lambda:'fd25:1::9,' not in router('ipset','save','FP6_BIND'));check('usable IPv6 address is added and removed by netlink without business revision')
+
  # Weighted round-robin uses separate new sockets; established sockets stay pinned.
  pool={'schemaVersion':3,'id':'8_1_0','revision':1,'enabled':True,'listeners':[{'host':'10.205.1.1','port':18006,'protocol':'tcp'}],'selection':'round','targets':[{'endpoint':{'host':'10.205.3.2','port':19002},'weight':1},{'endpoint':{'host':'10.205.3.3','port':19002},'weight':3}]};apply(pool)
  distribution="""import socket,json;counts={}
@@ -256,6 +263,12 @@ print(json.dumps(counts))"""
  run(ns('target','iptables','-D','INPUT','-d','10.205.3.2','-p','tcp','--dport','19002','-j','REJECT'))
  wait(lambda:all(p['healthy'] for p in state()['rules']['8_1_0']['runtime']['targets']),8);check('health rise restores recovered targets')
 
+
+ run(ns('target','iptables','-I','INPUT','1','-p','tcp','--dport','19002','-j','REJECT'))
+ wait(lambda:all(not p['healthy'] for p in state()['rules']['8_1_0']['runtime']['targets']),8)
+ check('all unhealthy targets close new admission and report a failed state',PANEL.rpc('GetForwardStatus',{'id':'8_1_0'})['data']['status']=='failed')
+ run(ns('target','iptables','-D','INPUT','-p','tcp','--dport','19002','-j','REJECT'))
+ wait(lambda:all(p['healthy'] for p in state()['rules']['8_1_0']['runtime']['targets']),8)
  # Source-IP hashing should keep new connections from each source on one node.
  pool['revision']=3;pool['selection']='hash';pool.pop('health');apply(pool)
  for i in range(10,74):run(['ip','-n','client','addr','add','10.205.1.'+str(i)+'/24','dev','c0'])

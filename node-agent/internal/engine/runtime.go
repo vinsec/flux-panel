@@ -198,13 +198,21 @@ func (m *Manager) RuntimeStatus(id string) map[string]any {
 		return map[string]any{"status": "absent"}
 	}
 	status := "applied"
+	healthFailure := false
 	if s.Deleted {
 		status = "deleted"
 	} else if !s.Active() {
 		status = "paused"
 	} else if s.Advanced() {
 		usable := false
+		eligible, failed := 0, 0
 		for _, p := range s.Paths() {
+			if p.RetiredAt == 0 && p.AcceptNew {
+				eligible++
+				if s.Health.Protocol != "" && p.Failures >= s.Health.Fall {
+					failed++
+				}
+			}
 			if p.RetiredAt == 0 && p.AcceptNew && p.Healthy {
 				usable = true
 			}
@@ -212,11 +220,18 @@ func (m *Manager) RuntimeStatus(id string) map[string]any {
 		if !usable {
 			status = "pending"
 		}
+		if !usable && eligible > 0 && failed == eligible {
+			status = "failed"
+			healthFailure = true
+		}
 		if s.Runtime.Status == "failed" {
 			status = "failed"
 		}
 	}
 	result := map[string]any{"id": id, "desiredRevision": s.Revision, "appliedRevision": s.Revision, "generation": m.state.Generation, "status": status, "counterLayer": "network", "intentHash": s.IntentHash}
+	if healthFailure {
+		result["error"] = "all current targets failed the configured health checks"
+	}
 	if k, ok := m.Kernel.(interface{ RuntimeFailure(string) string }); ok {
 		if failure := k.RuntimeFailure(id); failure != "" {
 			result["status"] = "failed"
@@ -271,7 +286,13 @@ func expireRuntime(state State, now int64) (State, bool) {
 				changed = true
 			}
 			s.Runtime.Generation++
-			s.Runtime.Status = "partial"
+			s.Runtime.Status = "failed"
+			for _, p := range s.Runtime.Targets {
+				if p.RetiredAt == 0 && p.AcceptNew {
+					s.Runtime.Status = "partial"
+					break
+				}
+			}
 			s.Runtime.Error = "DNS freshness deadline exceeded; new connections closed"
 			after.Rules[id] = s
 		}

@@ -172,6 +172,12 @@ try:
     wait(lambda:probe(18009)=='tcp_udp_ok');check('real Java API preserves independent same-port TCP/UDP and node health/shaping')
     states=api('engine/forward-states',{'ids':[adv['id'],advudp['id']]})['data']
     check('API returns actual node applied state and distinct business IDs',len(states)==2 and all(row['state']['status']=='applied' for row in states))
+    api('engine/set-bandwidth-group',{'nodeId':n['id'],'scope':'user','ownerId':1,'upBitsPerSecond':6000000,'downBitsPerSecond':6000000})
+    wait(lambda:json.loads(pathlib.Path('/tmp/flux-agent-state.json').read_text())['rules'][str(adv['id'])+'_1_0'].get('bandwidth',{}).get('user',{}).get('upBitsPerSecond')==6000000,30)
+    check('admin bandwidth group changes reach existing forwards through batch reconciliation')
+    api('engine/set-bandwidth-group',{'nodeId':n['id'],'scope':'user','ownerId':1,'upBitsPerSecond':0,'downBitsPerSecond':0})
+    live=api('engine/capabilities',{'nodeId':n['id']})['data'];check('admin inspection returns current capacity and fresh report acknowledgement',live.get('lastAckAt',0)>0 and live['capacity']['configuredForwards']>=2)
+    diagnosis=api('forward/diagnose',{'forwardId':adv['id']})['data'];check('diagnostics identify bounded TCP handshake without inventing packet loss',all(x.get('probeKind')=='tcpHandshake' and 'packetLoss' not in x for x in diagnosis['results']))
     assert sql('SELECT COUNT(*) n FROM engine_session WHERE node_id=%s',(n['id'],))[0]['n']>0
     check('new agent registers with opaque short-lived bearer session stored only by hash')
     serial=(OUT/'agent.log').read_text().count('iptables agent connected')

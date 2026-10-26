@@ -125,3 +125,18 @@ func TestHTBGuaranteesCannotBypassSharedCeiling(t *testing.T) {
 		t.Fatal("unrepresentable HTB guarantees silently accepted")
 	}
 }
+
+func TestRuntimeDistinguishesUnprobedAndFailedHealth(t *testing.T) {
+	s, _ := advancedExample().Normalize()
+	s.Health = HealthPolicy{Protocol: "tcp", Fall: 2}
+	s.Runtime.Targets = []ResolvedTarget{{Host: "192.0.2.10", AcceptNew: true, Failures: 2}}
+	m := &Manager{state: State{Rules: map[string]Spec{s.ID: s}}}
+	if m.RuntimeStatus(s.ID)["status"] != "failed" {
+		t.Fatal("known health failure hidden as pending")
+	}
+	s.Runtime.Targets[0].Failures = 0
+	m.state.Rules[s.ID] = s
+	if m.RuntimeStatus(s.ID)["status"] != "pending" {
+		t.Fatal("new health probe reported failed prematurely")
+	}
+}

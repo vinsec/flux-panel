@@ -109,6 +109,7 @@ interface DiagnosisResult {
     message?: string;
     averageTime?: number;
     packetLoss?: number;
+    probeKind?: string;
   }>;
 }
 
@@ -2113,11 +2114,11 @@ export default function ForwardPage() {
                                 <div className="space-y-3">
                                   <div className="grid grid-cols-3 gap-4">
                                     <div className="text-center">
-                                      <div className="text-2xl font-bold text-primary">{result.averageTime?.toFixed(0)}</div>
-                                      <div className="text-small text-default-500">平均延迟(ms)</div>
+                                      <div className="text-2xl font-bold text-primary">{result.averageTime?.toFixed(0)??'-'}</div>
+                                      <div className="text-small text-default-500">{result.probeKind==='tcpHandshake'?'TCP握手(ms)':'平均延迟(ms)'}</div>
                                     </div>
                                     <div className="text-center">
-                                      <div className="text-2xl font-bold text-warning">{result.packetLoss?.toFixed(1)}</div>
+                                      <div className="text-2xl font-bold text-warning">{result.packetLoss?.toFixed(1)??'-'}</div>
                                       <div className="text-small text-default-500">丢包率(%)</div>
                                     </div>
                                     <div className="text-center">

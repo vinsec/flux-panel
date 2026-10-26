@@ -20,8 +20,8 @@ public class EngineControlController {
     @PostMapping("/capabilities")
     @RequireRole
     public R capabilities(@RequestBody JSONObject data) {
-        JSONObject info = EngineCapabilities.negotiate(data.getLong("nodeId"));
-        return info == null ? R.err("node capabilities unavailable") : R.ok(info);
+        GostDto reply=WebSocketServer.send_msg(data.getLong("nodeId"),new JSONObject(),"GetCapabilities");
+        return "OK".equals(reply.getMsg()) && reply.getData()!=null ? R.ok(reply.getData()) : R.err("node capabilities unavailable");
     }
 
     @PostMapping("/reconcile")

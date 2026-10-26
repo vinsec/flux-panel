@@ -3,7 +3,7 @@ try:
  if os.getenv('IPTABLES_BACKEND')=='legacy':run(['update-alternatives','--set','iptables','/usr/sbin/iptables-legacy'])
  topology();server=http.server.ThreadingHTTPServer(('10.205.4.1',8000),Handler);server.daemon_threads=True;threading.Thread(target=server.serve_forever,daemon=True).start()
  CONFIG.write_text(json.dumps({'addr':'http://10.205.4.1:8000','secret':SECRET,'statePath':str(STATE),'apply':True,'allowInsecure':True,'intervalSeconds':1}));a=agent()
- info=PANEL.rpc('GetCapabilities')['data'];check('negotiated protocol versions and explicit disabled DNS/IPv6',info['capabilities']['protocolVersions']==[1,2] and not info['capabilities']['features']['ipv6'] and not info['capabilities']['features']['dns'])
+ info=PANEL.rpc('GetCapabilities')['data'];check('negotiated legacy/advanced protocols and explicit cross-family limit',info['capabilities']['protocolVersions']==[1,2,3] and info['capabilities']['features']['ipv6'] and info['capabilities']['features']['dns'] and not info['capabilities']['features']['crossFamily'])
  s=spec();s.update(schemaVersion=2,listen={'kind':'ip','host':'10.205.1.1','port':18000},target={'kind':'ip','host':'10.205.3.2','port':19000},protocols=['tcp','udp']);apply(s);check('structured endpoint forwards real TCP and UDP',probe())
  bad=spec('2_1_0',18001);bad.update(schemaVersion=2,listen={'kind':'ip','host':'10.205.1.1','port':18001},target={'kind':'hostname','host':'origin.example','port':443});check('unimplemented target capabilities rejected without modifying live forwarding',not apply(bad,False)['success'] and probe())
  # Fragmented UDP crosses a lower-MTU intermediate router and is reassembled.

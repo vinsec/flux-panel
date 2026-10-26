@@ -607,7 +607,7 @@ public class EngineCreditService {
             JSONObject c = (JSONObject) JSONObject.toJSON(v);
             String id = c.getString("id"), set = c.getString("set");
             validateID(id);
-            if (!Set.of("FPV2_UP","FPV2_DOWN","FP4_UP","FP4_DOWN","FP6_UP","FP6_DOWN").contains(set)
+            if (set==null || !Set.of("FPV2_UP","FPV2_DOWN","FP4_UP","FP4_DOWN","FP6_UP","FP6_DOWN").contains(set)
                     || c.getString("key") == null
                     || c.getString("key").length() > 100)
                 throw new IllegalArgumentException("invalid counter watermark");
