@@ -20,6 +20,7 @@ type SharedQuota struct {
 	ready      bool
 	hook       bool
 	localHooks bool
+	localSets  bool
 	shape      string
 }
 
@@ -42,10 +43,17 @@ func (q *SharedQuota) ensure() error {
 					Name string `json:"name"`
 					Hook string `json:"hook"`
 				} `json:"chain"`
+				Set *struct {
+					Name string `json:"name"`
+				} `json:"set"`
 			} `json:"nftables"`
 		}
 		_ = json.Unmarshal([]byte(saved), &parsed)
+		localSets := map[string]bool{}
 		for _, item := range parsed.NFT {
+			if item.Set != nil {
+				localSets[item.Set.Name] = true
+			}
 			if item.Chain != nil && item.Chain.Name == "gate" && item.Chain.Hook == "forward" {
 				q.hook = true
 			}
@@ -53,6 +61,7 @@ func (q *SharedQuota) ensure() error {
 				q.localHooks = true
 			}
 		}
+		q.localSets = localSets["lorig"] && localSets["ltarg"]
 		return nil
 	}
 	text := fmt.Sprintf("add table inet %s\nadd chain inet %s owner\nadd rule inet %s owner return comment \"%s\"\nadd set inet %s required { type mark; }\nadd set inet %s live { type mark; flags timeout; }\nadd map inet %s budgets { type mark : quota; }\n", quotaTable, quotaTable, quotaTable, advancedOwner, quotaTable, quotaTable, quotaTable)
@@ -184,13 +193,38 @@ func (q *SharedQuota) sync(s State) error {
 			needLocal = true
 		}
 	}
-	if needLocal && !q.localHooks {
+	if needLocal {
+		if !q.localSets {
+			fmt.Fprintf(&b, "add set inet %s lorig { type mark; }\nadd set inet %s ltarg { type mark; }\n", quotaTable, quotaTable)
+		}
+		fmt.Fprintf(&b, "flush set inet %s lorig\nflush set inet %s ltarg\n", quotaTable, quotaTable)
+		for _, rule := range required {
+			if q.parent.P1 != nil && q.parent.P1.runtimeErrors[rule.ID] != "" {
+				continue
+			}
+			if rule.trafficPolicy().LocalOutput {
+				fmt.Fprintf(&b, "add element inet %s lorig { 0x%x }\n", quotaTable, flowMark(rule))
+			}
+			if rule.trafficPolicy().LocalTargets {
+				fmt.Fprintf(&b, "add element inet %s ltarg { 0x%x }\n", quotaTable, flowMark(rule))
+			}
+		}
 		for _, hook := range []string{"input", "output"} {
 			chain := "gate_" + hook
-			fmt.Fprintf(&b, "add chain inet %s %s { type filter hook %s priority -5; policy accept; }\n", quotaTable, chain, hook)
-			if hook == "output" {
-				fmt.Fprintf(&b, "add rule inet %s %s fib daddr type local return\n", quotaTable, chain)
+			if q.localHooks {
+				fmt.Fprintf(&b, "flush chain inet %s %s\n", quotaTable, chain)
+			} else {
+				fmt.Fprintf(&b, "add chain inet %s %s { type filter hook %s priority -5; policy accept; }\n", quotaTable, chain, hook)
 			}
+			if hook == "input" {
+				fmt.Fprintf(&b, "add rule inet %s %s iifname \"lo\" return\n", quotaTable, chain)
+			}
+			fmt.Fprintf(&b, "add rule inet %s %s ct status & dnat == 0 return\n", quotaTable, chain)
+			origPolicy, replyPolicy := "ltarg", "lorig"
+			if hook == "output" {
+				origPolicy, replyPolicy = "lorig", "ltarg"
+			}
+			fmt.Fprintf(&b, "add rule inet %s %s ct direction original ct mark & 0xffffff00 != @%s return\nadd rule inet %s %s ct direction reply ct mark & 0xffffff00 != @%s return\n", quotaTable, chain, origPolicy, quotaTable, chain, replyPolicy)
 			fmt.Fprintf(&b, "add rule inet %s %s meta l4proto { tcp, udp } ct mark & 0xffffff00 @required ct mark & 0xffffff00 != @live drop\n", quotaTable, chain)
 			fmt.Fprintf(&b, "add rule inet %s %s meta l4proto { tcp, udp } quota name ct mark & 0xffffff00 map @budgets drop\n", quotaTable, chain)
 		}
@@ -241,6 +275,9 @@ func (q *SharedQuota) sync(s State) error {
 	}
 	q.hook = len(required) > 0
 	q.localHooks = needLocal
+	if needLocal {
+		q.localSets = true
+	}
 	return nil
 }
 func (q *SharedQuota) canRenew(before, after State) (bool, error) {

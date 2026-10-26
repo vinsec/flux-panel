@@ -8,7 +8,7 @@ import (
 
 func TestTrafficPolicyRequiresSchema4AndConfirmedRouting(t *testing.T) {
 	s := advancedExample()
-	s.Traffic = TrafficPolicy{SourceMode: "preserve", ReturnPathConfirmed: true}
+	s.Traffic = &TrafficPolicy{SourceMode: "preserve", ReturnPathConfirmed: true}
 	if _, err := s.Normalize(); err == nil {
 		t.Fatal("old wire schema silently accepted new NAT semantics")
 	}
@@ -33,7 +33,7 @@ func TestLocalPathsRetainNewSharedCapsForFailClosedApply(t *testing.T) {
 	for _, b := range []BandwidthPolicy{{UpBitsPerSecond: 1000000}, {User: BandwidthGroup{ID: "u1", DownBitsPerSecond: 1000000}}, {Tunnel: BandwidthGroup{ID: "t1", UpBitsPerSecond: 1000000}}} {
 		s := advancedExample()
 		s.SchemaVersion = 4
-		s.Traffic.LocalOutput = true
+		s.Traffic = &TrafficPolicy{LocalOutput: true}
 		s.Bandwidth = b
 		n, err := s.Normalize()
 		if err != nil || !n.localTraffic() || !n.Bandwidth.Enabled() {
@@ -66,9 +66,43 @@ func TestP1TrafficPolicyDoesNotGrowStateOrWire(t *testing.T) {
 		t.Fatal("P1 state grew for an unused P2 capability", err)
 	}
 	s.SchemaVersion = 4
-	s.Traffic.LocalOutput = true
+	s.Traffic = &TrafficPolicy{LocalOutput: true}
 	data, err = json.Marshal(s)
 	if err != nil || !bytes.Contains(data, []byte(`"localOutput":true`)) {
 		t.Fatal("explicit P2 policy missing from state", err)
+	}
+}
+
+func TestExternalLoopbackUDPIsRejectedWithoutChangingLocalOnlySupport(t *testing.T) {
+	for _, pair := range [][2]string{{"10.0.0.1", "127.0.0.1"}, {"fd00::1", "::1"}} {
+		s := advancedExample()
+		s.SchemaVersion = 4
+		s.Traffic = &TrafficPolicy{LocalOutput: true, LocalTargets: true, SourceMode: "preserve", ReturnPathConfirmed: true}
+		s.Listeners = []Listener{{Protocol: "udp", Host: pair[0], Port: 18000}}
+		s.Targets = []Target{{Endpoint: Endpoint{Host: pair[1], Port: 19000}, Weight: 1}}
+		if _, err := s.Normalize(); err == nil {
+			t.Fatal("unsupported external UDP loopback accepted")
+		}
+		s.Listeners[0].Host = pair[1]
+		s.Traffic.SourceMode = ""
+		s.Traffic.ReturnPathConfirmed = false
+		if _, err := s.Normalize(); err != nil {
+			t.Fatal("host-only loopback was disabled", err)
+		}
+	}
+}
+func TestTrafficPolicySnapshotIsolation(t *testing.T) {
+	s := advancedExample()
+	s.SchemaVersion = 4
+	s.Traffic = &TrafficPolicy{LocalOutput: true}
+	other := cloneSpec(s)
+	other.Traffic.LocalOutput = false
+	if !s.Traffic.LocalOutput {
+		t.Fatal("policy aliases previous generation")
+	}
+	copied := cloneState(State{Rules: map[string]Spec{s.ID: s}})
+	copied.Rules[s.ID].Traffic.LocalTargets = true
+	if s.Traffic.LocalTargets {
+		t.Fatal("state aliases policy")
 	}
 }

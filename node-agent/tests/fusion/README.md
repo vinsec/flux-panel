@@ -31,3 +31,5 @@ VM 输入放 `/opt/flux-p1/{build,tests,packaging,guest}`。`/tests`、`/build`�
 性能输入除当前 `/build/flux-agent` 外，还需冻结 P1 的 `/build/flux-agent-p1`、当前 `/build/flux-agent-v2` 和 `/build/bench-peer`。`p2-regression` 使用 3/10k 规则、三轮交错顺序，1 GiB 严格接收确认的双向传输，以及默认 20 秒的 150 Mbps CPU 采样和 TCP/UDP 延迟。统计每秒上报，私有应用负载总上限 32 GiB。CPU 含端点和 guest 系统开销，不能当作独占物理 PMU 归因。镜像、依赖和编译器均可复用，不需额外下载。
 
 针对吞吐/RTT 信号，可另跑 `p2-confirmation`：每个版本每种规模五轮交错，单轮三次 1 GiB 严格下载，常驻 TCP/UDP 各 5000 个 RTT 样本，统计周期一秒。单次确认的私有应用字节上限 64 GiB；与主测试分开保存，不混用不同窗口的结果。
+
+若短促峰值与一秒采样周期相互影响，可使用 `p2-window`：每方向连续八次 1 GiB 接收确认组成窗口，覆盖采样工作；每版本每规模三轮交错，并采集 20 秒固定速率 CPU、5000 个常驻 TCP/UDP RTT。上限 256 GiB 私有应用负载，记录可达转发规则图与自有集合，固定二进制哈希。此模式不走公网；不要把单次峰值或共享 VM 的波动当作已经证明的改进。

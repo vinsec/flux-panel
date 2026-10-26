@@ -76,6 +76,10 @@ func cloneState(s State) State {
 		spec.Protocols = slices.Clone(spec.Protocols)
 		if spec.AdvancedOptions != nil {
 			advanced := *spec.AdvancedOptions
+			if spec.Traffic != nil {
+				policy := *spec.Traffic
+				advanced.Traffic = &policy
+			}
 			advanced.Listeners = slices.Clone(advanced.Listeners)
 			advanced.Targets = slices.Clone(advanced.Targets)
 			advanced.Runtime.Targets = slices.Clone(advanced.Runtime.Targets)

@@ -82,7 +82,7 @@ export default function AdvancedForwardFields({value,onChange,features,port,remo
       {features.localTargets&&<Switch size="sm" isSelected={!!options.traffic?.localTargets} onValueChange={v=>set('traffic',{...options.traffic,localTargets:v})}>允许转发到本机服务</Switch>}
       {features.preserveSource&&<Switch size="sm" isSelected={options.traffic?.sourceMode==='preserve'} onValueChange={v=>set('traffic',{...options.traffic,sourceMode:v?'preserve':'masquerade',returnPathConfirmed:false})}>保留客户端源地址</Switch>}
       {options.traffic?.sourceMode==='preserve'&&<Switch size="sm" isSelected={!!options.traffic.returnPathConfirmed} onValueChange={v=>set('traffic',{...options.traffic,returnPathConfirmed:v})}>已确认目标回程经过本节点</Switch>}
-      <p className="text-xs text-default-500">默认保持地址转换，支持同网段回流。本地流量暂不能与用户、隧道或转发平滑限速组合；外部访问 IPv4 回环目标需节点事先配置路由，建议使用本机网卡地址。</p>
+      <p className="text-xs text-default-500">默认保持地址转换，支持同网段回流。本地流量暂不能与用户、隧道或转发平滑限速组合；IPv4 回环与远端互通需节点预设路由；IPv6 远端请使用网卡监听与目标地址。本机 UDP 目标仅支持地址转换模式。</p>
     </div>}
     {features.shaping&&<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <Input label="本转发上传上限（Mbps，0 不另限）" type="number" min={0} value={String((options.bandwidth?.upBitsPerSecond||0)/1000000)} onValueChange={v=>set('bandwidth',{...options.bandwidth,upBitsPerSecond:Math.round(Number(v)*1000000)})}/>

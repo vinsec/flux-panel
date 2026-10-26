@@ -43,7 +43,7 @@ func (k *IPTables) RefreshBindings(rules map[string]Spec) (changed bool, failure
 		if failure != nil && k.P1 != nil {
 			k.P1.addressDirty.Store(true)
 			for id, s := range rules {
-				if s.Advanced() && (s.Egress.Interface != "" || s.Bandwidth.Enabled()) {
+				if s.Advanced() && (s.Egress.Interface != "" || s.Bandwidth.Enabled() || s.needsTrafficSets()) {
 					if k.P1.runtimeErrors == nil {
 						k.P1.runtimeErrors = map[string]string{}
 					}
@@ -89,7 +89,7 @@ func (k *IPTables) RefreshBindings(rules map[string]Spec) (changed bool, failure
 		s := rules[id]
 		if s.Advanced() {
 			advancedPlan = append(advancedPlan, s)
-			if !s.Deleted && (s.Egress.Interface != "" || s.Bandwidth.Enabled()) {
+			if !s.Deleted && (s.Egress.Interface != "" || s.Bandwidth.Enabled() || s.needsTrafficSets()) {
 				auxTokens = append(auxTokens, s.Token)
 			}
 		}
@@ -112,8 +112,12 @@ func (k *IPTables) RefreshBindings(rules map[string]Spec) (changed bool, failure
 		if e != nil {
 			return false, e
 		}
-		output, _ := trafficSets(p, k.P1.last, addresses[family])
-		signature := digest([]any{entries, output})
+		var output map[string]string
+		signature := digest(entries)
+		if k.P1.trafficReady[family] {
+			output, _ = trafficSets(p, k.P1.last, addresses[family])
+			signature = digest([]any{entries, output})
+		}
 		if signature == k.P1.bindings[family] {
 			continue
 		}
@@ -123,11 +127,13 @@ func (k *IPTables) RefreshBindings(rules map[string]Spec) (changed bool, failure
 		if _, e = k.run("ipset", "", "swap", p.set("BNEW"), p.set("BIND")); e != nil {
 			return false, e
 		}
-		if e = k.P1.stage(p, "ONEW", output, true); e != nil {
-			return false, e
-		}
-		if _, e = k.run("ipset", "", "swap", p.set("ONEW"), p.set("OBIND")); e != nil {
-			return false, e
+		if k.P1.trafficReady[family] {
+			if e = k.P1.stage(p, "ONEW", output, true); e != nil {
+				return false, e
+			}
+			if _, e = k.run("ipset", "", "swap", p.set("ONEW"), p.set("OBIND")); e != nil {
+				return false, e
+			}
 		}
 		k.P1.bindings[family] = signature
 		changed = true
@@ -141,7 +147,7 @@ func addressStatus(s Spec, addresses map[string][]string) string {
 	missing := []string{}
 	for _, l := range s.ListenerList() {
 		ip, _ := netip.ParseAddr(l.Host)
-		if !usableAddress(l.Host, addresses[l.Family]) && !(s.AdvancedOptions != nil && s.Traffic.LocalOutput && ip.IsLoopback()) {
+		if !usableAddress(l.Host, addresses[l.Family]) && !(s.AdvancedOptions != nil && s.trafficPolicy().LocalOutput && ip.IsLoopback()) {
 			missing = append(missing, l.Host)
 		}
 	}

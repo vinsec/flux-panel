@@ -20,6 +20,10 @@ func effectiveRuntime(s Spec) string {
 func cloneSpec(s Spec) Spec {
 	if s.AdvancedOptions != nil {
 		o := *s.AdvancedOptions
+		if s.Traffic != nil {
+			policy := *s.Traffic
+			o.Traffic = &policy
+		}
 		o.Listeners = slices.Clone(o.Listeners)
 		o.Targets = slices.Clone(o.Targets)
 		o.Runtime.Targets = slices.Clone(o.Runtime.Targets)

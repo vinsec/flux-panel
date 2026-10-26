@@ -340,7 +340,7 @@ func (r *Resolver) Resolve(ctx context.Context, s Spec) (Spec, error) {
 				}
 				valid := []netip.Addr{}
 				for _, ip := range answer.Addresses {
-					if !ip.IsUnspecified() && (!ip.IsLoopback() || s.Traffic.LocalTargets) && !ip.IsMulticast() && !ip.IsLinkLocalUnicast() {
+					if !ip.IsUnspecified() && (!ip.IsLoopback() || s.trafficPolicy().LocalTargets) && !ip.IsMulticast() && !ip.IsLinkLocalUnicast() {
 						valid = append(valid, ip)
 					}
 				}

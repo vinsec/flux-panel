@@ -22,6 +22,7 @@ type AdvancedKernel struct {
 	parent        *IPTables
 	StatePath     string
 	ready         map[string]bool
+	trafficReady  map[string]bool
 	shape         map[string]string
 	control       map[string]string
 	last          map[string]Spec
@@ -35,7 +36,7 @@ type AdvancedKernel struct {
 type advancedPlane struct{ family, prefix, binary, sentinel string }
 
 func (k *IPTables) EnableAdvanced(path string) {
-	k.P1 = &AdvancedKernel{parent: k, StatePath: path, ready: map[string]bool{}, shape: map[string]string{}, control: map[string]string{}, last: map[string]Spec{}, bindings: map[string]string{}}
+	k.P1 = &AdvancedKernel{parent: k, StatePath: path, ready: map[string]bool{}, trafficReady: map[string]bool{}, shape: map[string]string{}, control: map[string]string{}, last: map[string]Spec{}, bindings: map[string]string{}}
 	k.P1.quota = &SharedQuota{parent: k}
 }
 func (a *AdvancedKernel) plane(family string) advancedPlane {
@@ -50,7 +51,7 @@ func (p advancedPlane) chains(table string) []string {
 	case "mangle":
 		return []string{p.set("MARK"), p.set("AUX"), p.set("OMARK")}
 	case "nat":
-		return []string{p.set("PRE"), p.set("POST")}
+		return []string{p.set("PRE"), p.set("POST"), p.set("LOCAL")}
 	default:
 		return []string{p.set("FWD"), p.set("INPUT"), p.set("OUTPUT"), p.set("ICMP"), p.set("IROOT")}
 	}
@@ -63,7 +64,7 @@ func (p advancedPlane) hooks(local bool) []Hook {
 	return hooks
 }
 func (p advancedPlane) localHooks() []Hook {
-	return []Hook{{"mangle", "OUTPUT", p.set("OMARK")}, {"nat", "OUTPUT", p.set("PRE")}, {"filter", "OUTPUT", p.set("OUTPUT")}}
+	return []Hook{{"mangle", "OUTPUT", p.set("OMARK")}, {"nat", "OUTPUT", p.set("PRE")}, {"nat", "INPUT", p.set("LOCAL")}, {"filter", "OUTPUT", p.set("OUTPUT")}}
 }
 func (p advancedPlane) sentinelKey(binding bool) string {
 	if binding {
@@ -124,7 +125,12 @@ func (a *AdvancedKernel) ensurePlane(family string) error {
 	for _, name := range strings.Fields(names) {
 		existing[name] = true
 	}
-	for _, suffix := range []string{"BIND", "BNEW", "ALLOW", "ANEW", "UP", "DOWN", "ROUTES", "RNEW", "OBIND", "ONEW", "NOSNAT", "SNEW", "LORIG", "LONEW", "LTARG", "LTNEW"} {
+	suffixes := []string{"BIND", "BNEW", "ALLOW", "ANEW", "UP", "DOWN", "ROUTES", "RNEW"}
+	if a.trafficReady[family] || existing[p.set("OBIND")] {
+		a.trafficReady[family] = true
+		suffixes = append(suffixes, "OBIND", "ONEW", "NOSNAT", "SNEW", "LORIG", "LONEW", "LTARG", "LTNEW")
+	}
+	for _, suffix := range suffixes {
 		name := p.set(suffix)
 		binding := suffix == "BIND" || suffix == "BNEW" || suffix == "OBIND" || suffix == "ONEW"
 		typ := "hash:ip,mark"
@@ -207,7 +213,7 @@ func (a *AdvancedKernel) validate(s Spec) error {
 		return e
 	}
 	for _, l := range s.Listeners {
-		if l.Host != "0.0.0.0" && l.Host != "::" && !slices.Contains(addresses[l.Family], l.Host) && !(s.Traffic.LocalOutput && netip.MustParseAddr(l.Host).IsLoopback()) {
+		if l.Host != "0.0.0.0" && l.Host != "::" && !slices.Contains(addresses[l.Family], l.Host) && !(s.trafficPolicy().LocalOutput && netip.MustParseAddr(l.Host).IsLoopback()) {
 			return fmt.Errorf("listener address is not assigned and usable in this namespace")
 		}
 		for _, proto := range []string{l.Protocol} {
@@ -231,24 +237,12 @@ func (a *AdvancedKernel) validate(s Spec) error {
 			}
 		}
 	}
+	if problem := s.localPathProblem(addresses, routeLocalnetEnabled()); problem != "" {
+		return fmt.Errorf("%s", problem)
+	}
 	for _, target := range s.Paths() {
 		ip := netip.MustParseAddr(target.Host)
 		local := ip.IsLoopback() || slices.Contains(addresses[target.Family], target.Host)
-		if local && !s.Traffic.LocalTargets {
-			return fmt.Errorf("local target requires explicit localTargets mode")
-		}
-		if ip.Is4() && ip.IsLoopback() {
-			// Do not change host-wide martian filtering. Administrators must prepare
-			// route_localnet only on their dedicated ingress interfaces.
-			for _, l := range s.Listeners {
-				if !netip.MustParseAddr(l.Host).IsLoopback() {
-					b, err := os.ReadFile("/proc/sys/net/ipv4/conf/all/route_localnet")
-					if err != nil || strings.TrimSpace(string(b)) != "1" {
-						return fmt.Errorf("IPv4 loopback target with external listeners requires preconfigured route_localnet; use an assigned local address instead")
-					}
-				}
-			}
-		}
 		// Do not redirect a local service into another engine listener or itself.
 		for _, l := range s.Listeners {
 			if local && l.Port == target.Port && l.Family == target.Family {
@@ -334,15 +328,21 @@ func localAddresses() (map[string][]string, error) {
 }
 func (a *AdvancedKernel) apply(plan []Spec) error {
 	rules := advancedRules(plan)
+	addresses, e := localAddresses()
+	if e != nil {
+		return e
+	}
+	routeLocal := routeLocalnetEnabled()
 	a.runtimeErrors = map[string]string{}
 	for id, s := range rules {
 		if s.Deleted {
 			continue
 		}
-		problem := ""
-		if s.localTraffic() && s.Bandwidth.Enabled() {
+		problem := s.localPathProblem(addresses, routeLocal)
+		if problem == "" && s.localTraffic() && s.Bandwidth.Enabled() {
 			problem = "local traffic with smooth/shared shaping is not yet supported"
-		} else if s.Egress.Interface != "" {
+		}
+		if problem == "" && s.Egress.Interface != "" {
 			iface, err := net.InterfaceByName(s.Egress.Interface)
 			if err != nil || iface.Flags&net.FlagUp == 0 {
 				problem = "egress interface unavailable"
@@ -369,11 +369,7 @@ func (a *AdvancedKernel) apply(plan []Spec) error {
 			rules[id] = s
 		}
 	}
-	rules, e := a.prepareAux(rules)
-	if e != nil {
-		return e
-	}
-	addresses, e := localAddresses()
+	rules, e = a.prepareAux(rules)
 	if e != nil {
 		return e
 	}
@@ -392,6 +388,18 @@ func (a *AdvancedKernel) apply(plan []Spec) error {
 			continue
 		}
 		p := a.plane(family)
+		for _, s := range rules {
+			if !s.Deleted && s.needsTrafficSets() {
+				for _, l := range s.Listeners {
+					if l.Family == family {
+						if e = a.ensureTrafficPlane(family); e != nil {
+							return e
+						}
+						break
+					}
+				}
+			}
+		}
 		tables, bindings, allowed, e := compileAdvancedPlane(p, rules, addresses[family])
 		if e != nil {
 			return e
@@ -463,18 +471,21 @@ func (a *AdvancedKernel) apply(plan []Spec) error {
 		if _, e = a.parent.run("ipset", "", "swap", p.set("BNEW"), p.set("BIND")); e != nil {
 			return e
 		}
-		outputBindings, noSNAT := trafficSets(p, rules, addresses[family])
-		a.bindings[family] = digest([]any{bindings, outputBindings})
-		for _, set := range []struct {
-			stage, live string
-			entries     map[string]string
-			binding     bool
-		}{{"ONEW", "OBIND", outputBindings, true}, {"SNEW", "NOSNAT", noSNAT, false}, {"LONEW", "LORIG", localHookTargets(p, rules, true), false}, {"LTNEW", "LTARG", localHookTargets(p, rules, false), false}} {
-			if e = a.stage(p, set.stage, set.entries, set.binding); e != nil {
-				return e
-			}
-			if _, e = a.parent.run("ipset", "", "swap", p.set(set.stage), p.set(set.live)); e != nil {
-				return e
+		a.bindings[family] = digest(bindings)
+		if a.trafficReady[family] {
+			outputBindings, noSNAT := trafficSets(p, rules, addresses[family])
+			a.bindings[family] = digest([]any{bindings, outputBindings})
+			for _, set := range []struct {
+				stage, live string
+				entries     map[string]string
+				binding     bool
+			}{{"ONEW", "OBIND", outputBindings, true}, {"SNEW", "NOSNAT", noSNAT, false}, {"LONEW", "LORIG", localHookTargets(p, rules, true, addresses[family]), false}, {"LTNEW", "LTARG", localHookTargets(p, rules, false, addresses[family]), false}} {
+				if e = a.stage(p, set.stage, set.entries, set.binding); e != nil {
+					return e
+				}
+				if _, e = a.parent.run("ipset", "", "swap", p.set(set.stage), p.set(set.live)); e != nil {
+					return e
+				}
 			}
 		}
 		if e = a.stage(p, "ANEW", allowed, false); e != nil {
@@ -491,7 +502,10 @@ func (a *AdvancedKernel) apply(plan []Spec) error {
 				}
 				ips := []string{l.Host}
 				if l.Host == "0.0.0.0" || l.Host == "::" {
-					ips = addresses[family]
+					ips = append([]string{}, addresses[family]...)
+					if s.trafficPolicy().LocalOutput && loopbackOutputAllowed(s, p, addresses[family]) {
+						ips = append(ips, map[string]string{"ipv4": "127.0.0.1", "ipv6": "::1"}[family])
+					}
 				}
 				for _, ip := range ips {
 					routes[fmt.Sprintf("%s,0x%x", ip, flowMark(s))] = fmt.Sprintf("skbmark 0x%x/0x3f comment flux:v4:%s:egress", s.Runtime.EgressGroup, s.ID)
@@ -766,4 +780,53 @@ func transactionGatePosition(k *IPTables, binary string) (int, error) {
 		}
 	}
 	return n, nil
+}
+
+func (a *AdvancedKernel) ensureTrafficPlane(family string) error {
+	if a.trafficReady[family] {
+		return nil
+	}
+	a.trafficReady[family] = true
+	a.ready[family] = false
+	return a.ensurePlane(family)
+}
+
+func routeLocalnetEnabled() bool {
+	b, err := os.ReadFile("/proc/sys/net/ipv4/conf/all/route_localnet")
+	return err == nil && strings.TrimSpace(string(b)) == "1"
+}
+
+func (s Spec) localPathProblem(addresses map[string][]string, routeLocal bool) string {
+	for _, target := range s.Paths() {
+		ip := netip.MustParseAddr(target.Host)
+		local := ip.IsLoopback() || slices.Contains(addresses[target.Family], target.Host)
+		if local && !s.trafficPolicy().LocalTargets {
+			return "local target requires explicit localTargets mode"
+		}
+		if local && s.preserveSource() && slices.Contains(s.Protocols, "udp") {
+			return "source preservation with local UDP targets is not supported; use masquerade or TCP-only"
+		}
+		if local && s.Egress.Interface != "" {
+			return "a local target has no selectable physical egress; remove the egress policy"
+		}
+		if !ip.IsLoopback() && !s.trafficPolicy().LocalOutput {
+			continue
+		}
+		for _, l := range s.Listeners {
+			if l.Family != target.Family {
+				continue
+			}
+			listenerLoop := netip.MustParseAddr(l.Host).IsLoopback()
+			if ip.Is6() && ip.IsLoopback() && !listenerLoop {
+				return "external IPv6 loopback targets are not supported; use an assigned local address"
+			}
+			if ip.Is4() && ip.IsLoopback() && !listenerLoop && !routeLocal {
+				return "IPv4 loopback target with external listeners requires preconfigured route_localnet; use an assigned local address instead"
+			}
+			if !local && s.trafficPolicy().LocalOutput && listenerLoop && (target.Family == "ipv6" || !routeLocal) {
+				return "loopback listener to remote target requires a prepared IPv4 route_localnet path; use an assigned listener address"
+			}
+		}
+	}
+	return ""
 }

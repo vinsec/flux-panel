@@ -9,13 +9,14 @@ def v4spec(ident,port,target='10.205.3.2',target_port=19000,traffic=None):
 def exchange(where,host,port,blocked=False,protocols=('tcp','udp')):
  code='''import socket
 for proto in PROTOCOLS:
+ print('probe',proto,flush=True)
  s=socket.socket(socket.AF_INET6 if ':' in HOST else socket.AF_INET,socket.SOCK_STREAM if proto=='tcp' else socket.SOCK_DGRAM);s.settimeout(.3 if BLOCKED else 2)
  try:
   s.connect((HOST,PORT));s.sendall(b'p2-traffic');r=s.recv(1024);assert r==b'p2-traffic' and not BLOCKED
  except (TimeoutError,OSError):assert BLOCKED
  finally:s.close()
 print('ok')'''.replace('PROTOCOLS',repr(protocols)).replace('HOST',repr(host)).replace('PORT',str(port)).replace('BLOCKED',str(blocked))
- return run(ns(where,'python3','-c',code))=='ok'
+ return run(ns(where,'python3','-c',code)).splitlines()[-1]=='ok'
 def counters(ident):
  result=[0,0]
  for family in ['FP4','FP6']:
@@ -67,7 +68,8 @@ class T(socketserver.BaseRequestHandler):
    if not b:return
    self.request.sendall(b)
 class U(socketserver.BaseRequestHandler):
- def handle(self):self.request[1].sendto(self.request[0],self.client_address)
+ def handle(self):
+  print('udp-peer',self.client_address,flush=True);self.request[1].sendto(self.request[0],self.client_address)
 class V6:
  address_family=socket.AF_INET6
  def server_bind(self):
@@ -92,11 +94,28 @@ threading.Event().wait()
  exact_udp('client','10.205.1.1',18002,'3_1_0');check('local service INPUT and outgoing reply meter exactly once')
  check('local OUTPUT to local service TCP/UDP works',exchange('router','10.205.1.1',18002))
  exact_udp('router','10.205.1.1',18002,'3_1_0');check('local-to-local OUTPUT/INPUT traversal is not double counted')
+ distinct=v4spec('15_1_0',18014,'10.205.2.1',traffic={'localOutput':True,'localTargets':True});apply(distinct)
+ check('different IPv4 local listener/target addresses support TCP and wildcard UDP',exchange('router','10.205.1.1',18014) and exchange('client','10.205.1.1',18014))
+ exact_udp('router','10.205.1.1',18014,'15_1_0');check('different IPv4 local addresses retain exactly-once counters')
+ lo_assigned=v4spec('16_1_0',18015,'10.205.2.1',traffic={'localOutput':True,'localTargets':True});lo_assigned['listen']['host']='127.0.0.1';apply(lo_assigned)
+ check('loopback listener reaches a wildcard service on another local address',exchange('router','127.0.0.1',18015));exact_udp('router','127.0.0.1',18015,'16_1_0')
+
  loop=v4spec('4_1_0',18003,'127.0.0.1',traffic={'localOutput':True,'localTargets':True});loop['listen']['host']='127.0.0.1';apply(loop)
  check('loopback listener and target support local TCP/UDP',exchange('router','127.0.0.1',18003))
  exact_udp('router','127.0.0.1',18003,'4_1_0');check('loopback traffic has exact network-layer accounting')
  wrong=copy.deepcopy(loop);wrong.update(id='5_1_0');wrong['listen']['host']='10.205.1.1';wrong['listen']['port']=18004
  check('external-to-loopback refuses implicit global route_localnet changes',not apply(wrong,False)['success'])
+ router('sysctl','-w','net.ipv4.conf.all.route_localnet=1')
+ apply(wrong);check('INPUT SNAT fixes external TCP/UDP loopback wildcard-service replies',exchange('client','10.205.1.1',18004));exact_udp('client','10.205.1.1',18004,'5_1_0');PANEL.rpc('DeleteForward',{'id':'5_1_0','revision':2})
+ tcp_loop=copy.deepcopy(wrong);tcp_loop['id']='14_1_0';tcp_loop.pop('listen');tcp_loop['listeners']=[{'host':'10.205.1.1','port':18013,'protocol':'tcp'}];apply(tcp_loop)
+ check('preconfigured external TCP loopback reaches a real local service',exchange('client','10.205.1.1',18013,protocols=('tcp',)))
+ lo_remote=v4spec('19_1_0',18018,traffic={'localOutput':True});lo_remote['listen']['host']='127.0.0.1';apply(lo_remote)
+ check('prepared IPv4 loopback output reaches remote TCP and UDP targets',exchange('router','127.0.0.1',18018));exact_udp('router','127.0.0.1',18018,'19_1_0')
+ PANEL.rpc('DeleteForward',{'id':'19_1_0','revision':2})
+ PANEL.rpc('DeleteForward',{'id':'14_1_0','revision':2});router('sysctl','-w','net.ipv4.conf.all.route_localnet=0')
+ unprepared=copy.deepcopy(lo_remote);unprepared.update(id='22_1_0',revision=1);unprepared['listen']['port']=18021
+ check('unprepared loopback output to remote is rejected explicitly',not apply(unprepared,False)['success'])
+
  # A target on the ingress LAN would return directly without hairpin SNAT.
  spawn(ns('client','python3','-c',local_echo),'hairpin-target.log')
  hairpin=v4spec('6_1_0',18005,'10.205.1.2');apply(hairpin)
@@ -152,6 +171,7 @@ pathlib.Path('/tmp/p2-held-ok').touch()
  local6=spec6('10_1_0',18009,'::1',{'localOutput':True,'localTargets':True});local6['listen']['host']='::1';apply(local6)
  check('IPv6 loopback TCP and UDP supports local service',exchange('router','::1',18009));exact_udp('router','::1',18009,'10_1_0',True);check('IPv6 loopback does not double count bytes')
  local6in=spec6('11_1_0',18010,'fd25:1::1',{'localTargets':True});apply(local6in)
+ distinct6=spec6('17_1_0',18016,'fd25:2::1',{'localOutput':True,'localTargets':True});apply(distinct6);check('IPv6 different local target addresses and wildcard UDP replies work',exchange('router','fd25:1::1',18016) and exchange('client','fd25:1::1',18016));exact_udp('router','fd25:1::1',18016,'17_1_0',True)
  check('IPv6 external ingress reaches assigned local service',exchange('client','fd25:1::1',18010));exact_udp('client','fd25:1::1',18010,'11_1_0',True);check('IPv6 external-to-local reply accounting is exact')
  # A dedicated IPv6 peer reporter proves what the destination actually observes.
  id6=identity.replace("socket.socket(socket.AF_INET,socket.SOCK_DGRAM)","socket.socket(socket.AF_INET6,socket.SOCK_DGRAM);s.setsockopt(socket.IPPROTO_IPV6,socket.IPV6_V6ONLY,1)").replace("socket.socket();s.bind(('0.0.0.0',19003))","socket.socket(socket.AF_INET6);s.setsockopt(socket.IPPROTO_IPV6,socket.IPV6_V6ONLY,1);s.bind(('::',19003))").replace("('0.0.0.0',19003)","('::',19003)")
@@ -159,9 +179,23 @@ pathlib.Path('/tmp/p2-held-ok').touch()
  preserve6=spec6('12_1_0',18011,'fd25:3::2',{'sourceMode':'preserve','returnPathConfirmed':True});preserve6['targets'][0]['endpoint']['port']=19003;apply(preserve6)
  observed=run(ns('client','python3','-c',"import socket\nfor kind in [socket.SOCK_STREAM,socket.SOCK_DGRAM]:\n s=socket.socket(socket.AF_INET6,kind);s.settimeout(2);s.connect(('fd25:1::1',18011));s.sendall(b'peer');assert s.recv(1024)==b'fd25:1::2';s.close()\nprint('ok')"))
  check('IPv6 DNAT-only preserves the real client source for TCP/UDP',observed=='ok')
- limited=v4spec('8_2_3',18007,'10.205.1.1',traffic={'localOutput':True,'localTargets':True});limited['leaseRequired']=True;PANEL.quota=8192;apply(limited)
+ preserve_local=v4spec('20_1_0',18019,'10.205.1.1',traffic={'localTargets':True,'sourceMode':'preserve','returnPathConfirmed':True})
+ check('ambiguous local UDP source preservation is rejected',not apply(preserve_local,False)['success'])
+ lo6_external=spec6('18_1_0',18017,'::1',{'localTargets':True})
+ check('external IPv6 loopback targets require an assigned target alternative',not apply(lo6_external,False)['success'])
+
+ limited=v4spec('8_2_3',18007,'10.205.2.1',traffic={'localOutput':True,'localTargets':True});limited['leaseRequired']=True;limited['health']={'protocol':'tcp','port':19999,'intervalMillis':1000,'timeoutMillis':50,'rise':1,'fall':1};PANEL.quota=8192;apply(limited)
  wait(lambda:'8_2_3' in state().get('leases',{}))
+ def quota_ready():
+  table=json.loads(router('nft','-j','list','table','inet','FP4_QUOTA'))['nftables']
+  return any('quota' in x for x in table) and not any(x.get('chain',{}).get('name','').startswith('transaction') for x in table)
+ wait(quota_ready)
+ check('unhealthy local target rejects both origins without fallback',exchange('router','10.205.1.1',18007,True) and exchange('client','10.205.1.1',18007,True))
+ obj=json.loads(router('nft','-j','list','table','inet','FP4_QUOTA'))['nftables'];check('packets without a DNAT target do not burn reserved quota',all(x['quota']['used']==0 for x in obj if 'quota' in x) and sum(counters('8_2_3'))==0)
+ limited.pop('health');limited['revision']=2;apply(limited)
  wait(lambda:exchange('router','10.205.1.1',18007,protocols=('udp',)))
+ check('target recovery reuses its untouched reservation',sum(counters('8_2_3'))>0)
+
  run(ns('router','python3','-c',"import socket;s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.settimeout(.01)\nfor i in range(30):\n try:s.sendto(b'b'*400,('10.205.1.1',18007));s.recv(1024)\n except (socket.timeout,PermissionError):pass"))
  check('local-to-local quota admits no more than the single shared 8KiB budget',0<sum(counters('8_2_3'))<=8192)
  check('exhaustion blocks local OUTPUT and external INPUT',exchange('router','10.205.1.1',18007,True) and exchange('client','10.205.1.1',18007,True));PANEL.quota=0
@@ -178,7 +212,7 @@ pathlib.Path('/tmp/p2-held-ok').touch()
  DONE=True
 except Exception:
  traceback.print_exc()
- for name,args in [('iptables.txt',['iptables-save','-c']),('ipset.txt',['ipset','save']),('nft.json',['nft','-j','list','ruleset']),('conntrack.txt',['conntrack','-L'])]:
+ for name,args in [('iptables.txt',['iptables-save','-c']),('ip6tables.txt',['ip6tables-save','-c']),('conntrack6.txt',['conntrack','-L','-f','ipv6']),('ipset.txt',['ipset','save']),('nft.json',['nft','-j','list','ruleset']),('conntrack.txt',['conntrack','-L'])]:
   try:(OUT/name).write_text(router(*args))
   except Exception:pass
  if (OUT/'agent.log').exists():print((OUT/'agent.log').read_text()[-8000:])

@@ -19,7 +19,7 @@ type AdvancedOptions struct {
 	Health    HealthPolicy    `json:"health,omitempty"`
 	Egress    EgressPolicy    `json:"egress,omitempty"`
 	Bandwidth BandwidthPolicy `json:"bandwidth,omitempty"`
-	Traffic   TrafficPolicy   `json:"traffic,omitempty,omitzero"`
+	Traffic   *TrafficPolicy  `json:"traffic,omitempty"`
 	Runtime   ResolutionState `json:"runtime,omitempty"`
 }
 
@@ -101,11 +101,18 @@ type TrafficPolicy struct {
 }
 
 func (s Spec) Advanced() bool { return s.SchemaVersion == 3 || s.SchemaVersion == 4 }
+func (s Spec) trafficPolicy() TrafficPolicy {
+	if s.AdvancedOptions != nil && s.Traffic != nil {
+		return *s.Traffic
+	}
+	return TrafficPolicy{}
+}
+func (s Spec) needsTrafficSets() bool { return s.localTraffic() || s.preserveSource() }
 func (s Spec) localTraffic() bool {
-	return s.AdvancedOptions != nil && (s.Traffic.LocalOutput || s.Traffic.LocalTargets)
+	return s.AdvancedOptions != nil && (s.trafficPolicy().LocalOutput || s.trafficPolicy().LocalTargets)
 }
 func (s Spec) preserveSource() bool {
-	return s.AdvancedOptions != nil && s.Traffic.SourceMode == "preserve"
+	return s.AdvancedOptions != nil && s.trafficPolicy().SourceMode == "preserve"
 }
 func requiredStateFormat(rules map[string]Spec) int {
 	version := 3
@@ -135,6 +142,10 @@ func (s Spec) normalizeAdvanced() (Spec, error) {
 		s.AdvancedOptions = &AdvancedOptions{}
 	} else {
 		copy := *s.AdvancedOptions
+		if s.Traffic != nil {
+			policy := *s.Traffic
+			copy.Traffic = &policy
+		}
 		copy.Listeners = slices.Clone(copy.Listeners)
 		copy.Targets = slices.Clone(copy.Targets)
 		copy.Runtime.Targets = slices.Clone(copy.Runtime.Targets)
@@ -182,7 +193,7 @@ func (s Spec) normalizeAdvanced() (Spec, error) {
 			return s, err
 		}
 		ip := netip.MustParseAddr(e.Host)
-		if ip.IsLoopback() && !s.Traffic.LocalOutput || ip.IsMulticast() || ip.IsLinkLocalUnicast() {
+		if ip.IsLoopback() && !s.trafficPolicy().LocalOutput || ip.IsMulticast() || ip.IsLinkLocalUnicast() {
 			return s, fmt.Errorf("listener must be an external unicast or wildcard address")
 		}
 		l.Host = e.Host
@@ -218,7 +229,7 @@ func (s Spec) normalizeAdvanced() (Spec, error) {
 		}
 		if e.Kind == "ip" {
 			ip := netip.MustParseAddr(e.Host)
-			if ip.IsUnspecified() || ip.IsLoopback() && !s.Traffic.LocalTargets || ip.IsMulticast() || ip.IsLinkLocalUnicast() || ip == netip.MustParseAddr("255.255.255.255") {
+			if ip.IsUnspecified() || ip.IsLoopback() && !s.trafficPolicy().LocalTargets || ip.IsMulticast() || ip.IsLinkLocalUnicast() || ip == netip.MustParseAddr("255.255.255.255") {
 				return s, fmt.Errorf("target must be external unicast; scoped/link-local targets are not enabled")
 			}
 		}
@@ -325,16 +336,16 @@ func (s Spec) validateAdvanced() error {
 	if s.AdvancedOptions == nil {
 		return fmt.Errorf("missing advanced options")
 	}
-	if s.SchemaVersion < 4 && s.Traffic != (TrafficPolicy{}) {
+	if s.SchemaVersion < 4 && s.trafficPolicy() != (TrafficPolicy{}) {
 		return fmt.Errorf("traffic options require ForwardSpec schema 4")
 	}
-	if s.Traffic.SourceMode != "" && s.Traffic.SourceMode != "masquerade" && s.Traffic.SourceMode != "preserve" {
+	if s.trafficPolicy().SourceMode != "" && s.trafficPolicy().SourceMode != "masquerade" && s.trafficPolicy().SourceMode != "preserve" {
 		return fmt.Errorf("source mode must be masquerade or preserve")
 	}
-	if s.preserveSource() && !s.Traffic.ReturnPathConfirmed {
+	if s.preserveSource() && !s.trafficPolicy().ReturnPathConfirmed {
 		return fmt.Errorf("preserving source requires confirmed return routing through this node")
 	}
-	if !s.preserveSource() && s.Traffic.ReturnPathConfirmed {
+	if !s.preserveSource() && s.trafficPolicy().ReturnPathConfirmed {
 		return fmt.Errorf("return routing confirmation requires preserve mode")
 	}
 	if s.preserveSource() && (s.Egress.SourceIPv4 != "" || s.Egress.SourceIPv6 != "") {
@@ -345,6 +356,13 @@ func (s Spec) validateAdvanced() error {
 	// rejecting the update here would leave the old unlimited rule running.
 	if len(s.Listeners) == 0 || len(s.Targets) == 0 {
 		return fmt.Errorf("advanced spec requires listeners and targets")
+	}
+	for _, t := range s.Targets {
+		if t.Endpoint.Kind == "ip" {
+			if err := s.validateLocalTargetOptions(t.Endpoint.Host, t.Endpoint.Family); err != nil {
+				return err
+			}
+		}
 	}
 	for _, l := range s.Listeners {
 		for _, t := range s.Targets {
@@ -419,4 +437,29 @@ func resolutionIntentDigest(s Spec) string {
 		s.AdvancedOptions = &options
 	}
 	return desiredSpecDigest(s)
+}
+
+// Preserving a local UDP client's source requires service-side fixed reply
+// binding/IP_PKTINFO. Without that contract, default local INPUT SNAT is needed.
+func (s Spec) validateLocalTargetOptions(host, family string) error {
+	ip, err := netip.ParseAddr(host)
+	if err != nil || !ip.IsLoopback() {
+		return nil
+	}
+	if ip.Is6() {
+		for _, l := range s.Listeners {
+			if l.Family == family && !netip.MustParseAddr(l.Host).IsLoopback() {
+				return fmt.Errorf("external IPv6 loopback targets are not supported; use an assigned local address")
+			}
+		}
+	}
+	if !s.preserveSource() {
+		return nil
+	}
+	for _, l := range s.Listeners {
+		if l.Family == family && l.Protocol == "udp" {
+			return fmt.Errorf("source preservation with local UDP targets is not supported; use masquerade or TCP-only")
+		}
+	}
+	return nil
 }

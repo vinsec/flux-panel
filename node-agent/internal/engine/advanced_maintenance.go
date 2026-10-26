@@ -138,6 +138,7 @@ func (a *AdvancedKernel) cleanup() error {
 		return e
 	}
 	a.ready = map[string]bool{}
+	a.trafficReady = map[string]bool{}
 	a.shape = map[string]string{}
 	a.control = map[string]string{}
 	a.bindings = map[string]string{}
