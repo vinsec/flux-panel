@@ -4,8 +4,8 @@ counting both application directions; control messages are excluded.
 """
 from foundation_fixture import *
 import statistics
-SECONDS=int(os.getenv('FLUX_P1_SOAK_SECONDS','600'));COUNT=int(os.getenv('FLUX_P1_SOAK_RULES','10000'))
-assert 30<=SECONDS<=1800 and 2<=COUNT<=10000
+SECONDS=int(os.getenv('FLUX_P1_SOAK_SECONDS','600'));COUNT=int(os.getenv('FLUX_P1_SOAK_RULES','10000'));BUDGET=int(os.getenv('FLUX_P1_SOAK_BUDGET_BYTES','1073741824'))
+assert 30<=SECONDS<=1800 and 2<=COUNT<=10000 and 1024**2<=BUDGET<=4*1024**3
 DONE=False;samples=[];updates=[];artifacts={}
 def process_sample(pid):
  raw=pathlib.Path('/proc/'+str(pid)+'/stat').read_text().rsplit(')',1)[1].split();hz=os.sysconf('SC_CLK_TCK')
@@ -45,12 +45,12 @@ while time.monotonic()-start<duration:
   assert out==data;latency.append((time.monotonic()-t)*1e6);payload+=len(data)*2
   if count%5==0:
    t=time.monotonic();s=socket.create_connection(('10.205.1.1',port),timeout=3);s.settimeout(3);s.sendall(b'fresh');assert s.recv(5)==b'fresh';s.close();freshLatency.append((time.monotonic()-t)*1e6);fresh+=1;payload+=10
-  assert payload<=1073741824
+  assert payload<=BUDGET_BYTES
  except Exception as e:failures.append(str(e));break
  count+=1;time.sleep(max(0,.02-(time.monotonic()-cycle)))
 for s in conns:s.close()
 pathlib.Path('/evidence/soak-client.json').write_text(json.dumps({'durationSeconds':time.monotonic()-start,'concurrentEstablished':128,'exchanges':count,'freshConnections':fresh,'bidirectionalApplicationBytes':payload,'failures':failures,'latencyUs':latency,'freshLatencyUs':freshLatency}))
-'''.replace('PORT',str(hot)).replace('SECONDS',str(SECONDS))
+'''.replace('PORT',str(hot)).replace('SECONDS',str(SECONDS)).replace('BUDGET_BYTES',str(BUDGET))
  (OUT/'soak-ready.json').unlink(missing_ok=True)
  client=spawn(ns('client','python3','-c',clientcode),'soak-client.log');wait(lambda:(OUT/'soak-ready.json').exists(),90);ready=json.loads((OUT/'soak-ready.json').read_text());start=ready['startedAt'];revision=1;lastUpdate=-10
  while client.poll() is None:
@@ -71,7 +71,7 @@ pathlib.Path('/evidence/soak-client.json').write_text(json.dumps({'durationSecon
  check('hot forwarding pause still blocks TCP/UDP after long load',probe(hot,True))
  PANEL.rpc('SetForwardState',{'id':str(COUNT)+'_1_0','revision':3,'enabled':True},timeout=40);check('resume restores the hot forwarding without resetting its ledger',probe(hot))
  stop(a);restartStarted=time.monotonic();a=agent(timeout=90);restartSeconds=time.monotonic()-restartStarted;check('restart restores 10k advanced rules and data after concurrent load',probe(hot))
- info={'success':True,'rules':COUNT,'durationSeconds':result['durationSeconds'],'coldApplySeconds':cold,'connectionSetupSeconds':ready['setupSeconds'],'pauseSeconds':pause,'restartSeconds':restartSeconds,'agentSha256':artifacts['agent'],'reportCount':reportCount[0],'warmMedianGrowthBytes':medianGrowth,'rssPeakBytes':max(warm),'samples':samples,'updates':updates,'bidirectionalApplicationBytes':result['bidirectionalApplicationBytes'],'externalForwardTestTargets':[],'hostIsShared':True,'acceptance':'functional resource soak, not an exclusive physical-host perf attribution'}
+ info={'success':True,'rules':COUNT,'durationSeconds':result['durationSeconds'],'applicationBudgetBytes':BUDGET,'coldApplySeconds':cold,'connectionSetupSeconds':ready['setupSeconds'],'pauseSeconds':pause,'restartSeconds':restartSeconds,'agentSha256':artifacts['agent'],'reportCount':reportCount[0],'warmMedianGrowthBytes':medianGrowth,'rssPeakBytes':max(warm),'samples':samples,'updates':updates,'bidirectionalApplicationBytes':result['bidirectionalApplicationBytes'],'externalForwardTestTargets':[],'hostIsShared':True,'acceptance':'functional resource soak, not an exclusive physical-host perf attribution'}
  (OUT/'soak.json').write_text(json.dumps(info,indent=2));DONE=True
 except Exception:
  traceback.print_exc()
