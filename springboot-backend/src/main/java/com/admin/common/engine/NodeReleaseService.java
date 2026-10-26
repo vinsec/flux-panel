@@ -60,6 +60,8 @@ public class NodeReleaseService {
             config.put("secret", node.getSecret());
             if ("iptables".equals(engine)) {
                 config.put("apply", true);
+                config.put("helperSocket","/run/flux-agent/kernel.sock");
+                config.put("useSessions",true);
                 config.put("statePath", "/var/lib/flux-agent/state.json");
                 config.put("intervalSeconds", 5);
             }

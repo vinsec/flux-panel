@@ -10,6 +10,7 @@ public class ForwardSpec {
         this.name=name;this.port=port;this.limiter=limiter;this.target=target;this.tunnelType=tunnelType;this.tunnel=tunnel;this.strategy=strategy;this.interfaceName=interfaceName;
     }
     private Boolean enabled = true;
+    private String engineOptions;
     private String name;
     private Integer port;
     private Integer limiter;

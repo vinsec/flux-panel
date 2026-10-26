@@ -26,6 +26,8 @@ public class ForwardUpdateDto {
     @NotBlank(message = "远程地址不能为空")
     private String remoteAddr;
 
+    private String engineOptions;
+
     private String strategy;
     
     /**

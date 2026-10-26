@@ -78,7 +78,7 @@ def namespaces():
     router('iptables','-A','FORWARD','-m','conntrack','--ctstate','ESTABLISHED,RELATED','-j','ACCEPT')
     check('isolated client/router/target namespaces; forwarding default DROP')
 def start_agent(n):
-    p=pathlib.Path('/tmp/flux-agent-config.json');p.write_text(json.dumps({'addr':'http://10.203.3.1:6365','secret':n['secret'],'statePath':'/tmp/flux-agent-state.json','apply':True,'allowInsecure':True,'intervalSeconds':1}))
+    p=pathlib.Path('/tmp/flux-agent-config.json');p.write_text(json.dumps({'addr':'http://10.203.3.1:6365','secret':n['secret'],'statePath':'/tmp/flux-agent-state.json','apply':True,'allowInsecure':True,'intervalSeconds':1,'useSessions':True}))
     return start(['ip','netns','exec','router',str(AGENT),'--config',str(p)],'agent.log')
 def usage_total(fid):return sql('SELECT in_flow+out_flow AS total FROM forward WHERE id=%s',(fid,))[0]['total']
 try:
@@ -104,11 +104,12 @@ try:
         c.execute((ROOT/'springboot-backend/migrations/001-forward-engines.sql').read_text())
         while c.nextset():pass
     with db.cursor() as c:
-        for _ in range(2):
-            c.execute((ROOT/'springboot-backend/migrations/002-engine-foundation.sql').read_text())
-            while c.nextset():pass
+        for migration in ['002-engine-foundation.sql','003-engine-p1.sql']:
+            for _ in range(2):
+                c.execute((ROOT/'springboot-backend/migrations'/migration).read_text())
+                while c.nextset():pass
     check('database migration is repeatable; legacy rows default to gost',sql("SELECT engine FROM node WHERE name='legacy-schema'")[0]['engine']=='gost')
-    env=os.environ.copy();env.update(DB_HOST='mysql',DB_NAME='flux_test',DB_USER='root',DB_PASSWORD='isolated-test-db-only',JWT_SECRET='isolated-test-jwt-only',LOG_DIR='/tmp/panel-logs')
+    env=os.environ.copy();env.update(DB_HOST='mysql',DB_NAME='flux_test',DB_USER='root',DB_PASSWORD='isolated-test-db-only',JWT_SECRET='isolated-test-jwt-only',LOG_DIR='/tmp/panel-logs',ENGINE_AUTH_SESSION_MILLIS='60000')
     log=open(OUT/'panel.log','w');panel=subprocess.Popen(['java','-Xmx192m','-XX:ActiveProcessorCount=1','-jar',str(JAR)],stdout=log,stderr=subprocess.STDOUT,env=env);processes.append(panel)
     wait(lambda:urllib.request.urlopen('http://127.0.0.1:6365/flow/test',timeout=1).status==200,90)
     check('real Spring Boot panel and MySQL started')
@@ -155,11 +156,31 @@ try:
     check('agent restart restores rules and ledger epoch',json.loads(pathlib.Path('/tmp/flux-agent-state.json').read_text())['epoch']==state['epoch'] and probe()=='tcp_udp_ok')
     api('forward/update',{'id':f['id'],'userId':1,'name':f['name'],'tunnelId':t['id'],'remoteAddr':'10.203.2.2:19001','inPort':18000,'strategy':'fifo'})
     check('target change succeeds with targeted conntrack cleanup',probe()=='tcp_udp_ok')
-    bad=api('forward/create',{'name':'unsupported','tunnelId':t['id'],'remoteAddr':'example.com:443','inPort':18009},expect=False)
-    check('domain target rejected without disturbing existing forward',bad['code']!=0 and probe()=='tcp_udp_ok')
+    bad=api('forward/create',{'name':'unsupported','tunnelId':t['id'],'remoteAddr':'[fe80::1%eth0]:443','inPort':18009},expect=False)
+    check('scoped link-local target is rejected without disturbing existing forward',bad['code']!=0 and probe()=='tcp_udp_ok')
     api('forward/delete',{'id':f['id']});check('delete blocks traffic and removes dispatch and binding entries',probe(action='blocked')=='tcp_udp_blocked' and '-j DNAT' not in router('iptables-save','-t','nat') and f'flux:v2:{key}:binding' not in router('ipset','save','FPV2_BIND'))
     check('deletion removes empty NAT trie chains but retains final accounting',':FP_N' not in router('iptables-save','-t','nat') and f'flux:v2:{key}:up' in router('ipset','save','FPV2_UP'))
     check('unrelated firewall chain and default DROP preserved','must-survive' in router('iptables-save') and '-P FORWARD DROP' in router('iptables','-S','FORWARD'))
+    # Real v4 API round trip: typed listener reservations, bounded node status,
+    # health and sharing all use the same business owner checks as old forwards.
+    opts={'listeners':[{'host':'0.0.0.0','port':18009,'protocol':'tcp'}],'health':{'protocol':'tcp','intervalMillis':1000,'timeoutMillis':200,'rise':1,'fall':1},'bandwidth':{'upBitsPerSecond':10000000,'downBitsPerSecond':10000000}}
+    api('forward/create',{'name':'advanced-tcp','tunnelId':t['id'],'remoteAddr':'10.203.2.2:19000','inPort':18009,'strategy':'fifo','engineOptions':json.dumps(opts)})
+    adv=sql("SELECT * FROM forward WHERE name='advanced-tcp'")[0]
+    opts['listeners'][0]['protocol']='udp';opts.pop('health');opts.pop('bandwidth')
+    api('forward/create',{'name':'advanced-udp','tunnelId':t['id'],'remoteAddr':'10.203.2.2:19000','inPort':18009,'strategy':'fifo','engineOptions':json.dumps(opts)})
+    advudp=sql("SELECT * FROM forward WHERE name='advanced-udp'")[0]
+    wait(lambda:probe(18009)=='tcp_udp_ok');check('real Java API preserves independent same-port TCP/UDP and node health/shaping')
+    states=api('engine/forward-states',{'ids':[adv['id'],advudp['id']]})['data']
+    check('API returns actual node applied state and distinct business IDs',len(states)==2 and all(row['state']['status']=='applied' for row in states))
+    assert sql('SELECT COUNT(*) n FROM engine_session WHERE node_id=%s',(n['id'],))[0]['n']>0
+    check('new agent registers with opaque short-lived bearer session stored only by hash')
+    serial=(OUT/'agent.log').read_text().count('iptables agent connected')
+    api('engine/revoke-sessions',{'nodeId':n['id']})
+    wait(lambda:(OUT/'agent.log').read_text().count('iptables agent connected')>serial,15)
+    check('session revocation disconnects and bootstrap reauthentication restores forwarding',probe(18009)=='tcp_udp_ok')
+    forbidden=api('engine/set-bandwidth-group',{'nodeId':n['id'],'scope':'user','ownerId':1,'upBitsPerSecond':1000.5,'downBitsPerSecond':0},expect=False)
+    check('bandwidth API rejects fractional bit rate instead of silently truncating',forbidden['code']!=0)
+    api('forward/delete',{'id':adv['id']});api('forward/delete',{'id':advudp['id']})
     # Non-admin accounting and quota fan-out exercise the original business
     # services through the new engine adapter, rather than calling the agent.
     now=int(time.time()*1000)
@@ -188,7 +209,7 @@ try:
     cmd('ip','netns','exec','router2','iptables','-P','FORWARD','DROP')
     api('node/create',{'name':'second-lease-node','engine':'iptables','ip':'10.203.6.1','serverIp':'10.203.5.1','portSta':18200,'portEnd':18220})
     n2=sql("SELECT * FROM node WHERE name='second-lease-node'")[0]
-    cfg2=pathlib.Path('/tmp/agent2-config.json');cfg2.write_text(json.dumps({'addr':'http://10.203.7.1:6365','secret':n2['secret'],'statePath':'/tmp/agent2-state.json','apply':True,'allowInsecure':True,'intervalSeconds':1}))
+    cfg2=pathlib.Path('/tmp/agent2-config.json');cfg2.write_text(json.dumps({'addr':'http://10.203.7.1:6365','secret':n2['secret'],'statePath':'/tmp/agent2-state.json','apply':True,'allowInsecure':True,'intervalSeconds':1,'useSessions':True}))
     agent2=start(['ip','netns','exec','router2',str(AGENT),'--config',str(cfg2)],'agent2.log');wait(lambda:sql('SELECT status FROM node WHERE id=%s',(n2['id'],))[0]['status']==1)
     api('engine/capabilities',{'nodeId':n2['id']})
     lt=tunnel(n2,'shared-credit-second-node')

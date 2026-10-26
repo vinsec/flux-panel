@@ -74,10 +74,18 @@ func cloneState(s State) State {
 	r.Rules = maps.Clone(s.Rules)
 	for id, spec := range r.Rules {
 		spec.Protocols = slices.Clone(spec.Protocols)
+		if spec.AdvancedOptions != nil {
+			advanced := *spec.AdvancedOptions
+			advanced.Listeners = slices.Clone(advanced.Listeners)
+			advanced.Targets = slices.Clone(advanced.Targets)
+			advanced.Runtime.Targets = slices.Clone(advanced.Runtime.Targets)
+			spec.AdvancedOptions = &advanced
+		}
 		r.Rules[id] = spec
 	}
 	r.Totals = maps.Clone(s.Totals)
 	r.Last = maps.Clone(s.Last)
+	r.CounterLast = maps.Clone(s.CounterLast)
 	r.Ack = maps.Clone(s.Ack)
 	r.Quarantine = maps.Clone(s.Quarantine)
 	r.LeaseAcks = maps.Clone(s.LeaseAcks)

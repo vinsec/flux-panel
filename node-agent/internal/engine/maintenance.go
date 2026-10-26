@@ -123,9 +123,38 @@ func (k *IPTables) inventory() (map[string]string, map[string]string, error) {
 			}
 		}
 	}
+	if k.P1 != nil {
+		for _, name := range strings.Fields(names) {
+			if strings.HasPrefix(name, "FP4_") || strings.HasPrefix(name, "FP6_") {
+				saved, e := k.readSet(name)
+				if e != nil {
+					return nil, nil, e
+				}
+				if !strings.Contains(saved, advancedOwner) {
+					return nil, nil, fmt.Errorf("foreign advanced set")
+				}
+				sets[name] = saved
+			}
+		}
+	}
 	return tables, sets, nil
 }
 func (k *IPTables) removeOwned(tables map[string]string, sets map[string]string) error {
+	base := map[string]string{}
+	for name, saved := range sets {
+		if !strings.HasPrefix(name, "FP4_") && !strings.HasPrefix(name, "FP6_") {
+			base[name] = saved
+		}
+	}
+	if e := k.removeBaseOwned(tables, base); e != nil {
+		return e
+	}
+	if k.P1 != nil {
+		return k.P1.cleanup()
+	}
+	return nil
+}
+func (k *IPTables) removeBaseOwned(tables map[string]string, sets map[string]string) error {
 	// Inspect every reference before deleting anything. A foreign jump into an
 	// owned chain is a conflict, never permission to edit that foreign rule.
 	plans := map[string]string{}
@@ -205,7 +234,7 @@ func readMaintenanceState(path string) (State, error) {
 	if e = json.Unmarshal(b, &s); e != nil {
 		return s, e
 	}
-	if len(s.Epoch) != 32 || s.Sequence < 0 || s.Rules == nil || s.FormatVersion > 3 {
+	if len(s.Epoch) != 32 || s.Sequence < 0 || s.Rules == nil || s.FormatVersion > 4 {
 		return s, fmt.Errorf("invalid maintenance checkpoint")
 	}
 	return s, nil
@@ -279,6 +308,12 @@ func Maintain(path, configPath, action, backupDir string, k *IPTables, offline b
 			return result, e
 		}
 	}
+	if k.P1 != nil {
+		k.P1.epoch = state.Epoch
+		if e = k.P1.initializeFromState(); e != nil {
+			return result, e
+		}
+	}
 	resumeIntent := map[string]json.RawMessage{}
 	if b, err := os.ReadFile(path + ".maintenance"); err == nil {
 		if err = json.Unmarshal(b, &resumeIntent); err != nil {
@@ -301,7 +336,7 @@ func Maintain(path, configPath, action, backupDir string, k *IPTables, offline b
 		if entries, err := os.ReadDir(backupDir); err == nil {
 			preparedDir = true
 			for _, entry := range entries {
-				if entry.IsDir() || (entry.Name() != "previous.bin" && entry.Name() != "previous.sha256" && entry.Name() != "previous-config.json") {
+				if entry.IsDir() || (entry.Name() != "previous.bin" && entry.Name() != "previous.sha256" && entry.Name() != "previous-config.json" && entry.Name() != "previous-flux-agent.service" && entry.Name() != "previous-flux-kernel.service" && entry.Name() != "previous-units.sha256") {
 					preparedDir = false
 				}
 			}
@@ -372,6 +407,14 @@ func Maintain(path, configPath, action, backupDir string, k *IPTables, offline b
 			report.Leases = append(report.Leases, LeaseUsage{l.Grant.ID, id, l.Grant.Generation, used(&state, id, l), true})
 		}
 	}
+	pages := (len(report.Usage) + 9999) / 10000
+	if pages < 1 {
+		pages = 1
+	}
+	if pages > 1 {
+		state.Sequence += int64(pages - 1)
+		report.Sequence = state.Sequence
+	}
 	original := cloneState(state)
 	if originalRules, ok := intent["rules"].(map[string]Spec); ok {
 		for id, r := range original.Rules {
@@ -406,6 +449,15 @@ func Maintain(path, configPath, action, backupDir string, k *IPTables, offline b
 		if files["config.json"], e = os.ReadFile(configPath); e != nil {
 			return result, e
 		}
+		if k.P1 != nil {
+			extras, err := k.P1.backupExtras()
+			if err != nil {
+				return result, err
+			}
+			for name, b := range extras {
+				files[name] = b
+			}
+		}
 		for table, saved := range tables {
 			files[table+".rules"] = []byte(saved)
 		}
@@ -424,7 +476,7 @@ func Maintain(path, configPath, action, backupDir string, k *IPTables, offline b
 	}
 	maintenancePoint("backedup")
 	if !offline {
-		ack, e := settle(report)
+		ack, e := settleMaintenancePages(report, settle)
 		if e != nil {
 			return result, fmt.Errorf("settlement failed; guard and durable intent retained: %w", e)
 		}
@@ -468,10 +520,17 @@ func Maintain(path, configPath, action, backupDir string, k *IPTables, offline b
 			state = source
 		} else if action == "migrate" {
 			state.FormatVersion = 3
+			for _, rule := range state.Rules {
+				if rule.Advanced() {
+					state.FormatVersion = 4
+					break
+				}
+			}
 			state.KernelID = ""
 			state.BootID = ""
 		}
 		state.Last = map[string]uint64{}
+		state.CounterLast = map[string]uint64{}
 		state.KernelID = ""
 		state.BootID = ""
 		for id, spec := range state.Rules {

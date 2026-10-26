@@ -86,6 +86,9 @@ func (e Endpoint) Canonical() (Endpoint, error) {
 func (e Endpoint) String() string { return net.JoinHostPort(e.Host, strconv.Itoa(e.Port)) }
 
 func (s Spec) Normalize() (Spec, error) {
+	if s.SchemaVersion == 3 {
+		return s.normalizeAdvanced()
+	}
 	if s.SchemaVersion != 0 && s.SchemaVersion != 1 && s.SchemaVersion != 2 {
 		return s, fmt.Errorf("unsupported ForwardSpec schema version")
 	}
@@ -126,6 +129,7 @@ func (s Spec) Normalize() (Spec, error) {
 }
 
 type Capabilities struct {
+	Limits           map[string]int  `json:"limits,omitempty"`
 	ProtocolVersions []int           `json:"protocolVersions"`
 	AgentVersion     string          `json:"agentVersion"`
 	Features         map[string]bool `json:"features"`
@@ -135,5 +139,5 @@ type Capabilities struct {
 }
 
 func CurrentCapabilities() Capabilities {
-	return Capabilities{[]int{1, 2}, "iptables-v3", map[string]bool{"ipv4": true, "ipv6": false, "dns": false, "independentProtocols": false, "shaping": false, "interfaceRouting": false, "structuredEndpoint": true, "batch": true, "journalRecovery": true, "usageAcknowledgement": true, "creditLease": true, "creditPush": true, "creditPolicy": true, "icmpv4": true, "pmtuv4": true}, 10000, 10000, "network"}
+	return Capabilities{ProtocolVersions: []int{1, 2, 3}, AgentVersion: "iptables-v4", Features: map[string]bool{"ipv4": true, "ipv6": true, "dns": true, "multiTarget": true, "independentProtocols": true, "shaping": true, "interfaceRouting": true, "dynamicAddresses": true, "systemMetrics": true, "runtimeStatus": true, "headerAuth": true, "sessionAuth": true, "privilegedHelper": false, "structuredEndpoint": true, "batch": true, "journalRecovery": true, "usageAcknowledgement": true, "creditLease": true, "creditPush": true, "creditPolicy": true, "icmpv4": true, "pmtuv4": true, "icmpv6": true, "pmtuv6": true, "crossFamily": false, "scopedIPv6": false}, MaxForwards: 10000, MaxBatch: 10000, CounterLayer: "network", Limits: map[string]int{"listenersPerForward": 16, "targetOriginsPerForward": 16, "targetWeightSum": 32, "retiringTargetsPerForward": 32, "resolvedPathsPerNode": 32768, "egressPoliciesPerNode": 63, "statusPage": 100}}
 }

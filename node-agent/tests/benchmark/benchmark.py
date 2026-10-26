@@ -87,9 +87,11 @@ def topology():
 
 def clean_rules():
  for table in ['mangle','nat','filter']:router('iptables','-t',table,'-F');router('iptables','-t',table,'-X')
+ if os.getenv('FLUX_BENCH_P1')=='1':
+  subprocess.run(ns('router','nft','delete','table','inet','FP4_QUOTA'),capture_output=True)
  if os.getenv('FLUX_BENCH_V2')=='1':
   for name in router('ipset','list','-name').splitlines():
-   assert name.startswith(('FPV2_','FPV3_')),name
+   assert name.startswith(('FPV2_','FPV3_','FP4_','FP6_')),name
    router('ipset','destroy',name)
  router('iptables','-P','FORWARD','DROP');router('sh','-c','conntrack -F >/dev/null 2>&1 || true')
 def specs(count):
@@ -101,6 +103,10 @@ def specs(count):
 def setup(engine,count,round_id):
  clean_rules();path=pathlib.Path(f'/tmp/{engine}-{count}-{round_id}');path.mkdir();p=None
  data=specs(count)
+ if engine=='iptables_p1':
+  for v in data.values():
+   endpoint={'kind':'ip','host':v['targetIP'],'port':v['targetPort'],'family':'ipv4'}
+   v.update(schemaVersion=3,listen={'host':v['listenIP'],'port':v['listenPort']},targets=[{'endpoint':endpoint,'weight':1}],runtime={'status':'ready','targets':[{'host':endpoint['host'],'port':endpoint['port'],'family':'ipv4','origin':endpoint['host']+':'+str(endpoint['port']),'weight':1,'healthy':True,'acceptNew':True}]})
  if os.getenv('FLUX_BENCH_FOUNDATION_CREDIT_ONLY')=='1' and engine=='iptables_v2':
   for value in data.values():
    if value['listenPort'] in [18000,18001]:value['leaseRequired']=True
@@ -116,7 +122,7 @@ def setup(engine,count,round_id):
  else:
   state={'epoch':hashlib.md5(str(path).encode()).hexdigest(),'sequence':0,'rules':data,'totals':{},'last':{}}
   (path/'state.json').write_text(json.dumps(state));(path/'config.json').write_text(json.dumps({'addr':'ws://10.204.3.1:8000','secret':'isolated-benchmark-only','statePath':str(path/'state.json'),'apply':True,'allowInsecure':True,'intervalSeconds':1 if os.getenv('FLUX_BENCH_FOUNDATION_CREDIT_ONLY')=='1' else 5}))
-  binary='/build/flux-agent-v2' if engine=='iptables_v2' else '/build/flux-agent'
+  binary='/build/flux-agent-v2' if engine in ['iptables_v2','iptables_p1'] else '/build/flux-agent'
   env=os.environ.copy();env['GOMAXPROCS']='1';p=spawn(ns('router','taskset','-c',str(CPU),binary,'--config',str(path/'config.json')),f'{engine}-{count}-{round_id}',env=env)
  deadline=time.monotonic()+20
  while True:
@@ -199,7 +205,25 @@ def main():
  metadata['engine_aliases']={'iptables':'iptables_v2_baseline','iptables_v2':'iptables_v3_foundation','gost':'gost'} if os.getenv('FLUX_BENCH_FOUNDATION')=='1' else {}
  metadata['kernel_credit_enabled']=os.getenv('FLUX_BENCH_FOUNDATION_CREDIT_ONLY')=='1'
  metadata['kernel_credit_stress']=os.getenv('FLUX_BENCH_CREDIT_STRESS','1')=='1' and metadata['kernel_credit_enabled']
- if os.getenv('FLUX_BENCH_FOUNDATION_CREDIT_ONLY')=='1':
+ if os.getenv('FLUX_BENCH_P1')=='1':
+  metadata['baseline_source_commit']='32a2ebbb53b58ee8a7a059f4ab39434e0b3828df';metadata['engine_aliases']={'iptables':'p0_baseline','iptables_v2':'p1_legacy_fast_path','iptables_p1':'p1_advanced_ipv4'}
+  for count in [2,1000,10000]:
+   for round_id,order in enumerate([['iptables','iptables_v2','iptables_p1'],['iptables_p1','iptables','iptables_v2'],['iptables_v2','iptables_p1','iptables']],71):
+    for engine in order:
+     p=setup(engine,count,round_id)
+     try:
+      measure(engine,count,round_id,'strict_up',p);latency(engine,count,round_id,p,count==2)
+     finally:stop(p)
+  os.environ['FLUX_BENCH_STRICT']='0'
+  for count in [2,10000]:
+   for round_id,order in enumerate([['iptables','iptables_v2','iptables_p1'],['iptables_p1','iptables','iptables_v2'],['iptables_v2','iptables_p1','iptables']],81):
+    for engine in order:
+     p=setup(engine,count,round_id)
+     try:
+      measure(engine,count,round_id,'tcp_paced',p)
+      for profile in ['udp_1200','udp_64']:measure(engine,count,round_id,profile,p)
+     finally:stop(p)
+ elif os.getenv('FLUX_BENCH_FOUNDATION_CREDIT_ONLY')=='1':
   for count in [2,1000]:
    for round_id in [41,42,43]:
     p=setup('iptables_v2',count,round_id)

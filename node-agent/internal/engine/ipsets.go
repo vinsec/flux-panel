@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -165,6 +166,8 @@ func (k *IPTables) plans(plan []Spec) (map[string]string, map[string]string, err
 		listen := []string{s.ListenIP}
 		if s.ListenIP == "0.0.0.0" {
 			listen = ips
+		} else if !slices.Contains(ips, s.ListenIP) && !net.ParseIP(s.ListenIP).IsLoopback() {
+			listen = nil
 		}
 		for _, ip := range listen {
 			for _, proto := range []string{"tcp", "udp"} {

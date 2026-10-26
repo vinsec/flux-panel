@@ -37,6 +37,8 @@ import java.util.stream.Collectors;
 @Service
 public class ForwardServiceImpl extends ServiceImpl<ForwardMapper, Forward> implements ForwardService {
 
+    @Resource private com.admin.common.engine.EnginePortPolicy portPolicy;
+
     // 常量定义
     private static final String GOST_SUCCESS_MSG = "OK";
     private static final String GOST_NOT_FOUND_MSG = "not found";
@@ -66,6 +68,10 @@ public class ForwardServiceImpl extends ServiceImpl<ForwardMapper, Forward> impl
 
     @Override
     public R createForward(ForwardDto forwardDto) {
+        Tunnel t=tunnelService.getById(forwardDto.getTunnelId());if(t==null)return R.err("隧道不存在");
+        try{return portPolicy.locked(t,()->createForwardLocked(forwardDto));}catch(IllegalArgumentException|IllegalStateException error){return R.err(error.getMessage());}
+    }
+    private R createForwardLocked(ForwardDto forwardDto) {
         // 1. 获取当前用户信息
         UserInfo currentUser = getCurrentUserInfo();
 
@@ -85,13 +91,15 @@ public class ForwardServiceImpl extends ServiceImpl<ForwardMapper, Forward> impl
         }
 
         // 4. 分配端口
-        PortAllocation portAllocation = allocatePorts(tunnel, forwardDto.getInPort());
+        PortAllocation portAllocation = allocatePorts(tunnel, forwardDto.getInPort(),null,com.admin.common.engine.EngineCapabilities.supports(tunnel.getInNodeId(),"independentProtocols"));
         if (portAllocation.isHasError()) {
             return R.err(portAllocation.getErrorMessage());
         }
 
         // 5. 创建并保存Forward对象
         Forward forward = createForwardEntity(forwardDto, currentUser, portAllocation);
+        if(!"iptables".equals(tunnel.getEngine())&&forward.getEngineOptions()!=null)return R.err("高级引擎选项仅用于 iptables 节点");
+        portPolicy.validate(tunnel,forward,null);
         if (!this.save(forward)) {
             return R.err("端口转发创建失败");
         }
@@ -130,6 +138,10 @@ public class ForwardServiceImpl extends ServiceImpl<ForwardMapper, Forward> impl
 
     @Override
     public R updateForward(ForwardUpdateDto forwardUpdateDto) {
+        Tunnel t=tunnelService.getById(forwardUpdateDto.getTunnelId());if(t==null)return R.err("隧道不存在");
+        try{return portPolicy.locked(t,()->updateForwardLocked(forwardUpdateDto));}catch(IllegalArgumentException|IllegalStateException error){return R.err(error.getMessage());}
+    }
+    private R updateForwardLocked(ForwardUpdateDto forwardUpdateDto) {
         // 1. 获取当前用户信息
         UserInfo currentUser = getCurrentUserInfo();
         if (currentUser.getRoleId() != ADMIN_ROLE_ID) {
@@ -216,6 +228,8 @@ public class ForwardServiceImpl extends ServiceImpl<ForwardMapper, Forward> impl
 
         // 6. 更新Forward对象
         Forward updatedForward = updateForwardEntity(forwardUpdateDto, existForward, tunnel);
+        if(!"iptables".equals(tunnel.getEngine())&&updatedForward.getEngineOptions()!=null)return R.err("高级引擎选项仅用于 iptables 节点");
+        portPolicy.validate(tunnel,updatedForward,existForward.getId());
 
         // 7. 获取所需的节点信息
         NodeInfo nodeInfo = getRequiredNodes(tunnel);
@@ -456,6 +470,13 @@ public class ForwardServiceImpl extends ServiceImpl<ForwardMapper, Forward> impl
         }
 
 
+        if("iptables".equals(inNode.getEngine())) {
+            UserTunnel permission=getUserTunnel(forward.getUserId(),tunnel.getId().intValue());User owner=userService.getById(forward.getUserId());if(owner!=null&&owner.getRoleId()==0)permission=null;
+            String service=buildServiceName(forward.getId(),forward.getUserId(),permission);JSONObject query=new JSONObject();query.put("id",service);query.put("probe",true);
+            GostDto reply=WebSocketServer.send_msg(inNode.getId(),query,"DiagnoseForward");if(!"OK".equals(reply.getMsg()))return R.err(reply.getMsg());
+            JSONObject data=(JSONObject)JSONObject.toJSON(reply.getData());List<Map<String,Object>> details=new ArrayList<>();var routes=data.getJSONArray("routes");if(routes!=null)for(Object value:routes){JSONObject route=(JSONObject)value;Map<String,Object> detail=new HashMap<>();detail.put("nodeId",inNode.getId());detail.put("nodeName",inNode.getName());detail.put("targetIp",route.getString("target"));detail.put("targetPort",route.getIntValue("port"));detail.put("description","节点到当前目标（有界诊断）");detail.put("success",route.getBooleanValue("reachable"));detail.put("averageTime",route.get("tcpHandshakeMs"));detail.put("message",route.containsKey("probeError")?route.getString("probeError"):route.containsKey("probe")?route.getString("probe"):"已读取实际路由并执行最多一次 TCP 连接");details.add(detail);}
+            Map<String,Object> report=new HashMap<>();report.put("forwardId",id);report.put("forwardName",forward.getName());report.put("timestamp",System.currentTimeMillis());report.put("results",details);report.put("engineState",data.get("state"));return R.ok(report);
+        }
         List<DiagnosisResult> results = new ArrayList<>();
         String[] remoteAddresses = forward.getRemoteAddr().split(",");
         // 6. 根据隧道类型执行不同的诊断策略
@@ -895,12 +916,14 @@ public class ForwardServiceImpl extends ServiceImpl<ForwardMapper, Forward> impl
     /**
      * 分配端口
      */
-    private PortAllocation allocatePorts(Tunnel tunnel, Integer specifiedInPort, Long excludeForwardId) {
+    private PortAllocation allocatePorts(Tunnel tunnel, Integer specifiedInPort, Long excludeForwardId) {return allocatePorts(tunnel,specifiedInPort,excludeForwardId,false);}
+    private PortAllocation allocatePorts(Tunnel tunnel, Integer specifiedInPort, Long excludeForwardId,boolean typed) {
         Integer inPort;
 
         if (specifiedInPort != null) {
             // 用户指定了入口端口，需要检查是否可用
-            if (!isInPortAvailable(tunnel, specifiedInPort, excludeForwardId)) {
+            Node owner=nodeService.getById(tunnel.getInNodeId());
+            if ((!typed&&!isInPortAvailable(tunnel, specifiedInPort, excludeForwardId))||owner==null||specifiedInPort<owner.getPortSta()||specifiedInPort>owner.getPortEnd()) {
                 return PortAllocation.error("指定的入口端口 " + specifiedInPort + " 已被占用或不在允许范围内");
             }
             inPort = specifiedInPort;
@@ -930,6 +953,7 @@ public class ForwardServiceImpl extends ServiceImpl<ForwardMapper, Forward> impl
         Forward forward = new Forward();
         // 先复制DTO的属性，再设置其他属性，避免被覆盖
         BeanUtils.copyProperties(forwardDto, forward);
+        forward.setEngineOptions(com.admin.common.engine.EngineSpecFactory.normalizeOptions(forwardDto.getEngineOptions()));
         forward.setStatus(FORWARD_STATUS_ACTIVE);
         forward.setInPort(portAllocation.getInPort());
         forward.setOutPort(portAllocation.getOutPort());
@@ -946,6 +970,7 @@ public class ForwardServiceImpl extends ServiceImpl<ForwardMapper, Forward> impl
     private Forward updateForwardEntity(ForwardUpdateDto forwardUpdateDto, Forward existForward, Tunnel tunnel) {
         Forward forward = new Forward();
         BeanUtils.copyProperties(forwardUpdateDto, forward);
+        forward.setEngineOptions(com.admin.common.engine.EngineSpecFactory.normalizeOptions(forwardUpdateDto.getEngineOptions()));
 
         // 处理端口分配逻辑
         boolean tunnelChanged = !existForward.getTunnelId().equals(forwardUpdateDto.getTunnelId());
@@ -960,7 +985,7 @@ public class ForwardServiceImpl extends ServiceImpl<ForwardMapper, Forward> impl
                 specifiedInPort = existForward.getInPort();
             }
 
-            PortAllocation portAllocation = allocatePorts(tunnel, specifiedInPort, forwardUpdateDto.getId());
+            PortAllocation portAllocation = allocatePorts(tunnel, specifiedInPort, forwardUpdateDto.getId(),com.admin.common.engine.EngineCapabilities.supports(tunnel.getInNodeId(),"independentProtocols"));
             if (portAllocation.isHasError()) {
                 throw new RuntimeException(portAllocation.getErrorMessage());
             }
@@ -1181,7 +1206,7 @@ public class ForwardServiceImpl extends ServiceImpl<ForwardMapper, Forward> impl
      * 创建主服务
      */
     private R createMainService(Node inNode, String serviceName, Forward forward, Integer limiter, Integer tunnelType, Tunnel tunnel, String strategy, String interfaceName) {
-        GostDto result = GostUtil.AddService(inNode.getId(), serviceName, forward.getInPort(), limiter, forward.getRemoteAddr(), tunnelType, tunnel, strategy, interfaceName);
+        GostDto result = GostUtil.ApplyServiceOptions(inNode.getId(), serviceName, forward.getInPort(), limiter, forward.getRemoteAddr(), tunnelType, tunnel, strategy, interfaceName,forward.getEngineOptions(),false);
         return isGostOperationSuccess(result) ? R.ok() : R.err(result.getMsg());
     }
 
@@ -1217,10 +1242,10 @@ public class ForwardServiceImpl extends ServiceImpl<ForwardMapper, Forward> impl
      * 更新主服务
      */
     private R updateMainService(Node inNode, String serviceName, Forward forward, Integer limiter, Integer tunnelType, Tunnel tunnel, String strategy, String interfaceName) {
-        GostDto result = GostUtil.UpdateService(inNode.getId(), serviceName, forward.getInPort(), limiter, forward.getRemoteAddr(), tunnelType, tunnel, strategy, interfaceName);
+        GostDto result = GostUtil.ApplyServiceOptions(inNode.getId(), serviceName, forward.getInPort(), limiter, forward.getRemoteAddr(), tunnelType, tunnel, strategy, interfaceName,forward.getEngineOptions(),true);
 
         if (result.getMsg().contains(GOST_NOT_FOUND_MSG)) {
-            result = GostUtil.AddService(inNode.getId(), serviceName, forward.getInPort(), limiter, forward.getRemoteAddr(), tunnelType, tunnel, strategy, interfaceName);
+            result = GostUtil.ApplyServiceOptions(inNode.getId(), serviceName, forward.getInPort(), limiter, forward.getRemoteAddr(), tunnelType, tunnel, strategy, interfaceName,forward.getEngineOptions(),false);
         }
 
         return isGostOperationSuccess(result) ? R.ok() : R.err(result.getMsg());
@@ -1354,6 +1379,7 @@ public class ForwardServiceImpl extends ServiceImpl<ForwardMapper, Forward> impl
             for (Forward forward : inForwards) {
                 if (forward.getInPort() != null) {
                     usedPorts.add(forward.getInPort());
+                    if(forward.getEngineOptions()!=null){var config=com.alibaba.fastjson.JSONObject.parseObject(forward.getEngineOptions());var listeners=config.getJSONArray("listeners");if(listeners!=null)for(Object item:listeners)usedPorts.add(((com.alibaba.fastjson.JSONObject)item).getIntValue("port"));}
                 }
             }
         }

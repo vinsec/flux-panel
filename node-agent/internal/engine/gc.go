@@ -25,6 +25,7 @@ func counterID(r counterRecord) string {
 func watermarkKey(id, set, key string) string { return id + "|" + set + "|" + key }
 
 type Acknowledgement struct {
+	ServiceID           string             `json:"serviceId,omitempty"`
 	MaintenanceAccepted bool               `json:"maintenanceAccepted"`
 	LeaseWatermarks     []LeaseUsage       `json:"leaseWatermarks"`
 	Epoch               string             `json:"epoch"`
@@ -58,7 +59,7 @@ func (m *Manager) Acknowledge(ack Acknowledgement) error {
 		}
 	}
 	for _, c := range ack.Counters {
-		if !serviceID.MatchString(c.ID) || c.Set != upSet && c.Set != downSet {
+		if !serviceID.MatchString(c.ID) || !accountingSet(c.Set) {
 			return fmt.Errorf("invalid counter acknowledgement")
 		}
 		key := watermarkKey(c.ID, c.Set, c.Key)
@@ -115,7 +116,9 @@ func (m *Manager) Collect(retention time.Duration) (int, error) {
 	current := map[string]bool{}
 	for _, s := range after.Rules {
 		if !s.Deleted {
-			current[targetKey(s)] = true
+			for _, key := range s.TargetKeys() {
+				current[key] = true
+			}
 		}
 	}
 	remove := []counterRecord{}

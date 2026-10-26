@@ -31,7 +31,12 @@ func keys(rules map[string]Spec) []string {
 	sort.Strings(r)
 	return r
 }
-func flowMark(s Spec) uint32 { return 0xf1000000 | (s.Token << 8) }
+func flowMark(s Spec) uint32 {
+	if s.Advanced() {
+		return 0xf2000000 | (s.Token << 8)
+	}
+	return 0xf1000000 | (s.Token << 8)
+}
 func fullMark(s Spec) string { return fmt.Sprintf("0x%08x/%s", flowMark(s), markMask) }
 
 // The only per-forward iptables rules are in the first-packet NAT trie.

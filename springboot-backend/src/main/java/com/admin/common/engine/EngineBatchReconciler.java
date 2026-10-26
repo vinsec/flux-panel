@@ -19,6 +19,7 @@ public class EngineBatchReconciler {
     @Resource private JdbcTemplate jdbc;
     @Resource private EngineRevision revisions;
     @Resource private EngineCreditService credits;
+    @Resource private EngineSpecFactory specs;
     private final ConcurrentHashMap<Long, JSONObject> pending = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Long, Object> locks = new ConcurrentHashMap<>();
 
@@ -89,7 +90,7 @@ public class EngineBatchReconciler {
             List<Map<String, Object>> rows =
                     jdbc.queryForList(
                             "SELECT"
-                                + " f.id,f.user_id,f.in_port,f.remote_addr,f.status,f.strategy,f.interface_name,t.type,t.tcp_listen_addr,t.udp_listen_addr,u.role_id,u.status"
+                                + " f.id,f.user_id,f.in_port,f.remote_addr,f.engine_options,f.status,f.strategy,f.interface_name,t.type,t.tcp_listen_addr,t.udp_listen_addr,u.role_id,u.status"
                                 + " user_status,u.exp_time user_exp,ut.id"
                                 + " permission_id,ut.speed_id,ut.status"
                                 + " permission_status,ut.exp_time permission_exp FROM forward f"
@@ -108,19 +109,11 @@ public class EngineBatchReconciler {
                                 + "_"
                                 + (admin ? 0 : n(r, "permission_id"));
                 if (desired.containsKey(id)) continue;
-                if (n(r, "type") != 1
-                        || r.get("interface_name") != null
-                                && !r.get("interface_name").toString().isBlank()
-                        || !"fifo".equals(r.get("strategy"))
-                        || !admin && r.get("speed_id") != null && n(r, "speed_id") != 0)
-                    throw new IllegalArgumentException("unsupported desired capability in " + id);
-                Endpoint target = Endpoint.parse(r.get("remote_addr").toString());
-                if (!"ip".equals(target.getKind()) || !"ipv4".equals(target.getFamily()))
-                    throw new IllegalArgumentException("DNS/IPv6 is not enabled");
-                String listen = r.get("tcp_listen_addr").toString();
-                if (!IptablesForwardingEngine.ipv4(listen)
-                        || !listen.equals(r.get("udp_listen_addr")))
-                    throw new IllegalArgumentException("invalid shared IPv4 listener");
+                if(n(r,"type")!=1)throw new IllegalArgumentException("only direct forwarding is supported");
+                com.admin.entity.Tunnel tunnel=new com.admin.entity.Tunnel();tunnel.setType((int)n(r,"type"));tunnel.setEngine("iptables");tunnel.setTcpListenAddr(r.get("tcp_listen_addr").toString());tunnel.setUdpListenAddr(r.get("udp_listen_addr").toString());
+                ForwardSpec business=new ForwardSpec(id,(int)n(r,"in_port"),admin||r.get("speed_id")==null?null:(int)n(r,"speed_id"),r.get("remote_addr").toString(),1,tunnel,r.get("strategy")==null?"fifo":r.get("strategy").toString(),(String)r.get("interface_name"));business.setEngineOptions((String)r.get("engine_options"));
+                JSONObject advanced=specs.advanced(node,business);Endpoint target=null;String listen=tunnel.getTcpListenAddr();
+                if(advanced==null){IptablesForwardingEngine.validate(business);target=Endpoint.parse(business.getTarget());}
                 long expires =
                         admin ? 0 : Math.min(expiry(r, "user_exp"), expiry(r, "permission_exp"));
                 boolean enabled =
@@ -128,12 +121,9 @@ public class EngineBatchReconciler {
                                 && n(r, "user_status") == 1
                                 && (admin || n(r, "permission_status") == 1 && expires > now);
                 if (!enabled && n(r, "status") == 1) expiredStates.add(new Object[] {n(r, "id")});
-                JSONObject s = new JSONObject();
-                s.put("id", id);
-                s.put("listenIP", listen);
-                s.put("listenPort", n(r, "in_port"));
-                s.put("targetIP", target.getHost());
-                s.put("targetPort", target.getPort());
+                JSONObject s = advanced==null?new JSONObject():advanced;
+                s.put("id",id);
+                if(advanced==null){s.put("listenIP",listen);s.put("listenPort",n(r,"in_port"));s.put("targetIP",target.getHost());s.put("targetPort",target.getPort());}
                 s.put("expiresAt", expires);
                 s.put("enabled", enabled);
                 if (!admin && lease) {
@@ -186,6 +176,7 @@ public class EngineBatchReconciler {
 
     private static boolean changed(JSONObject desired, JSONObject actual) {
         if (actual == null || actual.getBooleanValue("deleted")) return true;
+        if(desired.getIntValue("schemaVersion")==3){return !java.util.Objects.equals(desired.getString("intentHash"),actual.getString("intentHash"))||desired.getBooleanValue("enabled")!=actual.getBooleanValue("enabled")||desired.getLongValue("expiresAt")!=actual.getLongValue("expiresAt")||desired.getBooleanValue("leaseRequired")!=actual.getBooleanValue("leaseRequired");}
         for (String key : List.of("listenIP", "targetIP"))
             if (!Objects.equals(desired.getString(key), actual.getString(key))) return true;
         for (String key : List.of("listenPort", "targetPort", "expiresAt"))

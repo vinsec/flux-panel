@@ -44,8 +44,20 @@ func (k *IPTables) Preflight() (PreflightResult, error) {
 			return result, e
 		}
 		ownedTables[table] = markOwners(saved)
+		ownedTables["ip:"+table] = ownedTables[table]
 		if e = validateExternalMarks(saved); e != nil {
 			return result, e
+		}
+	}
+	if k.P1 != nil {
+		binary := strings.Replace(k.Binary, "iptables", "ip6tables", 1)
+		for _, table := range []string{"filter", "mangle", "nat"} {
+			if saved, err := k.run(binary+"-save", "", "-t", table); err == nil {
+				ownedTables["ip6:"+table] = markOwners(saved)
+				if err = validateExternalMarks(saved); err != nil {
+					return result, err
+				}
+			}
 		}
 	}
 	other := "iptables-legacy"
@@ -129,17 +141,21 @@ func markOwners(saved string) map[string]bool {
 		if ownedNames.MatchString(name) && (knownOwnedChain(saved, name) || strings.Contains(saved, "-A "+name+" -m comment --comment flux-owner:v1 -j RETURN") || strings.Contains(saved, "-A "+name+" -m comment --comment \"flux-owner:v1\" -j RETURN")) {
 			owners[name] = true
 		}
+		if (strings.HasPrefix(name, "FP4_") || strings.HasPrefix(name, "FP6_")) && advancedOwnedChain(saved, name) {
+			owners[name] = true
+		}
 	}
 	return owners
 }
-func validateExternalMarks(saved string) error {
+func validateExternalMarks(saved string) error { return validateMarkBits(saved, 0xffffff00) }
+func validateMarkBits(saved string, reserved uint64) error {
 	owners := markOwners(saved)
 	for _, line := range strings.Split(saved, "\n") {
 		f := strings.Fields(line)
 		if len(f) < 3 || f[0] != "-A" || owners[f[1]] {
 			continue
 		}
-		if strings.Contains(line, gateComment) && strings.Contains(line, "-j DROP") {
+		if (strings.Contains(line, gateComment) || strings.Contains(line, advancedGate)) && strings.Contains(line, "-j DROP") {
 			continue
 		}
 		if reservedMark.MatchString(line) {
@@ -173,7 +189,7 @@ func validateExternalMarks(saved string) error {
 					}
 					mask |= value
 				}
-				if mask&0xffffff00 != 0 {
+				if mask&reserved != 0 {
 					return fmt.Errorf("external mark writer overlaps Flux token bits")
 				}
 			}
@@ -192,7 +208,7 @@ func validateExternalMarks(saved string) error {
 						}
 					}
 				}
-				if (nfmask|ctmask)&0xffffff00 != 0 {
+				if (nfmask|ctmask)&reserved != 0 {
 					return fmt.Errorf("external CONNMARK writer overlaps Flux token bits")
 				}
 			}
@@ -226,7 +242,7 @@ func validateNativeRules(text string, owners map[string]map[string]bool) error {
 			if _, ok := expression["flow"]; ok {
 				return fmt.Errorf("native flow offload can bypass pause and quota enforcement")
 			}
-			if v, ok := expression["mangle"]; ok && !(rule.Family == "ip" && owners[rule.Table][rule.Chain]) {
+			if v, ok := expression["mangle"]; ok && !(rule.Family == "ip" && owners[rule.Table][rule.Chain] || owners[rule.Family+":"+rule.Table][rule.Chain]) {
 				var m struct {
 					Key json.RawMessage `json:"key"`
 				}

@@ -10,13 +10,21 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"os/user"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 )
 
 func main() {
 	config := flag.String("config", "config.json", "configuration file")
+	helperMode := flag.Bool("kernel-helper", false, "serve allowlisted local kernel operations")
+	helperUser := flag.String("helper-user", "flux-agent", "allowed local network-process account or numeric UID")
+	standalone := flag.Bool("standalone", false, "explicit legacy in-process kernel mode")
+	serviceConfig := flag.String("write-service-config", "", "write a protected service config with local helper enabled")
+	previousConfig := flag.String("same-node-config", "", "require matching node identity in this previous config")
 	maintenance := flag.String("maintenance", "", "pause/settle and backup, migrate, rollback, uninstall, or settle")
 	printBackup := flag.Bool("print-backup-path", false, "print only the completed maintenance backup path")
 	backup := flag.String("backup-dir", "", "new backup directory (existing source for rollback)")
@@ -67,12 +75,32 @@ func main() {
 	}
 	if *preflight {
 		k := engine.IPTables{Binary: c.Iptables}
+		k.EnableAdvanced(c.StatePath)
 		report, e := k.Preflight()
 		b, _ := json.MarshalIndent(report, "", "  ")
 		fmt.Println(string(b))
 		if e != nil {
 			log.Fatal(e)
 		}
+		return
+	}
+	if *standalone {
+		c.HelperSocket = ""
+	}
+	if (*status || *ready) && c.HelperSocket != "" {
+		info := (&control.RemoteManager{Socket: c.HelperSocket}).Info()
+		if *ready {
+			connected, _ := info["lastConnectedAt"].(float64)
+			ack, _ := info["lastAckAt"].(float64)
+			blocked, _ := info["blocked"].(bool)
+			if blocked || connected == 0 || ack == 0 || time.Now().UnixMilli()-int64(ack) > 30000 {
+				os.Exit(1)
+			}
+			fmt.Println("ready")
+			return
+		}
+		b, _ = json.MarshalIndent(info, "", "  ")
+		fmt.Println(string(b))
 		return
 	}
 	if *status || *ready {
@@ -118,6 +146,58 @@ func main() {
 		fmt.Println("{\"valid\":true}")
 		return
 	}
+	if *previousConfig != "" {
+		old, e := os.ReadFile(*previousConfig)
+		if e != nil {
+			log.Fatal(e)
+		}
+		var prior control.Config
+		if e = json.Unmarshal(old, &prior); e != nil {
+			log.Fatal(e)
+		}
+		if strings.TrimRight(prior.Addr, "/") != strings.TrimRight(c.Addr, "/") || prior.Secret != c.Secret || prior.StatePath != c.StatePath {
+			log.Fatal("node identity or ledger path differs")
+		}
+		fmt.Println("same node identity")
+		return
+	}
+	if *serviceConfig != "" {
+		if !filepath.IsAbs(*serviceConfig) {
+			log.Fatal("service config output must be absolute")
+		}
+		c.HelperSocket = "/run/flux-agent/kernel.sock"
+		body, e := json.Marshal(c)
+		if e != nil {
+			log.Fatal(e)
+		}
+		if e = os.WriteFile(*serviceConfig, body, 0600); e != nil {
+			log.Fatal(e)
+		}
+		return
+	}
+	if c.HelperSocket != "" && !*helperMode && *maintenance == "" {
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		remote := &control.RemoteManager{Socket: c.HelperSocket}
+		deadline := time.Now().Add(30 * time.Second)
+		for {
+			if info := remote.Info(); info["epoch"] != nil {
+				break
+			}
+			if time.Now().After(deadline) {
+				log.Fatal("kernel helper readiness timed out")
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(200 * time.Millisecond):
+			}
+		}
+		if e = control.Run(ctx, c, remote); e != nil {
+			log.Fatal(e)
+		}
+		return
+	}
 	if e = os.MkdirAll(filepath.Dir(c.StatePath), 0700); e != nil {
 		log.Fatal(e)
 	}
@@ -144,6 +224,7 @@ func main() {
 	}
 	defer namespace.Close()
 	k := engine.IPTables{Binary: c.Iptables}
+	k.EnableAdvanced(c.StatePath)
 	if *testFault != "" {
 		if !c.AllowInsecure {
 			log.Fatal("fault injection is disabled outside isolated tests")
@@ -216,6 +297,28 @@ func main() {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	if *helperMode {
+		if c.HelperSocket == "" {
+			log.Fatal("kernel helper requires helperSocket")
+		}
+		numeric := *helperUser
+		if _, err := strconv.ParseUint(numeric, 10, 32); err != nil {
+			account, err := user.Lookup(numeric)
+			if err != nil {
+				log.Fatal("helper account unavailable")
+			}
+			numeric = account.Uid
+		}
+		uid, err := control.HelperUID(numeric)
+		if err != nil {
+			log.Fatal("invalid helper account")
+		}
+		m.ConfigureResolver(c.DNSServers)
+		if e = control.ServeHelper(ctx, c.HelperSocket, uid, m); e != nil {
+			log.Fatal(e)
+		}
+		return
+	}
 	if e = control.Run(ctx, c, m); e != nil {
 		log.Fatal(e)
 	}

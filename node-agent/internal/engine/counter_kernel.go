@@ -25,6 +25,16 @@ func (k *IPTables) SnapshotDetailed() (map[string]uint64, []counterRecord, error
 			records = append(records, r)
 		}
 	}
+	if k.P1 != nil {
+		extra, more, e := k.P1.snapshot()
+		if e != nil {
+			return nil, nil, e
+		}
+		for key, n := range extra {
+			totals[key] += n
+		}
+		records = append(records, more...)
+	}
 	return totals, records, nil
 }
 func (k *IPTables) References() (map[string]bool, error) {
@@ -53,11 +63,29 @@ func (k *IPTables) References() (map[string]bool, error) {
 			out[fmt.Sprintf("mark:0x%x", uint32(value)&0xffffff00)] = true
 		}
 	}
+	if k.P1 != nil {
+		more, e := k.P1.references()
+		if e != nil {
+			return nil, e
+		}
+		for key, value := range more {
+			out[key] = value
+		}
+	}
 	return out, nil
 }
 func (k *IPTables) counterSets() (map[string]map[string]setElement, error) {
 	out := map[string]map[string]setElement{}
-	for _, name := range []string{upSet, downSet} {
+	names := []string{upSet, downSet}
+	if k.P1 != nil {
+		for _, family := range []string{"ipv4", "ipv6"} {
+			if k.P1.ready[family] {
+				p := k.P1.plane(family)
+				names = append(names, p.set("UP"), p.set("DOWN"))
+			}
+		}
+	}
+	for _, name := range names {
 		text, e := k.readSet(name)
 		if e != nil {
 			return nil, e
@@ -73,7 +101,7 @@ func (k *IPTables) RemoveCounters(records []counterRecord) error {
 	}
 	var b strings.Builder
 	for _, r := range records {
-		if r.Set != upSet && r.Set != downSet {
+		if !accountingSet(r.Set) {
 			return fmt.Errorf("foreign counter set in GC")
 		}
 		v, exists := sets[r.Set][r.Key]
@@ -101,7 +129,7 @@ func (k *IPTables) RestoreCounters(records []counterRecord) error {
 	}
 	var b strings.Builder
 	for _, r := range records {
-		if r.Set != upSet && r.Set != downSet {
+		if !accountingSet(r.Set) {
 			return fmt.Errorf("foreign counter set in journal")
 		}
 		if old, ok := sets[r.Set][r.Key]; ok {

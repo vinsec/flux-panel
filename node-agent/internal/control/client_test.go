@@ -30,7 +30,7 @@ func TestTrustedWSSAndHTTPS(t *testing.T) {
 	mux := http.NewServeMux()
 	secret := "local-tls-test-only"
 	mux.HandleFunc("/system-info", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("engine") != "iptables" || r.URL.Query().Get("secret") != secret {
+		if r.URL.Query().Get("engine") != "iptables" || r.URL.Query().Get("secret") != "" || r.Header.Get("Authorization") != "Bearer "+secret {
 			w.WriteHeader(403)
 			return
 		}

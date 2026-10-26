@@ -42,8 +42,11 @@ import {
   pauseForwardService,
   resumeForwardService,
   diagnoseForward,
-  updateForwardOrder
+  updateForwardOrder,
+  getTunnelCapabilities,
+  getForwardStates
 } from "@/api";
+import AdvancedForwardFields, { engineOptionsForSubmit } from "@/components/advanced-forward-fields";
 import { JwtUtil } from "@/utils/jwt";
 
 interface Forward {
@@ -54,6 +57,8 @@ interface Forward {
   inIp: string;
   inPort: number;
   remoteAddr: string;
+  engineOptions?: string;
+  engine?: string;
   interfaceName?: string;
   strategy: string;
   status: number;
@@ -80,6 +85,7 @@ interface ForwardForm {
   tunnelId: number | null;
   inPort: number | null;
   remoteAddr: string;
+  engineOptions?: string;
   interfaceName?: string;
   strategy: string;
 }
@@ -123,6 +129,8 @@ export default function ForwardPage() {
   const [loading, setLoading] = useState(true);
   const [forwards, setForwards] = useState<Forward[]>([]);
   const [tunnels, setTunnels] = useState<Tunnel[]>([]);
+  const [engineCapabilities,setEngineCapabilities]=useState<any>(null);
+  const [forwardStates,setForwardStates]=useState<Record<number,any>>({});
   
   // 检测是否为移动端
   const [isMobile, setIsMobile] = useState(false);
@@ -194,6 +202,18 @@ export default function ForwardPage() {
     strategy: 'fifo'
   });
   
+  useEffect(()=>{
+    if(!form.tunnelId){setEngineCapabilities(null);return;}
+    let cancelled=false;setEngineCapabilities(null);
+    getTunnelCapabilities({tunnelId:form.tunnelId}).then(response=>{if(!cancelled&&response.code===0)setEngineCapabilities(response.data)}).catch(()=>{});
+    return()=>{cancelled=true};
+  },[form.tunnelId]);
+  const stateIDs=forwards.filter(f=>f.engine==='iptables').slice(0,200).map(f=>f.id).join(',');
+  useEffect(()=>{
+    if(!stateIDs)return;
+    let cancelled=false;const refresh=async()=>{try{const response=await getForwardStates({ids:stateIDs.split(',').map(Number)});if(!cancelled&&response.code===0){const values:Record<number,any>={};for(const row of response.data||[])values[row.id]=row.state;setForwardStates(values);}}catch{}};
+    refresh();const timer=window.setInterval(refresh,10000);return()=>{cancelled=true;window.clearInterval(timer)};
+  },[stateIDs]);
   // 表单验证错误
   const [errors, setErrors] = useState<{[key: string]: string}>({});
   const [selectedTunnel, setSelectedTunnel] = useState<Tunnel | null>(null);
@@ -462,7 +482,8 @@ export default function ForwardPage() {
       inPort: forward.inPort,
       remoteAddr: forward.remoteAddr.split(',').join('\n'),
       interfaceName: forward.interfaceName || '',
-      strategy: forward.strategy || 'fifo'
+      strategy: forward.strategy || 'fifo',
+      engineOptions: forward.engineOptions
     });
     const tunnel = tunnels.find(t => t.id === forward.tunnelId);
     setSelectedTunnel(tunnel || null);
@@ -530,6 +551,7 @@ export default function ForwardPage() {
 
       const addressCount = processedRemoteAddr.split(',').length;
       
+      const engineOptions=engineCapabilities?.engine==='iptables'?engineOptionsForSubmit(form.engineOptions,form.remoteAddr,form.inPort,engineCapabilities?.node?.capabilities?.features||{}):undefined;
       let res;
       if (isEdit) {
         // 更新时确保包含必要字段
@@ -541,7 +563,8 @@ export default function ForwardPage() {
           inPort: form.inPort,
           remoteAddr: processedRemoteAddr,
           interfaceName: form.interfaceName,
-          strategy: addressCount > 1 ? form.strategy : 'fifo'
+          strategy: addressCount > 1 ? form.strategy : 'fifo',
+          engineOptions
         };
         res = await updateForward(updateData);
       } else {
@@ -552,13 +575,14 @@ export default function ForwardPage() {
           inPort: form.inPort,
           remoteAddr: processedRemoteAddr,
           interfaceName: form.interfaceName,
-          strategy: addressCount > 1 ? form.strategy : 'fifo'
+          strategy: addressCount > 1 ? form.strategy : 'fifo',
+          engineOptions
         };
         res = await createForward(createData);
       }
       
       if (res.code === 0) {
-        toast.success(isEdit ? '修改成功' : '创建成功');
+        toast.success(engineCapabilities?.engine==='iptables'?'配置已保存，请查看节点生效状态':(isEdit?'修改成功':'创建成功'));
         setModalOpen(false);
         loadData();
       } else {
@@ -566,7 +590,7 @@ export default function ForwardPage() {
       }
     } catch (error) {
       console.error('提交失败:', error);
-      toast.error('操作失败');
+      toast.error(error instanceof Error?error.message:'操作失败');
     } finally {
       setSubmitLoading(false);
     }
@@ -1184,6 +1208,14 @@ export default function ForwardPage() {
             <div className="flex-1 min-w-0">
               <h3 className="font-semibold text-foreground truncate text-sm">{forward.name}</h3>
               <p className="text-xs text-default-500 truncate">{forward.tunnelName}</p>
+              {forward.engine==='iptables'&&<div className="mt-1 text-xs" title={forwardStates[forward.id]?.error||forwardStates[forward.id]?.resolution?.error||''}>
+                <span className={forwardStates[forward.id]?.status==='applied'?'text-success':forwardStates[forward.id]?.status==='failed'?'text-danger':'text-default-500'}>
+                  {{applied:'已生效',paused:'已暂停',pending:'等待解析或健康检查',failed:'应用/解析失败',unavailable:'节点状态不可用',absent:'等待对账'}[forwardStates[forward.id]?.status as string]||'正在获取生效状态'}
+                </span>
+                {forwardStates[forward.id]?.appliedRevision!=null&&<span> · r{forwardStates[forward.id].appliedRevision}</span>}
+                {forwardStates[forward.id]?.resolution?.generation>0&&<span> · 解析代次 {forwardStates[forward.id].resolution.generation}</span>}
+              </div>}
+
             </div>
             <div className="flex items-center gap-1.5 ml-2">
               {viewMode === 'direct' && (
@@ -1628,6 +1660,7 @@ export default function ForwardPage() {
                       maxRows={6}
                     />
                     
+                    {engineCapabilities?.engine==='iptables'&&<AdvancedForwardFields value={form.engineOptions} onChange={engineOptions=>setForm(previous=>({...previous,engineOptions}))} features={engineCapabilities?.node?.capabilities?.features||{}} port={form.inPort} remoteAddr={form.remoteAddr} tcpHost={engineCapabilities?.tcpListenAddr} udpHost={engineCapabilities?.udpListenAddr}/>}
                     <Input
                       label="出口网卡名或IP"
                       placeholder="请输入出口网卡名或IP"

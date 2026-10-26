@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -13,18 +14,21 @@ import (
 )
 
 type Manager struct {
-	recovering   bool
-	jobsMu       sync.Mutex
-	jobsOnce     sync.Once
-	jobs         map[string]Job
-	queue        chan Batch
-	mu           sync.Mutex
-	Path         string
-	Kernel       Kernel
-	state        State
-	active       map[string]bool
-	blocked      bool
-	lastCounters []counterRecord
+	recovering    bool
+	jobsMu        sync.Mutex
+	jobsOnce      sync.Once
+	jobs          map[string]Job
+	queue         chan Batch
+	mu            sync.Mutex
+	Path          string
+	Kernel        Kernel
+	state         State
+	active        map[string]bool
+	blocked       bool
+	lastCounters  []counterRecord
+	Resolver      *Resolver
+	lastAddresses string
+	runtimeCursor string
 	// Fault is injected by tests only. It is never supplied in remote commands.
 	Fault func(string)
 }
@@ -47,7 +51,7 @@ func New(path string, k Kernel) (manager *Manager, err error) {
 	} else if !fresh {
 		return nil, e
 	}
-	if m.state.FormatVersion > 3 {
+	if m.state.FormatVersion > 4 {
 		return nil, fmt.Errorf("unsupported state format")
 	}
 	if !fresh && (len(m.state.Epoch) != 32 || m.state.Sequence < 0) {
@@ -129,6 +133,7 @@ func New(path string, k Kernel) (manager *Manager, err error) {
 		lost = true
 	}
 	if lost {
+		m.state.CounterLast = map[string]uint64{}
 		m.state.Recovery = RecoveryInfo{true, m.state.LastDurableAt, "host or kernel ledger changed; uncheckpointed traffic is unavailable and old credit remains reserved"}
 		m.state.Leases = map[string]Lease{}
 		m.state.RequestTimes = map[int64]int64{}
@@ -164,6 +169,9 @@ func New(path string, k Kernel) (manager *Manager, err error) {
 }
 func (m *Manager) defaults() {
 	s := &m.state
+	if s.CounterLast == nil {
+		s.CounterLast = map[string]uint64{}
+	}
 	if s.Quarantine == nil {
 		s.Quarantine = map[uint32]int64{}
 	}
@@ -210,6 +218,12 @@ func (m *Manager) defaults() {
 		s.NextToken = 1
 	}
 	s.FormatVersion = 3
+	for _, rule := range s.Rules {
+		if rule.Advanced() {
+			s.FormatVersion = 4
+			break
+		}
+	}
 }
 func (m *Manager) validateState() error {
 	if m.state.NextToken > 65536 {
@@ -279,6 +293,24 @@ func (m *Manager) capture(s *State) error {
 			m.sealLoss(s, "kernel counter collection failed; accounting cannot safely continue")
 		}
 		return e
+	}
+	if _, ok := m.Kernel.(interface {
+		SnapshotDetailed() (map[string]uint64, []counterRecord, error)
+	}); ok {
+		observed := map[string]uint64{}
+		for _, r := range m.lastCounters {
+			if strings.HasPrefix(r.Set, "FP4_") || strings.HasPrefix(r.Set, "FP6_") {
+				observed[r.Set+"|"+r.Key] = r.Bytes
+			}
+		}
+		for key, last := range s.CounterLast {
+			value, exists := observed[key]
+			if !exists || value < last {
+				m.sealLoss(s, "an owned per-target counter disappeared or regressed")
+				return fmt.Errorf("per-target accounting continuity lost")
+			}
+		}
+		s.CounterLast = observed
 	}
 	if e = m.counterContinuity(s, c); e != nil {
 		return e
@@ -433,6 +465,12 @@ func (m *Manager) commit(after State, forget []Spec, reason string, gc []counter
 	if reason == "counter and token GC" {
 		// ACKed unreferenced retired entries have no packet path. The live
 		// baselines are adjusted by deletion deltas, so no data fence is needed.
+	} else if reason == "runtime refresh" {
+		if k, ok := m.Kernel.(interface{ QuiesceNewTokens([]uint32) error }); ok {
+			barrier = k.QuiesceNewTokens(selected)
+		} else {
+			barrier = m.quiesce()
+		}
 	} else if k, ok := m.Kernel.(interface{ QuiesceTokens([]uint32) error }); ok {
 		barrier = k.QuiesceTokens(selected)
 	} else {
@@ -477,11 +515,12 @@ func (m *Manager) commit(after State, forget []Spec, reason string, gc []counter
 		// Only the retired tokens are fenced. Other forwards may keep
 		// incrementing while GC runs; do not replace their live baseline.
 		for _, r := range gc {
+			delete(after.CounterLast, r.Set+"|"+r.Key)
 			parts := strings.Split(r.Comment, ":")
 			if len(parts) != 4 {
 				return rollback(fmt.Errorf("invalid GC counter identity"))
 			}
-			name := "flux:v2:" + parts[2] + ":all:" + parts[3]
+			name := counterBaseline(r.Set, parts[2], parts[3])
 			if after.Last[name] < r.Bytes {
 				return rollback(fmt.Errorf("GC exceeds the sampled baseline"))
 			}
@@ -548,6 +587,8 @@ func (m *Manager) ApplyBatch(b Batch) error {
 	seen := map[string]bool{}
 	forget := []Spec{}
 	for _, incoming := range b.Specs {
+		// Runtime IPs and health are node-owned. Internal Change preserves them;
+		// a new desired request receives a fresh node-side resolution schedule.
 		s, e := incoming.Normalize()
 		if after.StrictCredit && !strings.HasSuffix(s.ID, "_0") {
 			s.LeaseRequired = true
@@ -560,6 +601,23 @@ func (m *Manager) ApplyBatch(b Batch) error {
 		}
 		seen[s.ID] = true
 		old, exists := after.Rules[s.ID]
+		if s.Advanced() {
+			if exists && resolutionIntentDigest(old) == resolutionIntentDigest(s) {
+				s.Runtime = old.Runtime
+			} else {
+				s.Runtime = ResolutionState{Status: "pending", NextResolveAt: time.Now().UnixMilli()}
+				if allNumericTargets(s) {
+					resolver := m.Resolver
+					if resolver == nil {
+						resolver = &Resolver{}
+					}
+					s, e = resolver.Resolve(context.Background(), s)
+					if e != nil {
+						return e
+					}
+				}
+			}
+		}
 		s.Token = old.Token
 		if !exists && s.Revision <= after.Floors[s.ID] {
 			return fmt.Errorf("retired revision")
@@ -590,13 +648,15 @@ func (m *Manager) ApplyBatch(b Batch) error {
 				after.NextToken++
 			}
 		}
-		if exists && !old.Deleted && (s.Deleted || s.TargetIP != old.TargetIP || s.TargetPort != old.TargetPort || s.ListenIP != old.ListenIP || s.ListenPort != old.ListenPort) {
+		if exists && !old.Deleted && (s.Deleted || desiredNetworkDigest(s) != desiredNetworkDigest(old)) {
 			forget = append(forget, old)
 			if l, ok := after.Leases[s.ID]; ok {
 				l.Closed = true
 				after.Leases[s.ID] = l
 			}
-			after.CounterRetiredAt[targetKey(old)] = time.Now().UnixMilli()
+			for _, key := range old.TargetKeys() {
+				after.CounterRetiredAt[key] = time.Now().UnixMilli()
+			}
 		}
 		if !s.Enabled {
 			if l, ok := after.Leases[s.ID]; ok {
@@ -605,19 +665,29 @@ func (m *Manager) ApplyBatch(b Batch) error {
 			}
 		}
 		after.Rules[s.ID] = s
+		if s.Advanced() {
+			after.FormatVersion = 4
+		}
 		changed = true
 		if s.Deleted {
 			after.RetiredAt[s.ID] = time.Now().UnixMilli()
 		}
 	}
 	configured := 0
+	resolvedPaths := 0
 	for _, s := range after.Rules {
 		if !s.Deleted {
 			configured++
+			if s.Advanced() {
+				resolvedPaths += len(s.Paths())
+			}
 		}
 	}
 	if configured > 10000 {
 		return fmt.Errorf("validated capacity is 10000 configured forwards")
+	}
+	if resolvedPaths > 32768 {
+		return fmt.Errorf("resolved path capacity exceeds 32768")
 	}
 	if e := validateListeners(after.Rules); e != nil {
 		return e
@@ -645,28 +715,33 @@ func validateListeners(rules map[string]Spec) error {
 		wild string
 		ips  map[string]string
 	}
-	ports := map[int]*endpoints{}
+	ports := map[string]*endpoints{}
 	for _, id := range keys(rules) {
 		s := rules[id]
 		if s.Deleted {
 			continue
 		}
-		v := ports[s.ListenPort]
-		if v == nil {
-			v = &endpoints{ips: map[string]string{}}
-			ports[s.ListenPort] = v
-		}
-		if v.wild != "" || s.ListenIP == "0.0.0.0" && len(v.ips) > 0 || v.ips[s.ListenIP] != "" {
-			return fmt.Errorf("listener conflicts with existing forward on port %d", s.ListenPort)
-		}
-		if s.ListenIP == "0.0.0.0" {
-			v.wild = id
-		} else {
-			v.ips[s.ListenIP] = id
+		for _, l := range s.ListenerList() {
+			key := fmt.Sprintf("%s/%s/%d", l.Family, l.Protocol, l.Port)
+			p := ports[key]
+			if p == nil {
+				p = &endpoints{ips: map[string]string{}}
+				ports[key] = p
+			}
+			wildcard := l.Host == "0.0.0.0" || l.Host == "::"
+			if p.wild != "" || wildcard && len(p.ips) > 0 || p.ips[l.Host] != "" {
+				return fmt.Errorf("listener conflicts with existing %s", key)
+			}
+			if wildcard {
+				p.wild = id
+			} else {
+				p.ips[l.Host] = id
+			}
 		}
 	}
 	return nil
 }
+
 func (m *Manager) Change(id string, rev int64, enabled, deleted bool) error {
 	m.mu.Lock()
 	s, ok := m.state.Rules[id]
@@ -745,6 +820,9 @@ func (m *Manager) Report() (Report, error) {
 		s := m.state.Rules[id]
 		if s.Active() && s.LeaseRequired && !m.state.AccountingBlocked && !m.state.MaintenancePending {
 			r.CreditMode = true
+			if s.Advanced() && len(s.Paths()) == 0 {
+				continue
+			}
 			l, ok := m.state.Leases[id]
 			window := l.Grant.WindowBytes
 			if window == 0 || window > l.Grant.TotalGranted {
@@ -841,6 +919,16 @@ func (m *Manager) enforceLocked() error {
 	if e := m.closeExpiredLocked(); e != nil {
 		return e
 	}
+	// DNS admission expires independently of worker capacity or DNS refresh
+	// success. Existing confirmed connections retain their draining path.
+	if _, changed := expireRuntime(m.state, time.Now().UnixMilli()); changed {
+		if e := m.capture(&m.state); e != nil {
+			return e
+		}
+		after, _ := expireRuntime(m.state, time.Now().UnixMilli())
+		after.Generation++
+		return m.commit(after, nil, "runtime refresh", nil)
+	}
 	changed := false
 	for id, s := range m.state.Rules {
 		if m.active[id] != s.Active() {
@@ -902,7 +990,7 @@ func (m *Manager) Page(after string, limit int, generation *uint64) (Page, error
 func (m *Manager) Info() map[string]any {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return map[string]any{"strictCreditPolicy": m.state.StrictCredit, "bootId": m.state.BootID, "capabilities": CurrentCapabilities(), "epoch": m.state.Epoch, "generation": m.state.Generation, "blocked": m.blocked, "maintenancePending": m.state.MaintenancePending, "accountingBlocked": m.state.AccountingBlocked, "lastDurableAt": m.state.LastDurableAt, "recovery": m.state.Recovery}
+	return map[string]any{"lastAckAt": m.state.LastAckAt, "lastConnectedAt": m.state.LastConnectedAt, "strictCreditPolicy": m.state.StrictCredit, "bootId": m.state.BootID, "capabilities": CurrentCapabilities(), "epoch": m.state.Epoch, "generation": m.state.Generation, "blocked": m.blocked, "maintenancePending": m.state.MaintenancePending, "accountingBlocked": m.state.AccountingBlocked, "lastDurableAt": m.state.LastDurableAt, "recovery": m.state.Recovery}
 }
 
 func (m *Manager) Connected(value bool) {

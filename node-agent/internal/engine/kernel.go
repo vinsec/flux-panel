@@ -18,9 +18,11 @@ type Kernel interface {
 	Apply(map[string]string) error
 }
 type IPTables struct {
+	P1           *AdvancedKernel
 	Binary       string
 	shape        string
 	controlShape string
+	bindingShape string
 }
 
 func (k *IPTables) Configured() (bool, error) {
@@ -34,6 +36,15 @@ func (k *IPTables) Configured() (bool, error) {
 }
 
 func (k *IPTables) ValidateSpec(s Spec) error {
+	if k.P1 != nil {
+		return k.P1.validate(s)
+	}
+	if s.Advanced() {
+		return fmt.Errorf("advanced kernel is not configured")
+	}
+	return k.validateBaseSpec(s)
+}
+func (k *IPTables) validateBaseSpec(s Spec) error {
 	if s.Deleted || !s.Enabled {
 		return nil
 	}
@@ -74,6 +85,9 @@ func (k *IPTables) ValidateSpec(s Spec) error {
 // Remove only this engine's original tuple. Deleting a NAT rule alone leaves
 // conntrack mappings alive and could revive an old target when a port is reused.
 func (k *IPTables) Forget(s Spec) error {
+	if s.Advanced() && k.P1 != nil {
+		return k.P1.forget(s)
+	}
 	for _, proto := range []string{"tcp", "udp"} {
 		args := []string{"-D", "-f", "ipv4", "-p", proto, "--orig-port-dst", fmt.Sprint(s.ListenPort), "--mark", mark}
 		if s.ListenIP != "0.0.0.0" {
@@ -93,6 +107,19 @@ func (k *IPTables) Forget(s Spec) error {
 // tokens cannot confirm new connections, so one conntrack dump safely excludes
 // empty tokens without spawning two processes for every deleted forwarding.
 func (k *IPTables) ForgetMany(specs []Spec) error {
+	if k.P1 != nil {
+		legacy := []Spec{}
+		for _, s := range specs {
+			if s.Advanced() {
+				if e := k.P1.forget(s); e != nil {
+					return e
+				}
+			} else {
+				legacy = append(legacy, s)
+			}
+		}
+		specs = legacy
+	}
 	if len(specs) <= 16 {
 		for _, s := range specs {
 			if e := k.Forget(s); e != nil {
@@ -213,7 +240,9 @@ func (k *IPTables) Initialize() error {
 			}
 		}
 		for _, l := range strings.Split(r, "\n") {
-			if reservedMark.MatchString(l) && !strings.Contains(l, "-A FP_") && !strings.Contains(l, gateComment) {
+			fields := strings.Fields(l)
+			advancedOwned := len(fields) > 1 && advancedOwnedChain(r, fields[1])
+			if reservedMark.MatchString(l) && !strings.Contains(l, "-A FP_") && !advancedOwned && !strings.Contains(l, gateComment) && !strings.Contains(l, advancedGate) {
 				return fmt.Errorf("reserved connmark namespace is already used")
 			}
 		}
@@ -221,12 +250,37 @@ func (k *IPTables) Initialize() error {
 	if _, e := k.Preflight(); e != nil {
 		return e
 	}
-	return k.initializeSets()
+	if e := k.initializeSets(); e != nil {
+		return e
+	}
+	if k.P1 != nil {
+		return k.P1.initializeFromState()
+	}
+	return nil
 }
 
-func (k *IPTables) Snapshot() (map[string]uint64, error) { return k.setCounters() }
+func (k *IPTables) Snapshot() (map[string]uint64, error) {
+	if k.P1 != nil {
+		totals, _, e := k.SnapshotDetailed()
+		return totals, e
+	}
+	return k.setCounters()
+}
 
 func (k *IPTables) Apply(tables map[string]string) error {
+	if k.P1 != nil {
+		plan, e := decodePlan(tables)
+		if e != nil {
+			return e
+		}
+		if e = k.applyBase(Render(legacyRules(plan), nil)); e != nil {
+			return e
+		}
+		return k.P1.apply(plan)
+	}
+	return k.applyBase(tables)
+}
+func (k *IPTables) applyBase(tables map[string]string) error {
 	plan, e := decodePlan(tables)
 	if e != nil {
 		return e
@@ -277,6 +331,13 @@ func (k *IPTables) Apply(tables map[string]string) error {
 						return err
 					}
 					position = fmt.Sprint(1 + len(gates))
+					if k.P1 != nil {
+						n, err := transactionGatePosition(k, k.Binary)
+						if err != nil {
+							return err
+						}
+						position = fmt.Sprint(n)
+					}
 				}
 				args = append(args[:6], append([]string{position}, args[6:]...)...)
 				if _, e = k.run(k.Binary, "", args...); e != nil {
@@ -300,11 +361,12 @@ func (k *IPTables) Apply(tables map[string]string) error {
 		return e
 	}
 	k.shape = desired
+	k.bindingShape = digest(bindings)
 	return nil
 }
 
 var natNode = regexp.MustCompile(`(?m)^:(FP_N[0-9a-f]{1,3}) `)
-var reservedMark = regexp.MustCompile(`(?i)0xf1[0-9a-f]{6}`)
+var reservedMark = regexp.MustCompile(`(?i)0xf[12][0-9a-f]{6}`)
 
 func ownedChain(text, name string) bool {
 	return strings.Contains(text, "-A "+name+" -m comment --comment "+owner+" -j RETURN") || strings.Contains(text, "-A "+name+" -m comment --comment \""+owner+"\" -j RETURN")

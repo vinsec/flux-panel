@@ -12,6 +12,7 @@ import { Alert } from "@heroui/alert";
 import { Progress } from "@heroui/progress";
 import toast from 'react-hot-toast';
 import axios from 'axios';
+import NodeEngineTools from '@/components/node-engine-tools';
 
 
 import { 
@@ -19,7 +20,8 @@ import {
   getNodeList, 
   updateNode, 
   deleteNode,
-  getNodeInstallCommand
+  getNodeInstallCommand,
+  getEngineSocketTicket
 } from "@/api";
 
 interface Node {
@@ -37,13 +39,17 @@ interface Node {
   status: number; // 1: 在线, 0: 离线
   connectionStatus: 'online' | 'offline';
   systemInfo?: {
-    cpuUsage: number;
-    memoryUsage: number;
+    cpuUsage: number | null;
+    memoryUsage: number | null;
     uploadTraffic: number;
     downloadTraffic: number;
-    uploadSpeed: number;
-    downloadSpeed: number;
+    uploadSpeed: number | null;
+    downloadSpeed: number | null;
     uptime: number;
+    interfaces?: Record<string,any>;
+    engineState?: any;
+    conntrackCount?: number;
+    conntrackMax?: number;
   } | null;
   copyLoading?: boolean;
 }
@@ -63,6 +69,7 @@ interface NodeForm {
 
 export default function NodePage() {
   const [nodeList, setNodeList] = useState<Node[]>([]);
+  const [engineToolsNode,setEngineToolsNode]=useState<Node|null>(null);
   const [loading, setLoading] = useState(false);
   const [dialogVisible, setDialogVisible] = useState(false);
   const [dialogTitle, setDialogTitle] = useState('');
@@ -129,7 +136,7 @@ export default function NodePage() {
   };
 
   // 初始化WebSocket连接
-  const initWebSocket = () => {
+  const initWebSocket = async () => {
     if (websocketRef.current && 
         (websocketRef.current.readyState === WebSocket.OPEN || 
          websocketRef.current.readyState === WebSocket.CONNECTING)) {
@@ -142,10 +149,12 @@ export default function NodePage() {
     
     // 构建WebSocket URL，使用axios的baseURL
     const baseUrl = axios.defaults.baseURL || (import.meta.env.VITE_API_BASE ? `${import.meta.env.VITE_API_BASE}/api/v1/` : '/api/v1/');
-    const wsUrl = baseUrl.replace(/^http/, 'ws').replace(/\/api\/v1\/$/, '') + `/system-info?type=0&secret=${localStorage.getItem('token')}`;
+
     
     try {
-      websocketRef.current = new WebSocket(wsUrl);
+      const response=await getEngineSocketTicket();if(response.code!==0||!response.data?.ticket)throw new Error('实时会话凭据不可用');
+      const endpoint=new URL(baseUrl,window.location.href);endpoint.pathname=endpoint.pathname.replace(/\/api\/v1\/?$/,'')+'/system-info';endpoint.protocol=endpoint.protocol==='https:'?'wss:':'ws:';endpoint.search=new URLSearchParams({type:'0',ticket:response.data.ticket}).toString();
+      websocketRef.current = new WebSocket(endpoint.toString());
       
       websocketRef.current.onopen = () => {
         reconnectAttemptsRef.current = 0;
@@ -201,8 +210,12 @@ export default function NodePage() {
             
             // v1 sends a liveness frame, not system-resource measurements.
             // Keep resource indicators unavailable rather than showing fake 0%.
-            if (node.engine === 'iptables') {
-              return { ...node, connectionStatus: 'online', systemInfo: null };
+            if(node.engine==='iptables'){
+              if(!systemInfo.sampledAt)return {...node,connectionStatus:'online',systemInfo:null};
+              const interfaces=systemInfo.network||{};const physical=Object.entries(interfaces).filter(([name])=>name!=='lo'&&!name.startsWith('fp4shape')).map(([,value])=>value as any);
+              const number=(v:any):number|null=>typeof v==='number'&&Number.isFinite(v)?v:null;
+              const sum=(key:string)=>physical.reduce((total,v)=>total+(Number(v[key])||0),0);
+              return {...node,connectionStatus:'online',systemInfo:{cpuUsage:number(systemInfo.cpu_usage),memoryUsage:number(systemInfo.memory_usage),uploadTraffic:sum('txBytes'),downloadTraffic:sum('rxBytes'),uploadSpeed:physical.length&&physical.every(v=>number(v.txBytesPerSecond)!==null)?sum('txBytesPerSecond'):null,downloadSpeed:physical.length&&physical.every(v=>number(v.rxBytesPerSecond)!==null)?sum('rxBytesPerSecond'):null,uptime:Number(systemInfo.uptimeSeconds)||0,interfaces,engineState:systemInfo.engineState,conntrackCount:systemInfo.conntrackCount,conntrackMax:systemInfo.conntrackMax}};
             }
             const currentUpload = parseInt(systemInfo.bytes_transmitted) || 0;
             const currentDownload = parseInt(systemInfo.bytes_received) || 0;
@@ -339,8 +352,8 @@ export default function NodePage() {
   };
 
   // 获取进度条颜色
-  const getProgressColor = (value: number, offline = false): "default" | "primary" | "secondary" | "success" | "warning" | "danger" => {
-    if (offline) return "default";
+  const getProgressColor = (value: number | null, offline = false): "default" | "primary" | "secondary" | "success" | "warning" | "danger" => {
+    if (offline || value==null) return "default";
     if (value <= 50) return "success";
     if (value <= 80) return "warning";
     return "danger";
@@ -708,49 +721,50 @@ export default function NodePage() {
                     </div>
                   </div>
 
+                  {node.engine==='iptables'&&<Button size="sm" variant="flat" className="mb-2" onPress={()=>setEngineToolsNode(node)}>带宽组 / 升级向导</Button>}
                   {/* 系统监控 */}
-                  {node.engine === 'iptables' && <p className="text-xs text-default-500 mb-2">实验 Agent 暂不提供系统资源指标；转发计费流量正常记录。</p>}
+                  {node.engine==='iptables'&&<p className="text-xs text-default-500 mb-2">{node.systemInfo?'系统网卡指标与转发计费分别统计。':'等待真实指标；旧心跳不作为资源使用率。'}</p>}
                   <div className="space-y-3 mb-4">
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <div className="flex justify-between text-xs mb-1">
                           <span>CPU</span>
                           <span className="font-mono">
-                            {node.connectionStatus === 'online' && node.systemInfo 
+                            {node.connectionStatus === 'online' && node.systemInfo?.cpuUsage != null
                               ? `${node.systemInfo.cpuUsage.toFixed(1)}%` 
                               : '-'
                             }
                           </span>
                         </div>
-                        <Progress
-                          value={node.connectionStatus === 'online' && node.systemInfo ? node.systemInfo.cpuUsage : 0}
+                        {node.connectionStatus === 'online' && node.systemInfo?.cpuUsage != null ? <Progress
+                          value={node.systemInfo.cpuUsage}
                           color={getProgressColor(
-                            node.connectionStatus === 'online' && node.systemInfo ? node.systemInfo.cpuUsage : 0,
+                            node.connectionStatus === 'online' && node.systemInfo ? (node.systemInfo.cpuUsage ?? 0) : 0,
                             node.connectionStatus !== 'online'
                           )}
                           size="sm"
                           aria-label="CPU使用率"
-                        />
+                        /> : <div className="h-1 rounded bg-default-100" aria-label="CPU数据不可用" />}
                       </div>
                       <div>
                         <div className="flex justify-between text-xs mb-1">
                           <span>内存</span>
                           <span className="font-mono">
-                            {node.connectionStatus === 'online' && node.systemInfo 
+                            {node.connectionStatus === 'online' && node.systemInfo?.memoryUsage != null
                               ? `${node.systemInfo.memoryUsage.toFixed(1)}%` 
                               : '-'
                             }
                           </span>
                         </div>
-                        <Progress
-                          value={node.connectionStatus === 'online' && node.systemInfo ? node.systemInfo.memoryUsage : 0}
+                        {node.connectionStatus === 'online' && node.systemInfo?.memoryUsage != null ? <Progress
+                          value={node.systemInfo.memoryUsage}
                           color={getProgressColor(
-                            node.connectionStatus === 'online' && node.systemInfo ? node.systemInfo.memoryUsage : 0,
+                            node.connectionStatus === 'online' && node.systemInfo ? (node.systemInfo.memoryUsage ?? 0) : 0,
                             node.connectionStatus !== 'online'
                           )}
                           size="sm"
                           aria-label="内存使用率"
-                        />
+                        /> : <div className="h-1 rounded bg-default-100" aria-label="内存数据不可用" />}
                       </div>
                     </div>
 
@@ -758,7 +772,7 @@ export default function NodePage() {
                       <div className="text-center p-2 bg-default-50 dark:bg-default-100 rounded">
                         <div className="text-default-600 mb-0.5">上传</div>
                         <div className="font-mono">
-                          {node.connectionStatus === 'online' && node.systemInfo 
+                          {node.connectionStatus === 'online' && node.systemInfo?.uploadSpeed != null
                             ? formatSpeed(node.systemInfo.uploadSpeed) 
                             : '-'
                           }
@@ -767,7 +781,7 @@ export default function NodePage() {
                       <div className="text-center p-2 bg-default-50 dark:bg-default-100 rounded">
                         <div className="text-default-600 mb-0.5">下载</div>
                         <div className="font-mono">
-                          {node.connectionStatus === 'online' && node.systemInfo 
+                          {node.connectionStatus === 'online' && node.systemInfo?.downloadSpeed != null
                             ? formatSpeed(node.systemInfo.downloadSpeed) 
                             : '-'
                           }
@@ -1110,7 +1124,8 @@ export default function NodePage() {
             </ModalFooter>
           </ModalContent>
         </Modal>
-      </div>
+        <NodeEngineTools node={engineToolsNode} onClose={()=>setEngineToolsNode(null)}/>
+    </div>
     
   );
 } 

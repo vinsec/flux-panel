@@ -8,6 +8,9 @@ import (
 const metaSet = "FPV3_META"
 
 func (k *IPTables) ClaimLedger(epoch string) (string, error) {
+	if k.P1 != nil {
+		k.P1.epoch = epoch
+	}
 	saved, e := k.readSet(metaSet)
 	if e != nil {
 		return "", e

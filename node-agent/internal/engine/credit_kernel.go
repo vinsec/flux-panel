@@ -13,7 +13,7 @@ const liveSet = "FPV3_LIVE"
 const gateComment = "flux-transaction:v3"
 
 func (k *IPTables) Quiesce() error { return k.QuiesceTokens(nil) }
-func (k *IPTables) QuiesceTokens(tokens []uint32) error {
+func (k *IPTables) quiesceBaseTokens(tokens []uint32) error {
 	marks := []string{mark}
 	if len(tokens) > 0 && len(tokens) <= 16 {
 		marks = nil
@@ -62,7 +62,7 @@ func (k *IPTables) gateRules() ([][]string, error) {
 	}
 	return out, nil
 }
-func (k *IPTables) Activate() error {
+func (k *IPTables) activateBase() error {
 	rules, e := k.gateRules()
 	if e != nil {
 		return e
@@ -83,7 +83,7 @@ func (k *IPTables) BootID() string {
 	}
 	return b
 }
-func (k *IPTables) SyncCredits(s State) error {
+func (k *IPTables) syncBaseCredits(s State) error {
 	text, e := k.readSet(creditSet)
 	if e != nil {
 		return e
@@ -158,7 +158,7 @@ func (k *IPTables) SyncCredits(s State) error {
 	if e := k.updatePlainSet(limitedSet, limited); e != nil {
 		return e
 	}
-	return k.UpdateControl(s)
+	return k.updateBaseControl(s)
 }
 func (k *IPTables) updatePlainSet(name string, want map[string]string) error {
 	saved, e := k.readSet(name)
@@ -188,7 +188,7 @@ func (k *IPTables) updatePlainSet(name string, want map[string]string) error {
 
 // TTL-only renewal updates only the non-counter live set. The permanent byte
 // budget never gets recreated by expiry, and receives no counter writes.
-func (k *IPTables) CanRenewCredits(before, after State) (bool, error) {
+func (k *IPTables) canRenewBaseCredits(before, after State) (bool, error) {
 	saved, e := k.readSet(creditSet)
 	if e != nil {
 		return false, e
@@ -220,7 +220,7 @@ func secondsUntil(deadline, now int64) int64 {
 	}
 	return n
 }
-func (k *IPTables) RenewCredits(before, after State) error {
+func (k *IPTables) renewBaseCredits(before, after State) error {
 	now := bootMillis()
 	for id, l := range after.Leases {
 		old := before.Leases[id]

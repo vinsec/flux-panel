@@ -45,6 +45,13 @@ func renderControlFamily(family string, rules map[string]Spec, allowed map[uint3
 		maxLength = 1280
 		types = []int{1, 2, 3, 4}
 	}
+	namespace := uint32(0xf1000000)
+	for _, rule := range rules {
+		if rule.Advanced() {
+			namespace = 0xf2000000
+			break
+		}
+	}
 	nodes := map[string]bool{}
 	ids := keys(rules)
 	for _, id := range ids {
@@ -79,7 +86,7 @@ func renderControlFamily(family string, rules map[string]Spec, allowed map[uint3
 		var prefix uint32
 		fmt.Sscanf(n, "%x", &prefix)
 		mask := uint32(0xffffffff) << uint(24-len(n)*4)
-		value := uint32(0xf1000000) | (prefix << uint(24-len(n)*4))
+		value := namespace | (prefix << uint(24-len(n)*4))
 		fmt.Fprintf(&b, "-A %s -m connmark --mark 0x%08x/0x%08x -j FP_I%s\n", parent, value, mask, n)
 	}
 	for _, id := range ids {
@@ -101,7 +108,7 @@ func renderControlFamily(family string, rules map[string]Spec, allowed map[uint3
 	b.WriteString("COMMIT\n")
 	return b.String()
 }
-func (k *IPTables) UpdateControl(s State) error {
+func (k *IPTables) updateBaseControl(s State) error {
 	allowed := map[uint32]bool{}
 	var credits map[string]setElement
 	for _, r := range s.Rules {

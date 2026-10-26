@@ -8,6 +8,8 @@ import (
 )
 
 type Spec struct {
+	IntentHash string `json:"intentHash,omitempty"`
+	*AdvancedOptions
 	SchemaVersion int      `json:"schemaVersion,omitempty"`
 	Listen        Endpoint `json:"listen,omitempty"`
 	Target        Endpoint `json:"target,omitempty"`
@@ -33,6 +35,9 @@ func (s Spec) Validate() error {
 	}
 	if s.Deleted {
 		return nil
+	}
+	if s.Advanced() {
+		return s.validateAdvanced()
 	}
 	ip, target := net.ParseIP(s.ListenIP), net.ParseIP(s.TargetIP)
 	if ip == nil || ip.To4() == nil || ip.IsMulticast() || ip.Equal(net.IPv4bcast) || target == nil || target.To4() == nil || target.IsUnspecified() || target.IsLoopback() || target.IsMulticast() || target.Equal(net.IPv4bcast) {
@@ -75,6 +80,7 @@ type RecoveryInfo struct {
 	Reason        string `json:"reason,omitempty"`
 }
 type State struct {
+	CounterLast        map[string]uint64 `json:"counterLast,omitempty"`
 	ReportCursor       string            `json:"reportCursor,omitempty"`
 	StrictCredit       bool              `json:"strictCredit,omitempty"`
 	AccountingBlocked  bool              `json:"accountingBlocked,omitempty"`

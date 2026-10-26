@@ -25,7 +25,7 @@ verified(){ local file="$1";fetch "$file";local line;line="$(awk -v file="$file"
 verified "flux-agent-linux-$ARCH";chmod 0755 "$STAGE/flux-agent-linux-$ARCH";TOOL="$STAGE/flux-agent-linux-$ARCH"
 if [[ "$ENGINE" == iptables ]];then
  UNIT=flux-agent.service;NAME=flux-agent;DIRECTORY="$PREFIX/etc/flux-agent";BINARY="$PREFIX/usr/local/bin/flux-agent";STATE_DIRECTORY="$PREFIX/var/lib/flux-agent";STATE="$STATE_DIRECTORY/state.json"
- verified flux-agent.service;verified flux-agent-tmpfiles.conf
+ verified flux-agent.service;verified flux-kernel.service;verified flux-agent-tmpfiles.conf
  "$TOOL" --check-config --expected-state-path "$STATE" --config "$CONFIG" >/dev/null
 else
  UNIT=gost.service;NAME=gost;DIRECTORY="$PREFIX/etc/gost";BINARY="$DIRECTORY/gost";STATE_DIRECTORY="$PREFIX/var/lib/gost-installer";STATE="$STATE_DIRECTORY/unused"
@@ -36,19 +36,22 @@ if (( DRY ));then printf 'Verified %s package. Would %s %s under %s; service=%s;
 if (( INSTALL_DEPS ));then command -v apt-get >/dev/null || { echo 'Install the documented dependencies for this distribution.' >&2;exit 1; };apt-get update;DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends iptables ipset nftables conntrack ca-certificates curl;fi
 [[ ! -L "$BINARY" && ! -L "$DIRECTORY/config.json" ]] || { echo 'Refusing symbolic-link installation targets.' >&2;exit 1; }
 if [[ "$ENGINE" == iptables ]];then "$TOOL" --preflight --config "$CONFIG" >/dev/null;fi
-if [[ -f "$DIRECTORY/config.json" ]] && ! cmp -s "$CONFIG" "$DIRECTORY/config.json";then echo 'Existing node configuration differs; migrate identity explicitly before replacing it.' >&2;exit 1;fi
+EFFECTIVE_CONFIG="$CONFIG"
+if [[ "$ENGINE" == iptables ]] && (( ! NO_SERVICE ));then "$TOOL" --config "$CONFIG" --write-service-config "$STAGE/service-config.json";EFFECTIVE_CONFIG="$STAGE/service-config.json";fi
+if [[ -f "$DIRECTORY/config.json" ]];then "$TOOL" --config "$CONFIG" --same-node-config "$DIRECTORY/config.json" >/dev/null;fi
 if [[ "$ACTION" == install && -f "$BINARY" && -f "$DIRECTORY/config.json" ]];then
  CURRENT="$(sha256sum "$BINARY" | cut -d' ' -f1)";EXPECTED="$(sha256sum "$STAGE/${ENGINE/iptables/flux-agent}-linux-$ARCH" | cut -d' ' -f1)"
- if [[ "$CURRENT" == "$EXPECTED" && ! -e "$STATE.maintenance" && ! -e "$STATE.journal" ]];then echo 'Verified version and configuration already installed.';exit 0;fi
+ if [[ "$CURRENT" == "$EXPECTED" && ! -e "$STATE.maintenance" && ! -e "$STATE.journal" ]] && cmp -s "$EFFECTIVE_CONFIG" "$DIRECTORY/config.json";then echo 'Verified version and configuration already installed.';exit 0;fi
 fi
 install -d -m 0700 "$DIRECTORY" "$STATE_DIRECTORY" "$STATE_DIRECTORY/backups"
 BACKUP="$STATE_DIRECTORY/backups/$(date -u +%Y%m%dT%H%M%SZ)-$$"
 EXISTING=0;[[ ! -f "$BINARY" ]] || EXISTING=1
-if (( ! NO_SERVICE ));then systemctl stop "$UNIT" 2>/dev/null || true;fi
+if (( ! NO_SERVICE ));then systemctl stop "$UNIT" 2>/dev/null || true;if [[ "$ENGINE" == iptables ]];then systemctl stop flux-kernel.service 2>/dev/null || true;fi;fi
 FLAGS=();(( ! OFFLINE )) || FLAGS+=(--offline)
 rollback(){
  local code=$?
  trap - ERR
+ if (( ! NO_SERVICE ));then systemctl stop "$UNIT" 2>/dev/null || true;if [[ "$ENGINE" == iptables ]];then systemctl stop flux-kernel.service 2>/dev/null || true;fi;fi
  echo 'Installation failed; restoring the verified previous version where available.' >&2
  if [[ -f "$BACKUP/previous.bin" ]];then
   if [[ "$ENGINE" == iptables && -f "$BACKUP/manifest.json" ]];then
@@ -56,7 +59,15 @@ rollback(){
   fi
   (cd "$BACKUP";sha256sum -c previous.sha256 >/dev/null) || exit "$code"
   cp -p -- "$BACKUP/previous.bin" "$BINARY"
-  if (( ! NO_SERVICE && ! OFFLINE ));then systemctl start "$UNIT" || true;fi
+  [[ ! -f "$BACKUP/previous-config.json" ]] || cp -p "$BACKUP/previous-config.json" "$DIRECTORY/config.json"
+  if (( ! NO_SERVICE ));then
+   if [[ -s "$BACKUP/previous-units.sha256" ]];then (cd "$BACKUP";sha256sum -c previous-units.sha256 >/dev/null) || exit "$code";fi
+   for previous_unit in "$UNIT" flux-kernel.service;do
+    if [[ -f "$BACKUP/previous-$previous_unit" ]];then cp -p "$BACKUP/previous-$previous_unit" "$PREFIX/etc/systemd/system/$previous_unit";else rm -f -- "$PREFIX/etc/systemd/system/$previous_unit";fi
+   done
+   systemctl daemon-reload
+  fi
+  if (( ! NO_SERVICE && ! OFFLINE ));then if [[ "$ENGINE" == iptables ]];then systemctl start flux-kernel.service || true;fi;systemctl start "$UNIT" || true;fi
  fi
  exit "$code"
 }
@@ -73,18 +84,24 @@ if (( EXISTING )) && [[ ! -f "$BACKUP/previous.bin" ]];then
  (cd "$BACKUP";sha256sum previous.bin > previous.sha256)
 fi
 [[ ! -f "$DIRECTORY/config.json" || -f "$BACKUP/previous-config.json" ]] || cp -p "$DIRECTORY/config.json" "$BACKUP/previous-config.json"
+if (( ! NO_SERVICE ));then
+ for previous_unit in "$UNIT" flux-kernel.service;do
+  if [[ -f "$PREFIX/etc/systemd/system/$previous_unit" && ! -f "$BACKUP/previous-$previous_unit" ]];then cp -p "$PREFIX/etc/systemd/system/$previous_unit" "$BACKUP/previous-$previous_unit";fi
+ done
+ (cd "$BACKUP";find . -maxdepth 1 -name 'previous-*.service' -type f -exec sha256sum '{}' ';' > previous-units.sha256)
+fi
 SOURCE="$STAGE/flux-agent-linux-$ARCH";[[ "$ENGINE" == iptables ]] || SOURCE="$STAGE/gost-linux-$ARCH"
 if [[ "$ACTION" == install ]];then
  if [[ "$ENGINE" == iptables ]];then install -d -m 0755 "$(dirname "$BINARY")";fi
  install -m 0755 "$SOURCE" "$BINARY.new";mv -f -- "$BINARY.new" "$BINARY"
- install -m 0600 "$CONFIG" "$DIRECTORY/config.json"
+ install -m 0600 "$EFFECTIVE_CONFIG" "$DIRECTORY/config.json"
 fi
 if [[ "$ENGINE" == iptables && -f "$STATE" ]] && (( ! RESUMED ));then
  MODE=migrate;[[ "$ACTION" != uninstall ]] || MODE=uninstall
  "$TOOL" --config "$DIRECTORY/config.json" --maintenance "$MODE" --backup-dir "$BACKUP" "${FLAGS[@]}"
 fi
 if [[ "$ACTION" == uninstall ]];then
- if (( ! NO_SERVICE ));then systemctl disable "$UNIT" 2>/dev/null || true;rm -f -- "$PREFIX/etc/systemd/system/$UNIT";if [[ "$ENGINE" == iptables ]];then rm -f -- "$PREFIX/etc/tmpfiles.d/flux-agent.conf";fi;systemctl daemon-reload;fi
+ if (( ! NO_SERVICE ));then systemctl disable "$UNIT" 2>/dev/null || true;if [[ "$ENGINE" == iptables ]];then systemctl disable flux-kernel.service 2>/dev/null || true;rm -f -- "$PREFIX/etc/systemd/system/flux-kernel.service";fi;rm -f -- "$PREFIX/etc/systemd/system/$UNIT";if [[ "$ENGINE" == iptables ]];then rm -f -- "$PREFIX/etc/tmpfiles.d/flux-agent.conf";fi;systemctl daemon-reload;fi
  rm -f -- "$BINARY"
  printf 'Uninstalled %s. State, credentials and recoverable backup retained at %s.\n' "$NAME" "$BACKUP";exit 0
 fi
@@ -95,6 +112,9 @@ if (( ! NO_SERVICE ));then
  install -d -m 0755 "$PREFIX/etc/tmpfiles.d" "$PREFIX/run"
  install -m 0644 "$STAGE/flux-agent-tmpfiles.conf" "$PREFIX/etc/tmpfiles.d/flux-agent.conf"
  [[ -e "$PREFIX/run/xtables.lock" ]] || install -m 0600 /dev/null "$PREFIX/run/xtables.lock"
+ getent group flux-agent >/dev/null || groupadd --system flux-agent
+ getent passwd flux-agent >/dev/null || useradd --system --gid flux-agent --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin flux-agent
+ install -m 0644 "$STAGE/flux-kernel.service" "$PREFIX/etc/systemd/system/flux-kernel.service"
  install -m 0644 "$STAGE/flux-agent.service" "$PREFIX/etc/systemd/system/$UNIT";else
  cat > "$PREFIX/etc/systemd/system/$UNIT" <<'UNIT'
 [Unit]
@@ -113,7 +133,7 @@ NoNewPrivileges=true
 WantedBy=multi-user.target
 UNIT
  fi
- systemctl daemon-reload;systemctl enable "$UNIT";systemctl start "$UNIT"
+ systemctl daemon-reload;if [[ "$ENGINE" == iptables ]];then systemctl enable flux-kernel.service;systemctl start flux-kernel.service;fi;systemctl enable "$UNIT";systemctl start "$UNIT"
  if [[ "$ENGINE" == iptables ]];then
   READY=0
   for _ in {1..40};do if "$BINARY" --ready --config "$DIRECTORY/config.json" >/dev/null 2>&1;then READY=1;break;fi;sleep 1;done

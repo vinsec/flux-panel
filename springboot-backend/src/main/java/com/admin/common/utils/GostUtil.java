@@ -7,15 +7,15 @@ import com.admin.common.engine.*;
 /** Backward-compatible facade: every lifecycle path selects a forwarding engine. */
 public class GostUtil {
     public static GostDto AddLimiters(Long node_id, Long name, String speed) {
-        if(EngineRegistry.isIptables(node_id)) return IptablesForwardingEngine.error("iptables v1 does not support AddLimiters");
+        if(EngineRegistry.isIptables(node_id)) return ((IptablesForwardingEngine)EngineRegistry.forNode(node_id)).limiterChanged(node_id);
         return LegacyGostCommands.AddLimiters(node_id,name,speed);
     }
     public static GostDto UpdateLimiters(Long node_id, Long name, String speed) {
-        if(EngineRegistry.isIptables(node_id)) return IptablesForwardingEngine.error("iptables v1 does not support UpdateLimiters");
+        if(EngineRegistry.isIptables(node_id)) return ((IptablesForwardingEngine)EngineRegistry.forNode(node_id)).limiterChanged(node_id);
         return LegacyGostCommands.UpdateLimiters(node_id,name,speed);
     }
     public static GostDto DeleteLimiters(Long node_id, Long name) {
-        if(EngineRegistry.isIptables(node_id)) return IptablesForwardingEngine.error("iptables v1 does not support DeleteLimiters");
+        if(EngineRegistry.isIptables(node_id)) return ((IptablesForwardingEngine)EngineRegistry.forNode(node_id)).limiterChanged(node_id);
         return LegacyGostCommands.DeleteLimiters(node_id,name);
     }
     public static GostDto AddService(Long node_id, String name, Integer in_port, Integer limiter, String remoteAddr, Integer fow_type, Tunnel tunnel, String strategy, String interfaceName) {
@@ -24,6 +24,7 @@ public class GostUtil {
     public static GostDto UpdateService(Long node_id, String name, Integer in_port, Integer limiter, String remoteAddr, Integer fow_type, Tunnel tunnel, String strategy, String interfaceName) {
         return EngineRegistry.forNode(node_id).apply(node_id,new ForwardSpec(name,in_port,limiter,remoteAddr,fow_type,tunnel,strategy,interfaceName),true);
     }
+    public static GostDto ApplyServiceOptions(Long node,String name,Integer port,Integer limiter,String target,Integer type,Tunnel tunnel,String strategy,String iface,String options,boolean update){ForwardSpec spec=new ForwardSpec(name,port,limiter,target,type,tunnel,strategy,iface);spec.setEngineOptions(options);return EngineRegistry.forNode(node).apply(node,spec,update);}
     public static GostDto DeleteService(Long node_id, String name) {
         return EngineRegistry.forNode(node_id).delete(node_id,name);
     }

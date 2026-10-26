@@ -88,4 +88,10 @@ export const updateConfig = (name: string, value: string) => Network.post("/conf
 // 验证码相关接口
 export const checkCaptcha = () => Network.post("/captcha/check");
 export const generateCaptcha = () => Network.post(`/captcha/generate`);
-export const verifyCaptcha = (data: { captchaId: string; trackData: string }) => Network.post("/captcha/verify", data); 
+export const verifyCaptcha = (data: { captchaId: string; trackData: string }) => Network.post("/captcha/verify", data);
+export const getTunnelCapabilities = (data: {tunnelId:number}) => Network.post("/engine/tunnel-capabilities", data);
+export const getForwardStates = (data: {ids:number[]}) => Network.post("/engine/forward-states", data);
+export const getBandwidthGroups = (data: {nodeId:number}) => Network.post("/engine/bandwidth-groups", data);
+export const setBandwidthGroup = (data: any) => Network.post("/engine/set-bandwidth-group", data);
+
+export const getEngineSocketTicket = () => Network.post("/engine/socket-ticket", {});

@@ -343,7 +343,7 @@ public class EngineCreditService {
                                                         || peer.get("version") == null
                                                         || !peer.get("version")
                                                                 .toString()
-                                                                .startsWith("iptables-v3")
+                                                                .matches("iptables-v[34].*")
                                                         || n(peer, "strict_credit") != 1);
                 if (mixed) continue;
                 List<Map<String, Object>> active =
@@ -607,7 +607,7 @@ public class EngineCreditService {
             JSONObject c = (JSONObject) JSONObject.toJSON(v);
             String id = c.getString("id"), set = c.getString("set");
             validateID(id);
-            if (!"FPV2_UP".equals(set) && !"FPV2_DOWN".equals(set)
+            if (!Set.of("FPV2_UP","FPV2_DOWN","FP4_UP","FP4_DOWN","FP6_UP","FP6_DOWN").contains(set)
                     || c.getString("key") == null
                     || c.getString("key").length() > 100)
                 throw new IllegalArgumentException("invalid counter watermark");
@@ -616,7 +616,7 @@ public class EngineCreditService {
             if (u == null
                     || bytes
                             > EngineTrafficService.exact(
-                                    u.get("FPV2_UP".equals(set) ? "up" : "down")))
+                                    u.get(set.endsWith("_UP") ? "up" : "down")))
                 throw new IllegalArgumentException("counter watermark exceeds cumulative usage");
             out.add(c);
         }

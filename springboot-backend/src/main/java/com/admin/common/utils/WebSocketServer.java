@@ -87,7 +87,7 @@ public class WebSocketServer extends TextWebSocketHandler {
                     // 先发送确认消息
                     sendToUser(session, "{\"type\":\"call\"}", nodeSecret);
                 }else if (decryptedPayload.contains("requestId")) {
-                    if(!"1".equals(type)||!String.valueOf(session.getAttributes().get("nodeVersion")).startsWith("iptables"))log.info("收到消息: {}", decryptedPayload);
+                    if(!"1".equals(type)||!String.valueOf(session.getAttributes().get("nodeVersion")).startsWith("iptables"))log.info("收到消息: {}", com.admin.common.engine.LogRedaction.safeText(decryptedPayload));
                     // 处理命令响应消息
                     try {
                         JSONObject responseJson = JSONObject.parseObject(decryptedPayload);
@@ -122,7 +122,7 @@ public class WebSocketServer extends TextWebSocketHandler {
                         log.info("处理响应消息失败: {}", e.getMessage(), e);
                     }
                 } else {
-                    log.info("收到消息: {}", decryptedPayload);
+                    log.info("收到消息: {}", com.admin.common.engine.LogRedaction.safeText(decryptedPayload));
                 }
 
                 // 如果是节点类型，转发消息给其他会话
@@ -443,6 +443,22 @@ public class WebSocketServer extends TextWebSocketHandler {
 
 
 
+    public static void closeExpiredNodeSessions(long now) {
+        for(var session:nodeSessions.values()) {
+            Object expiry=session.getAttributes().get("credentialExpiresAt");
+            if(expiry instanceof Number && ((Number)expiry).longValue()>0 && ((Number)expiry).longValue()<=now) {
+                try {session.close(org.springframework.web.socket.CloseStatus.POLICY_VIOLATION);} catch(Exception ignored) {}
+            }
+        }
+    }
+
+    public static void revokeNodeSession(Long node) {
+        WebSocketSession session=nodeSessions.get(node);
+        if(session!=null && session.getAttributes().get("credentialExpiresAt") instanceof Number expiry && expiry.longValue()>0) {
+            try {session.close(org.springframework.web.socket.CloseStatus.POLICY_VIOLATION);} catch(Exception ignored) {}
+        }
+    }
+
     public static String nodeSessionId(Long node){WebSocketSession s=nodeSessions.get(node);return s==null?null:s.getId();}
 
     public static GostDto send_msg(Long node_id, Object msg, String type) {
@@ -455,6 +471,11 @@ public class WebSocketServer extends TextWebSocketHandler {
             return result;
         }
 
+        Object credentialExpiry=nodeSession.getAttributes().get("credentialExpiresAt");
+        if(credentialExpiry instanceof Number && ((Number)credentialExpiry).longValue()>0 && ((Number)credentialExpiry).longValue()<=System.currentTimeMillis()) {
+            try {nodeSession.close(org.springframework.web.socket.CloseStatus.POLICY_VIOLATION);} catch(Exception ignored) {}
+            GostDto result=new GostDto();result.setMsg("节点凭据已过期");return result;
+        }
         if (!nodeSession.isOpen()) {
             log.info("发送消息失败：节点 {} 连接已断开，清理会话", node_id);
             nodeSessions.remove(node_id);

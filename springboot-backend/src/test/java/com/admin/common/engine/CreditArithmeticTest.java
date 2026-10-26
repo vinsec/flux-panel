@@ -34,4 +34,15 @@ class CreditArithmeticTest {
                 IllegalArgumentException.class,
                 () -> EngineCreditService.rawCredit(1, new BigDecimal("-1"), 1, 100));
     }
+    @Test
+    void bothFamiliesCounterWatermarksUseTheirActualDirection() {
+        var usage=com.alibaba.fastjson.JSONArray.parseArray("[{\"id\":\"1_2_3\",\"up\":100,\"down\":20}]");
+        for(String set:java.util.List.of("FPV2_UP","FP4_UP","FP6_UP","FPV2_DOWN","FP4_DOWN","FP6_DOWN")) {
+            var counters=new com.alibaba.fastjson.JSONArray();var c=new com.alibaba.fastjson.JSONObject();
+            c.put("id","1_2_3");c.put("set",set);c.put("key",set.startsWith("FP6")?"2001:db8::1,0xf2000100":"192.0.2.1,0xf2000100");c.put("bytes",set.endsWith("_UP")?100:20);counters.add(c);
+            assertEquals(1,EngineCreditService.validatedCounters(counters,usage).size());
+            c.put("bytes",set.endsWith("_UP")?101:21);
+            assertThrows(IllegalArgumentException.class,()->EngineCreditService.validatedCounters(counters,usage));
+        }
+    }
 }

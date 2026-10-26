@@ -34,6 +34,9 @@ public class ForwardWithTunnelDto {
      * 远程地址
      */
     private String remoteAddr;
+
+    private String engineOptions;
+    private String engine;
     
     /**
      * 转发状态

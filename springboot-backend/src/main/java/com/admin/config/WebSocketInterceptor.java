@@ -28,6 +28,8 @@ public class WebSocketInterceptor extends HttpSessionHandshakeInterceptor {
     @Resource
     NodeService nodeService;
 
+    @Resource com.admin.common.engine.NodeCredentials credentials;
+
     @Override
     public void afterHandshake(ServerHttpRequest request, ServerHttpResponse response, WebSocketHandler wsHandler, Exception ex) {
 
@@ -44,7 +46,11 @@ public class WebSocketInterceptor extends HttpSessionHandshakeInterceptor {
         String socks = serverHttpRequest.getServletRequest().getParameter("socks");
         if (Objects.equals(type, "1")) {
             log.info("节点连接请求，版本: {}，IP: {}",version,getClientIp(request));
-            Node node = nodeService.getOne(new QueryWrapper<Node>().eq("secret", secret));
+            String authorization=serverHttpRequest.getServletRequest().getHeader("Authorization");
+            com.admin.common.engine.NodeCredentials.Identity identity;
+            if(authorization!=null) identity=credentials.bearer(authorization);
+            else identity=credentials.legacyQueryAllowed()?credentials.resolve(secret):null;
+            Node node=identity==null?null:identity.node();
             if (node == null) {
                 log.info("节点验证失败：未找到匹配的secret");
                 return false;
@@ -54,7 +60,8 @@ public class WebSocketInterceptor extends HttpSessionHandshakeInterceptor {
             catch(IllegalArgumentException e) { return false; }
             if(!requestedEngine.equals(EngineRegistry.normalize(node.getEngine()))) {response.setStatusCode(org.springframework.http.HttpStatus.FORBIDDEN);return false;}
             attributes.put("id", node.getId());
-            attributes.put("nodeSecret", secret);
+            attributes.put("nodeSecret", node.getSecret());
+            attributes.put("credentialExpiresAt",identity.expiresAt());
             attributes.put("nodeVersion", version);
             attributes.put("http",http);
             attributes.put("tls",tls);
@@ -62,9 +69,13 @@ public class WebSocketInterceptor extends HttpSessionHandshakeInterceptor {
             log.info("节点 {} 通过验证，版本: {}", node.getId(), version);
             // 不在这里更新状态，等到连接建立后再统一更新
         }else {
-            boolean b = JwtUtil.validateToken(secret);
-            if (!b) return false;
-            attributes.put("id", JwtUtil.getUserIdFromToken(secret));
+            String ticket=serverHttpRequest.getServletRequest().getParameter("ticket");
+            Long user=ticket==null?null:credentials.consumeTicket(ticket);
+            if(user==null) {
+                if(!credentials.legacyQueryAllowed()||!JwtUtil.validateToken(secret)||JwtUtil.getRoleIdFromToken(secret)!=0)return false;
+                user=JwtUtil.getUserIdFromToken(secret);
+            }
+            attributes.put("id",user);
         }
         attributes.put("type", type);
         return true;

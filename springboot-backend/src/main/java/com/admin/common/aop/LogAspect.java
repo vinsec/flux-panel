@@ -74,7 +74,7 @@ public class LogAspect {
         String requestParams = getRequestParams(joinPoint);
         
         // 获取返回参数
-        String responseParams = returnValue != null ? JSON.toJSONString(returnValue) : "无返回值";
+        String responseParams = returnValue != null ? com.admin.common.engine.LogRedaction.safe(returnValue) : "无返回值";
         
         // 合并为一条完整的日志信息
         String logMessage = String.format(
@@ -129,7 +129,7 @@ public class LogAspect {
             String requestParams = getRequestParams(joinPoint);
             
             // 获取异常信息
-            String exceptionMsg = ex != null ? ex.getMessage() : "未知异常";
+            String exceptionMsg = com.admin.common.engine.LogRedaction.redactText(ex != null ? ex.getMessage() : "未知异常");
             
             // 合并为一条完整的异常日志信息
             String errorMessage = String.format(
@@ -137,7 +137,7 @@ public class LogAspect {
             );
             
             // 打印单条完整异常日志
-            log.info(errorMessage, ex);
+            log.info(errorMessage);
         } catch (Exception e) {
             log.info("记录异常日志时出错: {}", e.getMessage());
         }
@@ -147,47 +147,12 @@ public class LogAspect {
      * 获取请求参数
      */
     private String getRequestParams(JoinPoint joinPoint) {
-        try {
-            Object[] args = joinPoint.getArgs();
-            if (args.length == 0) {
-                return "无参数";
-            } else if (args[0] != null && args[0].toString().contains("SecurityContextHolderAwareRequestWrapper")) {
-                return JSON.toJSONString(Arrays.toString(ArrayUtil.remove(args, 0)));
-            } else {
-                // 检查是否只有一个参数且已经是JSON字符串格式
-                if (args.length == 1 && args[0] != null) {
-                    // 如果参数本身就是字符串且是JSON格式，直接返回
-                    if (args[0] instanceof String && ((String) args[0]).startsWith("{") && ((String) args[0]).endsWith("}")) {
-                        return (String) args[0];
-                    }
-                    
-                    // 如果参数是普通对象，直接序列化
-                    try {
-                        return JSON.toJSONString(args[0]);
-                    } catch (Exception e) {
-                        // 如果序列化失败，再尝试使用参数名映射
-                        Map<String, Object> map = new HashMap<>();
-                        String[] names = ((CodeSignature) joinPoint.getSignature()).getParameterNames();
-                        if (names != null) {
-                            map.put(names[0], args[0]);
-                            return JSON.toJSONString(map);
-                        }
-                        return JSON.toJSONString(args[0]);
-                    }
-                } else {
-                    // 多个参数时，使用参数名映射
-                    Map<String, Object> map = new HashMap<>();
-                    String[] names = ((CodeSignature) joinPoint.getSignature()).getParameterNames();
-                    if (names != null) {
-                        for (int i = 0; i < names.length; i++) {
-                            map.put(names[i], args[i]);
-                        }
-                    }
-                    return JSON.toJSONString(map);
-                }
-            }
-        } catch (Exception e) {
-            return "获取参数失败: " + e.getMessage();
+        Map<String,Object> values=new java.util.LinkedHashMap<>();
+        Object[] args=joinPoint.getArgs();String[] names=((CodeSignature)joinPoint.getSignature()).getParameterNames();
+        for(int i=0;i<args.length;i++){
+            if(args[i] instanceof javax.servlet.ServletRequest || args[i] instanceof javax.servlet.ServletResponse)continue;
+            values.put(i<names.length?names[i]:"argument"+i,args[i]);
         }
+        return com.admin.common.engine.LogRedaction.safe(values);
     }
 }

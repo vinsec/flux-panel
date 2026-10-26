@@ -19,13 +19,15 @@ public class EngineTrafficController {
     @Resource private NodeMapper nodes;
     @Resource private EngineTrafficService traffic;
     @Resource private EngineCreditService credits;
+    @Resource private com.admin.common.engine.NodeCredentials credentials;
 
     @PostMapping("/v1/traffic")
     public String traffic(
             @RequestHeader("Authorization") String authorization, @RequestBody JSONObject report) {
         if (!authorization.startsWith("Bearer "))
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
-        Node n = nodes.selectOne(new QueryWrapper<Node>().eq("secret", authorization.substring(7)));
+        var identity=credentials.bearer(authorization);
+        Node n = identity==null?null:identity.node();
         if (n == null || !"iptables".equals(n.getEngine()))
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
         if (credits.strict(n.getId()))
@@ -44,7 +46,8 @@ public class EngineTrafficController {
             @RequestHeader("Authorization") String authorization, @RequestBody JSONObject report) {
         if (!authorization.startsWith("Bearer "))
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
-        Node n = nodes.selectOne(new QueryWrapper<Node>().eq("secret", authorization.substring(7)));
+        var identity=credentials.bearer(authorization);
+        Node n = identity==null?null:identity.node();
         if (n == null || !"iptables".equals(n.getEngine()))
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
         try {
@@ -59,7 +62,8 @@ public class EngineTrafficController {
             @RequestHeader("Authorization") String authorization, @RequestBody JSONObject report) {
         if (!authorization.startsWith("Bearer "))
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
-        Node n = nodes.selectOne(new QueryWrapper<Node>().eq("secret", authorization.substring(7)));
+        var identity=credentials.bearer(authorization);
+        Node n = identity==null?null:identity.node();
         if (n == null || !"iptables".equals(n.getEngine()))
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
         try {
