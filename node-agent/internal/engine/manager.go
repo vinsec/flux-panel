@@ -990,9 +990,13 @@ func (m *Manager) Page(after string, limit int, generation *uint64) (Page, error
 func (m *Manager) Info() map[string]any {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	paths := 0
+	paths, configured := 0, 0
 	for _, s := range m.state.Rules {
-		if s.Advanced() && !s.Deleted {
+		if s.Deleted {
+			continue
+		}
+		configured++
+		if s.Advanced() {
 			paths += len(s.Paths())
 		}
 	}
@@ -1000,7 +1004,7 @@ func (m *Manager) Info() map[string]any {
 	for _, r := range m.lastCounters {
 		sets[r.Set]++
 	}
-	capacity := map[string]any{"configuredForwards": len(m.state.Rules), "forwardLimit": 10000, "resolvedPaths": paths, "resolvedPathLimit": 32768, "counterEntriesBySet": sets, "freeTokens": len(m.state.FreeTokens), "quarantinedTokens": len(m.state.Quarantine), "retiredCounters": len(m.state.CounterRetiredAt)}
+	capacity := map[string]any{"configuredForwards": configured, "retainedForwards": len(m.state.Rules), "forwardLimit": 10000, "resolvedPaths": paths, "resolvedPathLimit": 32768, "counterEntriesBySet": sets, "freeTokens": len(m.state.FreeTokens), "quarantinedTokens": len(m.state.Quarantine), "retiredCounters": len(m.state.CounterRetiredAt)}
 	return map[string]any{"capacity": capacity, "lastAckAt": m.state.LastAckAt, "lastConnectedAt": m.state.LastConnectedAt, "strictCreditPolicy": m.state.StrictCredit, "bootId": m.state.BootID, "capabilities": CurrentCapabilities(), "epoch": m.state.Epoch, "generation": m.state.Generation, "blocked": m.blocked, "maintenancePending": m.state.MaintenancePending, "accountingBlocked": m.state.AccountingBlocked, "lastDurableAt": m.state.LastDurableAt, "recovery": m.state.Recovery}
 }
 

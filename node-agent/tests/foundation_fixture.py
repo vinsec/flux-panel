@@ -87,6 +87,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
     obj=decode(pending);pending=b''
     if obj.get('type')=='EngineHello':PANEL.hello=obj['info']
     elif obj.get('requestId'):PANEL.responses[obj['requestId']]=obj
+    elif obj.get('sampledAt'):PANEL.metrics=(getattr(PANEL,'metrics',[])+[obj])[-2:]
   except (OSError,ValueError,struct.error):pass
 
 def topology():

@@ -134,14 +134,28 @@ func (k *IPTables) Preflight() (PreflightResult, error) {
 	result.Probes = []string{"hash:ip,port skbinfo/map-mark", "hash:ip,mark counters/timeout/bytes-lt", "RELATED ICMP", "counter-preserving TTL renewal", "atomic ipset swap", "backend exclusivity", "native nft flow-offload/mark audit"}
 	return result, nil
 }
+
+// Index ownership in one pass. Re-scanning a large ruleset for every rule
+// makes a warm 10k-rule restart quadratic even though packet dispatch is O(1).
 func markOwners(saved string) map[string]bool {
-	owners := map[string]bool{}
+	declared := map[string]bool{}
 	for _, m := range declaration.FindAllStringSubmatch(saved, -1) {
-		name := m[1]
-		if ownedNames.MatchString(name) && (knownOwnedChain(saved, name) || strings.Contains(saved, "-A "+name+" -m comment --comment flux-owner:v1 -j RETURN") || strings.Contains(saved, "-A "+name+" -m comment --comment \"flux-owner:v1\" -j RETURN")) {
+		declared[m[1]] = true
+	}
+	owners := map[string]bool{}
+	for _, line := range strings.Split(saved, "\n") {
+		f := strings.Fields(line)
+		if len(f) > 0 && strings.HasPrefix(f[0], "[") && strings.HasSuffix(f[0], "]") {
+			f = f[1:]
+		}
+		if len(f) != 8 || f[0] != "-A" || !declared[f[1]] || f[2] != "-m" || f[3] != "comment" || f[4] != "--comment" || f[6] != "-j" || f[7] != "RETURN" {
+			continue
+		}
+		name, marker := f[1], strings.Trim(f[5], "\"")
+		if ownedNames.MatchString(name) && (marker == owner || marker == previousOwner || marker == "flux-owner:v1") {
 			owners[name] = true
 		}
-		if (strings.HasPrefix(name, "FP4_") || strings.HasPrefix(name, "FP6_")) && advancedOwnedChain(saved, name) {
+		if (strings.HasPrefix(name, "FP4_") || strings.HasPrefix(name, "FP6_")) && marker == advancedOwner {
 			owners[name] = true
 		}
 	}

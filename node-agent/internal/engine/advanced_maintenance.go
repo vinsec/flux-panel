@@ -68,10 +68,11 @@ func (a *AdvancedKernel) cleanup() error {
 				return e
 			}
 			owned := map[string]bool{}
+			owners := markOwners(saved)
 			for _, m := range declaration.FindAllStringSubmatch(saved, -1) {
 				name := m[1]
 				if strings.HasPrefix(name, p.prefix+"_") {
-					if !advancedOwnedChain(saved, name) {
+					if !owners[name] {
 						return fmt.Errorf("advanced cleanup found a foreign chain")
 					}
 					owned[name] = true

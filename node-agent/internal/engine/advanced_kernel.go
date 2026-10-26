@@ -157,10 +157,11 @@ func (a *AdvancedKernel) ensurePlane(family string) error {
 		if e != nil {
 			return e
 		}
+		owners := markOwners(saved)
 		for _, line := range strings.Split(saved, "\n") {
 			if strings.HasPrefix(line, ":"+p.prefix+"_") {
 				name := strings.Fields(line)[0][1:]
-				if !strings.Contains(saved, "-A "+name+" -m comment --comment "+advancedOwner+" -j RETURN") && !strings.Contains(saved, "-A "+name+" -m comment --comment \""+advancedOwner+"\" -j RETURN") {
+				if !owners[name] {
 					return fmt.Errorf("advanced chain %s has foreign ownership", name)
 				}
 			}
@@ -661,18 +662,20 @@ func (a *AdvancedKernel) stale(p advancedPlane, desired, table string) (string, 
 		}
 	}
 	stale := []string{}
+	owners := markOwners(saved)
+	filterNode := regexp.MustCompile(`^` + p.prefix + `_I[0-9a-f]{1,3}$`)
 	for _, line := range strings.Split(saved, "\n") {
 		if !strings.HasPrefix(line, ":"+p.prefix+"_") {
 			continue
 		}
 		name := strings.Fields(line)[0][1:]
-		if table == "filter" && !regexp.MustCompile(`^`+p.prefix+`_I[0-9a-f]{1,3}$`).MatchString(name) {
+		if table == "filter" && !filterNode.MatchString(name) {
 			continue
 		}
 		if wanted[name] {
 			continue
 		}
-		if !strings.Contains(saved, "--comment "+advancedOwner+" -j RETURN") && !strings.Contains(saved, "--comment \""+advancedOwner+"\" -j RETURN") {
+		if !owners[name] {
 			return "", fmt.Errorf("foreign advanced chain")
 		}
 		stale = append(stale, name)

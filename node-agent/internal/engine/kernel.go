@@ -247,9 +247,10 @@ func (k *IPTables) Initialize() error {
 				return fmt.Errorf("chain %s exists without ownership marker", c)
 			}
 		}
+		owners := markOwners(r)
 		for _, l := range strings.Split(r, "\n") {
 			fields := strings.Fields(l)
-			advancedOwned := len(fields) > 1 && advancedOwnedChain(r, fields[1])
+			advancedOwned := len(fields) > 1 && owners[fields[1]] && (strings.HasPrefix(fields[1], "FP4_") || strings.HasPrefix(fields[1], "FP6_"))
 			if reservedMark.MatchString(l) && !strings.Contains(l, "-A FP_") && !advancedOwned && !strings.Contains(l, gateComment) && !strings.Contains(l, advancedGate) {
 				return fmt.Errorf("reserved connmark namespace is already used")
 			}

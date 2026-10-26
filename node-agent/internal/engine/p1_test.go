@@ -140,3 +140,11 @@ func TestRuntimeDistinguishesUnprobedAndFailedHealth(t *testing.T) {
 		t.Fatal("new health probe reported failed prematurely")
 	}
 }
+
+func TestOwnershipIndexHandlesCounterExportsAndRejectsBorrowedMarkers(t *testing.T) {
+	text := "*nat\n:FP4_PRE - [0:0]\n:FP4_Nabc - [0:0]\n:FP4_Nabd - [0:0]\n:FOREIGN - [0:0]\n[0:0] -A FP4_PRE -m comment --comment \"flux-owner:v4\" -j RETURN\n-A FP4_Nabc -m comment --comment flux-owner:v4 -j RETURN\n-A FP4_Nabd -m comment --comment flux-owner:v4 -j DROP\n-A FOREIGN -m comment --comment flux-owner:v4 -j RETURN\nCOMMIT\n"
+	index := markOwners(text)
+	if !index["FP4_PRE"] || !index["FP4_Nabc"] || index["FP4_Nabd"] || index["FOREIGN"] {
+		t.Fatal(index)
+	}
+}
