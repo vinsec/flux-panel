@@ -111,7 +111,7 @@ func (a *AdvancedKernel) cleanup() error {
 				}
 			}
 		}
-		for _, suffix := range []string{"BIND", "BNEW", "ALLOW", "ANEW", "UP", "DOWN", "ROUTES", "RNEW"} {
+		for _, suffix := range []string{"BIND", "BNEW", "ALLOW", "ANEW", "UP", "DOWN", "ROUTES", "RNEW", "OBIND", "ONEW", "NOSNAT", "SNEW", "LORIG", "LONEW", "LTARG", "LTNEW"} {
 			name := p.set(suffix)
 			saved, e := a.parent.readSet(name)
 			if e != nil {

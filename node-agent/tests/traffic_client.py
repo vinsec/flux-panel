@@ -16,9 +16,9 @@ elif action=='blocked':
         s=socket.create_connection(target,timeout=.5);tcp(s,b'blocked');ok=True
     except (OSError,RuntimeError):pass
     assert not ok,'TCP was not blocked'
-    u=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);u.settimeout(.5);u.sendto(b'blocked',target)
-    try:u.recv(4096);raise AssertionError('UDP was not blocked')
-    except socket.timeout:pass
+    u=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);u.settimeout(.5)
+    try:u.sendto(b'blocked',target);u.recv(4096);raise AssertionError('UDP was not blocked')
+    except OSError:pass
     print('tcp_udp_blocked')
 elif action=='persistent':
     s=socket.create_connection(target,timeout=1);s.settimeout(.8);u=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);u.settimeout(.8)

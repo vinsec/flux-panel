@@ -12,6 +12,7 @@ export interface EngineOptions {
   health?: {protocol:string;port?:number;intervalMillis?:number;timeoutMillis?:number;rise?:number;fall?:number;payload?:string;expected?:string};
   egress?: {interface:string;sourceIPv4?:string;sourceIPv6?:string;gatewayIPv4?:string;gatewayIPv6?:string};
   bandwidth?: {upBitsPerSecond?:number;downBitsPerSecond?:number};
+  traffic?: {localOutput?:boolean;localTargets?:boolean;sourceMode?:"masquerade"|"preserve";returnPathConfirmed?:boolean};
 }
 export function readEngineOptions(value?:string):EngineOptions {try{return value?JSON.parse(value):{}}catch{return {}}}
 export function parseForwardEndpoint(address:string):{host:string;port:number}{
@@ -28,6 +29,7 @@ export function engineOptionsForSubmit(value:string|undefined,remote:string,port
   if(options.listeners){if(!port)throw new Error('自定义监听需要填写入口端口');if(!features.independentProtocols)throw new Error('当前节点不支持独立监听');if(!options.listeners.some(l=>l.port===port))throw new Error('至少一项监听必须使用入口端口');for(const l of options.listeners){parseForwardEndpoint(`${l.host.includes(':')?'['+l.host+']':l.host}:${l.port}`);if(l.host.includes(':')&&!features.ipv6)throw new Error('当前节点未提供 IPv6 能力');}}
   if(options.targets){let total=0;options.targets=endpoints.map((endpoint,i)=>{const weight=options.targets?.[i]?.weight||1;if(!Number.isInteger(weight)||weight<1||weight>32)throw new Error('权重必须为 1–32 的整数');total+=weight;return {endpoint,weight}});if(total>32)throw new Error('目标权重之和不能超过 32');}
   if(options.egress&&!features.interfaceRouting)throw new Error('当前节点不支持出口策略');if(options.bandwidth&&!features.shaping)throw new Error('当前节点不支持平滑限速');if(options.health&&!features.multiTarget)throw new Error('当前节点不支持健康检查');
+  if(options.traffic){for(const key of ['localOutput','localTargets'] as const)if(options.traffic[key]&&!features[key])throw new Error('当前节点不支持此本地流量模式');if(options.traffic.sourceMode==='preserve'&&(!features.preserveSource||!options.traffic.returnPathConfirmed))throw new Error('保留源地址需要节点能力及回程路由确认');if((options.traffic.localOutput||options.traffic.localTargets)&&((options.bandwidth?.upBitsPerSecond||0)+(options.bandwidth?.downBitsPerSecond||0)>0))throw new Error('本地流量暂不支持平滑限速组合');}
   return Object.keys(options).length?JSON.stringify(options):undefined;
 }
 
@@ -75,6 +77,13 @@ export default function AdvancedForwardFields({value,onChange,features,port,remo
         {(['sourceIPv4','gatewayIPv4',...(features.ipv6?['sourceIPv6','gatewayIPv6']:[])] as const).map(key=><Input key={key} label={{sourceIPv4:'IPv4 源地址',gatewayIPv4:'IPv4 网关',sourceIPv6:'IPv6 源地址',gatewayIPv6:'IPv6 网关'}[key]} value={(options.egress as any)?.[key]||''} onValueChange={v=>set('egress',{...options.egress,[key]:v})}/>)}
       </div>}
     </>}
+    {(features.localOutput||features.localTargets||features.preserveSource)&&<div className="space-y-2">
+      {features.localOutput&&<Switch size="sm" isSelected={!!options.traffic?.localOutput} onValueChange={v=>set('traffic',{...options.traffic,localOutput:v})}>允许本机程序访问转发入口</Switch>}
+      {features.localTargets&&<Switch size="sm" isSelected={!!options.traffic?.localTargets} onValueChange={v=>set('traffic',{...options.traffic,localTargets:v})}>允许转发到本机服务</Switch>}
+      {features.preserveSource&&<Switch size="sm" isSelected={options.traffic?.sourceMode==='preserve'} onValueChange={v=>set('traffic',{...options.traffic,sourceMode:v?'preserve':'masquerade',returnPathConfirmed:false})}>保留客户端源地址</Switch>}
+      {options.traffic?.sourceMode==='preserve'&&<Switch size="sm" isSelected={!!options.traffic.returnPathConfirmed} onValueChange={v=>set('traffic',{...options.traffic,returnPathConfirmed:v})}>已确认目标回程经过本节点</Switch>}
+      <p className="text-xs text-default-500">默认保持地址转换，支持同网段回流。本地流量暂不能与用户、隧道或转发平滑限速组合；外部访问 IPv4 回环目标需节点事先配置路由，建议使用本机网卡地址。</p>
+    </div>}
     {features.shaping&&<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <Input label="本转发上传上限（Mbps，0 不另限）" type="number" min={0} value={String((options.bandwidth?.upBitsPerSecond||0)/1000000)} onValueChange={v=>set('bandwidth',{...options.bandwidth,upBitsPerSecond:Math.round(Number(v)*1000000)})}/>
       <Input label="本转发下载上限（Mbps，0 不另限）" type="number" min={0} value={String((options.bandwidth?.downBitsPerSecond||0)/1000000)} onValueChange={v=>set('bandwidth',{...options.bandwidth,downBitsPerSecond:Math.round(Number(v)*1000000)})}/>

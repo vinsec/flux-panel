@@ -234,7 +234,7 @@ func readMaintenanceState(path string) (State, error) {
 	if e = json.Unmarshal(b, &s); e != nil {
 		return s, e
 	}
-	if len(s.Epoch) != 32 || s.Sequence < 0 || s.Rules == nil || s.FormatVersion > 4 {
+	if len(s.Epoch) != 32 || s.Sequence < 0 || s.Rules == nil || s.FormatVersion > 5 {
 		return s, fmt.Errorf("invalid maintenance checkpoint")
 	}
 	return s, nil
@@ -519,13 +519,7 @@ func Maintain(path, configPath, action, backupDir string, k *IPTables, offline b
 			source.FormatVersion = prior.SourceFormat
 			state = source
 		} else if action == "migrate" {
-			state.FormatVersion = 3
-			for _, rule := range state.Rules {
-				if rule.Advanced() {
-					state.FormatVersion = 4
-					break
-				}
-			}
+			state.FormatVersion = requiredStateFormat(state.Rules)
 			state.KernelID = ""
 			state.BootID = ""
 		}

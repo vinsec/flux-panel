@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"net/netip"
 	"slices"
 	"strings"
 )
@@ -111,7 +112,8 @@ func (k *IPTables) RefreshBindings(rules map[string]Spec) (changed bool, failure
 		if e != nil {
 			return false, e
 		}
-		signature := digest(entries)
+		output, _ := trafficSets(p, k.P1.last, addresses[family])
+		signature := digest([]any{entries, output})
 		if signature == k.P1.bindings[family] {
 			continue
 		}
@@ -119,6 +121,12 @@ func (k *IPTables) RefreshBindings(rules map[string]Spec) (changed bool, failure
 			return false, e
 		}
 		if _, e = k.run("ipset", "", "swap", p.set("BNEW"), p.set("BIND")); e != nil {
+			return false, e
+		}
+		if e = k.P1.stage(p, "ONEW", output, true); e != nil {
+			return false, e
+		}
+		if _, e = k.run("ipset", "", "swap", p.set("ONEW"), p.set("OBIND")); e != nil {
 			return false, e
 		}
 		k.P1.bindings[family] = signature
@@ -132,7 +140,8 @@ func usableAddress(ip string, addresses []string) bool {
 func addressStatus(s Spec, addresses map[string][]string) string {
 	missing := []string{}
 	for _, l := range s.ListenerList() {
-		if !usableAddress(l.Host, addresses[l.Family]) {
+		ip, _ := netip.ParseAddr(l.Host)
+		if !usableAddress(l.Host, addresses[l.Family]) && !(s.AdvancedOptions != nil && s.Traffic.LocalOutput && ip.IsLoopback()) {
 			missing = append(missing, l.Host)
 		}
 	}

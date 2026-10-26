@@ -116,6 +116,10 @@ public class EngineCreditService {
         return exchangeInternal(node, report, false);
     }
 
+    static boolean reservationVersion(Object version) {
+        return version != null && version.toString().matches("iptables-v[345](?:[.-].*)?");
+    }
+
     private JSONObject exchangeInternal(Node node, JSONObject report, boolean maintenance) {
         String epoch = report.getString("epoch"), boot = report.getString("bootId");
         long sequence = EngineTrafficService.exact(report.get("sequence"));
@@ -340,10 +344,7 @@ public class EngineCreditService {
                                 .anyMatch(
                                         peer ->
                                                 !"iptables".equals(peer.get("engine"))
-                                                        || peer.get("version") == null
-                                                        || !peer.get("version")
-                                                                .toString()
-                                                                .matches("iptables-v[34].*")
+                                                        || !reservationVersion(peer.get("version"))
                                                         || n(peer, "strict_credit") != 1);
                 if (mixed) continue;
                 List<Map<String, Object>> active =

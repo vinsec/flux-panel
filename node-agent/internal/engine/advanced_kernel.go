@@ -48,15 +48,22 @@ func (p advancedPlane) set(suffix string) string { return p.prefix + "_" + suffi
 func (p advancedPlane) chains(table string) []string {
 	switch table {
 	case "mangle":
-		return []string{p.set("MARK"), p.set("AUX")}
+		return []string{p.set("MARK"), p.set("AUX"), p.set("OMARK")}
 	case "nat":
 		return []string{p.set("PRE"), p.set("POST")}
 	default:
-		return []string{p.set("FWD"), p.set("INPUT"), p.set("ICMP"), p.set("IROOT")}
+		return []string{p.set("FWD"), p.set("INPUT"), p.set("OUTPUT"), p.set("ICMP"), p.set("IROOT")}
 	}
 }
-func (p advancedPlane) hooks() []Hook {
-	return []Hook{{"filter", "FORWARD", p.set("FWD")}, {"filter", "INPUT", p.set("INPUT")}, {"nat", "PREROUTING", p.set("PRE")}, {"nat", "POSTROUTING", p.set("POST")}, {"mangle", "PREROUTING", p.set("MARK")}}
+func (p advancedPlane) hooks(local bool) []Hook {
+	hooks := []Hook{{"filter", "FORWARD", p.set("FWD")}, {"filter", "INPUT", p.set("INPUT")}, {"nat", "PREROUTING", p.set("PRE")}, {"nat", "POSTROUTING", p.set("POST")}, {"mangle", "PREROUTING", p.set("MARK")}}
+	if local {
+		hooks = append(hooks, p.localHooks()...)
+	}
+	return hooks
+}
+func (p advancedPlane) localHooks() []Hook {
+	return []Hook{{"mangle", "OUTPUT", p.set("OMARK")}, {"nat", "OUTPUT", p.set("PRE")}, {"filter", "OUTPUT", p.set("OUTPUT")}}
 }
 func (p advancedPlane) sentinelKey(binding bool) string {
 	if binding {
@@ -117,9 +124,9 @@ func (a *AdvancedKernel) ensurePlane(family string) error {
 	for _, name := range strings.Fields(names) {
 		existing[name] = true
 	}
-	for _, suffix := range []string{"BIND", "BNEW", "ALLOW", "ANEW", "UP", "DOWN", "ROUTES", "RNEW"} {
+	for _, suffix := range []string{"BIND", "BNEW", "ALLOW", "ANEW", "UP", "DOWN", "ROUTES", "RNEW", "OBIND", "ONEW", "NOSNAT", "SNEW", "LORIG", "LONEW", "LTARG", "LTNEW"} {
 		name := p.set(suffix)
-		binding := suffix == "BIND" || suffix == "BNEW"
+		binding := suffix == "BIND" || suffix == "BNEW" || suffix == "OBIND" || suffix == "ONEW"
 		typ := "hash:ip,mark"
 		options := []string{"family", fam, "markmask", "0xffffff00", "hashsize", "4096", "maxelem", "262144", "comment"}
 		if binding {
@@ -200,7 +207,7 @@ func (a *AdvancedKernel) validate(s Spec) error {
 		return e
 	}
 	for _, l := range s.Listeners {
-		if l.Host != "0.0.0.0" && l.Host != "::" && !slices.Contains(addresses[l.Family], l.Host) {
+		if l.Host != "0.0.0.0" && l.Host != "::" && !slices.Contains(addresses[l.Family], l.Host) && !(s.Traffic.LocalOutput && netip.MustParseAddr(l.Host).IsLoopback()) {
 			return fmt.Errorf("listener address is not assigned and usable in this namespace")
 		}
 		for _, proto := range []string{l.Protocol} {
@@ -225,8 +232,28 @@ func (a *AdvancedKernel) validate(s Spec) error {
 		}
 	}
 	for _, target := range s.Paths() {
-		if slices.Contains(addresses[target.Family], target.Host) {
-			return fmt.Errorf("local target is not enabled for external ingress forwarding")
+		ip := netip.MustParseAddr(target.Host)
+		local := ip.IsLoopback() || slices.Contains(addresses[target.Family], target.Host)
+		if local && !s.Traffic.LocalTargets {
+			return fmt.Errorf("local target requires explicit localTargets mode")
+		}
+		if ip.Is4() && ip.IsLoopback() {
+			// Do not change host-wide martian filtering. Administrators must prepare
+			// route_localnet only on their dedicated ingress interfaces.
+			for _, l := range s.Listeners {
+				if !netip.MustParseAddr(l.Host).IsLoopback() {
+					b, err := os.ReadFile("/proc/sys/net/ipv4/conf/all/route_localnet")
+					if err != nil || strings.TrimSpace(string(b)) != "1" {
+						return fmt.Errorf("IPv4 loopback target with external listeners requires preconfigured route_localnet; use an assigned local address instead")
+					}
+				}
+			}
+		}
+		// Do not redirect a local service into another engine listener or itself.
+		for _, l := range s.Listeners {
+			if local && l.Port == target.Port && l.Family == target.Family {
+				return fmt.Errorf("local target overlaps listener port")
+			}
 		}
 	}
 	if s.Egress.Interface != "" {
@@ -309,25 +336,29 @@ func (a *AdvancedKernel) apply(plan []Spec) error {
 	rules := advancedRules(plan)
 	a.runtimeErrors = map[string]string{}
 	for id, s := range rules {
-		if s.Deleted || s.Egress.Interface == "" {
+		if s.Deleted {
 			continue
 		}
-		iface, err := net.InterfaceByName(s.Egress.Interface)
 		problem := ""
-		if err != nil || iface.Flags&net.FlagUp == 0 {
-			problem = "egress interface unavailable"
-		} else {
-			addresses, _ := iface.Addrs()
-			assigned := map[string]bool{}
-			for _, address := range addresses {
-				ip, _, e := net.ParseCIDR(address.String())
-				if e == nil {
-					assigned[ip.String()] = true
+		if s.localTraffic() && s.Bandwidth.Enabled() {
+			problem = "local traffic with smooth/shared shaping is not yet supported"
+		} else if s.Egress.Interface != "" {
+			iface, err := net.InterfaceByName(s.Egress.Interface)
+			if err != nil || iface.Flags&net.FlagUp == 0 {
+				problem = "egress interface unavailable"
+			} else {
+				addresses, _ := iface.Addrs()
+				assigned := map[string]bool{}
+				for _, address := range addresses {
+					ip, _, e := net.ParseCIDR(address.String())
+					if e == nil {
+						assigned[ip.String()] = true
+					}
 				}
-			}
-			for _, source := range []string{s.Egress.SourceIPv4, s.Egress.SourceIPv6} {
-				if source != "" && !assigned[source] {
-					problem = "egress source address unavailable"
+				for _, source := range []string{s.Egress.SourceIPv4, s.Egress.SourceIPv6} {
+					if source != "" && !assigned[source] {
+						problem = "egress source address unavailable"
+					}
 				}
 			}
 		}
@@ -389,7 +420,28 @@ func (a *AdvancedKernel) apply(plan []Spec) error {
 					return e
 				}
 			}
-			for _, hook := range p.hooks() {
+			local := false
+			for _, rule := range rules {
+				if !rule.Deleted && rule.localTraffic() {
+					for _, l := range rule.Listeners {
+						if l.Family == family {
+							local = true
+						}
+					}
+				}
+			}
+			if !local {
+				for _, hook := range p.localHooks() {
+					args := []string{"--wait", "2", "-t", hook.Table, "-C", hook.Parent, "-m", "comment", "--comment", "flux-advanced-hook:v4", "-j", hook.Child}
+					if _, err := a.parent.run(p.binary, "", args...); err == nil {
+						args[4] = "-D"
+						if _, err = a.parent.run(p.binary, "", args...); err != nil {
+							return err
+						}
+					}
+				}
+			}
+			for _, hook := range p.hooks(local) {
 				args := []string{"--wait", "2", "-t", hook.Table, "-C", hook.Parent, "-m", "comment", "--comment", "flux-advanced-hook:v4", "-j", hook.Child}
 				if _, e = a.parent.run(p.binary, "", args...); e != nil {
 					args[4] = "-I"
@@ -411,7 +463,20 @@ func (a *AdvancedKernel) apply(plan []Spec) error {
 		if _, e = a.parent.run("ipset", "", "swap", p.set("BNEW"), p.set("BIND")); e != nil {
 			return e
 		}
-		a.bindings[family] = digest(bindings)
+		outputBindings, noSNAT := trafficSets(p, rules, addresses[family])
+		a.bindings[family] = digest([]any{bindings, outputBindings})
+		for _, set := range []struct {
+			stage, live string
+			entries     map[string]string
+			binding     bool
+		}{{"ONEW", "OBIND", outputBindings, true}, {"SNEW", "NOSNAT", noSNAT, false}, {"LONEW", "LORIG", localHookTargets(p, rules, true), false}, {"LTNEW", "LTARG", localHookTargets(p, rules, false), false}} {
+			if e = a.stage(p, set.stage, set.entries, set.binding); e != nil {
+				return e
+			}
+			if _, e = a.parent.run("ipset", "", "swap", p.set(set.stage), p.set(set.live)); e != nil {
+				return e
+			}
+		}
 		if e = a.stage(p, "ANEW", allowed, false); e != nil {
 			return e
 		}

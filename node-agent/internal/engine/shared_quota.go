@@ -16,10 +16,11 @@ type nativeQuota struct {
 	Comment string `json:"comment"`
 }
 type SharedQuota struct {
-	parent *IPTables
-	ready  bool
-	hook   bool
-	shape  string
+	parent     *IPTables
+	ready      bool
+	hook       bool
+	localHooks bool
+	shape      string
 }
 
 func quotaName(s Spec, l Lease) string {
@@ -47,6 +48,9 @@ func (q *SharedQuota) ensure() error {
 		for _, item := range parsed.NFT {
 			if item.Chain != nil && item.Chain.Name == "gate" && item.Chain.Hook == "forward" {
 				q.hook = true
+			}
+			if item.Chain != nil && item.Chain.Name == "gate_input" && item.Chain.Hook == "input" {
+				q.localHooks = true
 			}
 		}
 		return nil
@@ -77,42 +81,55 @@ func (q *SharedQuota) transactionGate(tokens []uint32, newOnly, remove bool) err
 	if e = json.Unmarshal([]byte(saved), &document); e != nil {
 		return e
 	}
-	exists := false
+	existingChains := map[string]bool{}
 	for _, item := range document.NFT {
-		if item.Chain != nil && item.Chain.Name == "transaction" {
-			exists = true
+		if item.Chain != nil {
+			existingChains[item.Chain.Name] = true
+		}
+	}
+	for _, token := range tokens {
+		if token == 0 || token > 65535 {
+			return fmt.Errorf("invalid transaction token")
 		}
 	}
 	var b strings.Builder
-	if remove {
-		if !exists {
-			return nil
+	condition := ""
+	if newOnly {
+		condition = " ct status & confirmed == 0"
+	}
+	// Every packet terminates at INPUT, OUTPUT or FORWARD. These atomic drop
+	// gates never meter, so a local-to-local packet cannot burn credit twice.
+	for _, hook := range []string{"forward", "input", "output"} {
+		chain := "transaction"
+		if hook != "forward" {
+			chain += "_" + hook
 		}
-		fmt.Fprintf(&b, "flush chain inet %s transaction\ndelete chain inet %s transaction\n", quotaTable, quotaTable)
-	} else {
-		if exists {
-			fmt.Fprintf(&b, "flush chain inet %s transaction\n", quotaTable)
+		if remove {
+			if existingChains[chain] {
+				fmt.Fprintf(&b, "flush chain inet %s %s\ndelete chain inet %s %s\n", quotaTable, chain, quotaTable, chain)
+			}
+			continue
+		}
+		if existingChains[chain] {
+			fmt.Fprintf(&b, "flush chain inet %s %s\n", quotaTable, chain)
 		} else {
-			fmt.Fprintf(&b, "add chain inet %s transaction { type filter hook forward priority -10; policy accept; }\n", quotaTable)
-		}
-		condition := ""
-		if newOnly {
-			condition = " ct status & confirmed == 0"
+			fmt.Fprintf(&b, "add chain inet %s %s { type filter hook %s priority -10; policy accept; }\n", quotaTable, chain, hook)
 		}
 		if len(tokens) == 0 || len(tokens) > 16 {
-			fmt.Fprintf(&b, "add rule inet %s transaction ct mark & 0xff000000 == 0xf2000000%s drop\n", quotaTable, condition)
+			fmt.Fprintf(&b, "add rule inet %s %s ct mark & 0xff000000 == 0xf2000000%s drop\n", quotaTable, chain, condition)
 		} else {
 			for _, token := range tokens {
-				if token == 0 || token > 65535 {
-					return fmt.Errorf("invalid transaction token")
-				}
-				fmt.Fprintf(&b, "add rule inet %s transaction ct mark & 0xffffff00 == 0x%x%s drop\n", quotaTable, uint32(0xf2000000)|(token<<8), condition)
+				fmt.Fprintf(&b, "add rule inet %s %s ct mark & 0xffffff00 == 0x%x%s drop\n", quotaTable, chain, uint32(0xf2000000)|(token<<8), condition)
 			}
 		}
+	}
+	if b.Len() == 0 {
+		return nil
 	}
 	_, e = q.parent.run("nft", b.String(), "-f", "-")
 	return e
 }
+
 func (q *SharedQuota) snapshot() (map[string]nativeQuota, error) {
 	result := map[string]nativeQuota{}
 	if !q.ready {
@@ -161,6 +178,28 @@ func (q *SharedQuota) sync(s State) error {
 		fmt.Fprintf(&b, "add rule inet %s gate meta l4proto { tcp, udp } ct mark & 0xffffff00 @required ct mark & 0xffffff00 != @live drop\n", quotaTable)
 		fmt.Fprintf(&b, "add rule inet %s gate meta l4proto { tcp, udp } quota name ct mark & 0xffffff00 map @budgets drop\n", quotaTable)
 	}
+	needLocal := false
+	for _, rule := range required {
+		if rule.localTraffic() {
+			needLocal = true
+		}
+	}
+	if needLocal && !q.localHooks {
+		for _, hook := range []string{"input", "output"} {
+			chain := "gate_" + hook
+			fmt.Fprintf(&b, "add chain inet %s %s { type filter hook %s priority -5; policy accept; }\n", quotaTable, chain, hook)
+			if hook == "output" {
+				fmt.Fprintf(&b, "add rule inet %s %s fib daddr type local return\n", quotaTable, chain)
+			}
+			fmt.Fprintf(&b, "add rule inet %s %s meta l4proto { tcp, udp } ct mark & 0xffffff00 @required ct mark & 0xffffff00 != @live drop\n", quotaTable, chain)
+			fmt.Fprintf(&b, "add rule inet %s %s meta l4proto { tcp, udp } quota name ct mark & 0xffffff00 map @budgets drop\n", quotaTable, chain)
+		}
+	}
+	if !needLocal && q.localHooks {
+		for _, hook := range []string{"input", "output"} {
+			fmt.Fprintf(&b, "flush chain inet %s gate_%s\ndelete chain inet %s gate_%s\n", quotaTable, hook, quotaTable, hook)
+		}
+	}
 	if len(required) == 0 && q.hook {
 		fmt.Fprintf(&b, "flush chain inet %s gate\ndelete chain inet %s gate\n", quotaTable, quotaTable)
 	}
@@ -201,6 +240,7 @@ func (q *SharedQuota) sync(s State) error {
 		return e
 	}
 	q.hook = len(required) > 0
+	q.localHooks = needLocal
 	return nil
 }
 func (q *SharedQuota) canRenew(before, after State) (bool, error) {

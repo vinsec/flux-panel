@@ -161,6 +161,29 @@ try:
     api('forward/delete',{'id':f['id']});check('delete blocks traffic and removes dispatch and binding entries',probe(action='blocked')=='tcp_udp_blocked' and '-j DNAT' not in router('iptables-save','-t','nat') and f'flux:v2:{key}:binding' not in router('ipset','save','FPV2_BIND'))
     check('deletion removes empty NAT trie chains but retains final accounting',':FP_N' not in router('iptables-save','-t','nat') and f'flux:v2:{key}:up' in router('ipset','save','FPV2_UP'))
     check('unrelated firewall chain and default DROP preserved','must-survive' in router('iptables-save') and '-P FORWARD DROP' in router('iptables','-S','FORWARD'))
+    # P2 options travel through the real Java factory, capability negotiation,
+    # DB reconciliation and typed agent wire contract.
+    traffic={'traffic':{'localOutput':True}}
+    api('forward/create',{'name':'p2-local-output','tunnelId':t['id'],'remoteAddr':'10.203.2.2:19000','inPort':18015,'strategy':'fifo','engineOptions':json.dumps(traffic)})
+    p2=sql("SELECT * FROM forward WHERE name='p2-local-output'")[0];p2key=str(p2['id'])+'_1_0'
+    check('Java API enables actual host OUTPUT TCP/UDP',router('python3','/repo/node-agent/tests/traffic_client.py','18015','probe')=='tcp_udp_ok')
+    wait(lambda:usage_total(p2['id'])>0)
+    p2state=json.loads(pathlib.Path('/tmp/flux-agent-state.json').read_text())['rules'][p2key]
+    check('P2 schema4 and traffic intent survive real panel accounting',p2state['schemaVersion']==4 and p2state['traffic']['localOutput'])
+    api('engine/set-bandwidth-group',{'nodeId':n['id'],'scope':'user','ownerId':1,'upBitsPerSecond':6000000,'downBitsPerSecond':6000000})
+    wait(lambda:api('engine/forward-states',{'ids':[p2['id']]})['data'][0]['state']['status']=='failed',30)
+    check('later shared cap closes unsupported local OUTPUT instead of retaining unlimited traffic',router('python3','/repo/node-agent/tests/traffic_client.py','18015','blocked')=='tcp_udp_blocked')
+    api('engine/set-bandwidth-group',{'nodeId':n['id'],'scope':'user','ownerId':1,'upBitsPerSecond':0,'downBitsPerSecond':0})
+    wait(lambda:router('python3','/repo/node-agent/tests/traffic_client.py','18015','probe')=='tcp_udp_ok',30)
+    check('removing conflicting cap restores local OUTPUT with its ledger intact',usage_total(p2['id'])>0)
+    api('forward/delete',{'id':p2['id']})
+    invalid=api('forward/create',{'name':'p2-unconfirmed-source','tunnelId':t['id'],'remoteAddr':'10.203.2.2:19000','inPort':18015,'engineOptions':json.dumps({'traffic':{'sourceMode':'preserve'}})},expect=False)
+    check('Java rejects DNAT-only without operator confirmation',invalid['code']!=0)
+    traffic={'traffic':{'sourceMode':'preserve','returnPathConfirmed':True}}
+    api('forward/create',{'name':'p2-source-preserve','tunnelId':t['id'],'remoteAddr':'10.203.2.2:19000','inPort':18015,'strategy':'fifo','engineOptions':json.dumps(traffic)})
+    p2=sql("SELECT * FROM forward WHERE name='p2-source-preserve'")[0]
+    check('Java API applies routed source-preserving TCP/UDP',probe(18015)=='tcp_udp_ok')
+    api('forward/delete',{'id':p2['id']})
     # Real v4 API round trip: typed listener reservations, bounded node status,
     # health and sharing all use the same business owner checks as old forwards.
     opts={'listeners':[{'host':'0.0.0.0','port':18009,'protocol':'tcp'}],'health':{'protocol':'tcp','intervalMillis':1000,'timeoutMillis':200,'rise':1,'fall':1},'bandwidth':{'upBitsPerSecond':10000000,'downBitsPerSecond':10000000}}
@@ -195,14 +218,14 @@ try:
     sql('INSERT INTO user_tunnel(user_id,tunnel_id,speed_id,num,flow,flow_reset_time,exp_time,status) VALUES(%s,%s,NULL,100,1000,0,%s,1)',(normal,t['id'],now+3600000))
     permission=sql('SELECT id FROM user_tunnel WHERE user_id=%s',(normal,))[0]['id']
     nf1=forward(t,'normal-one',18002,normal,1);nf2=forward(t,'normal-two',18003,normal,1)
-    probe(18002);probe(18003);wait(lambda:usage_total(nf1['id'])>0 and usage_total(nf2['id'])>0);time.sleep(1.5)
+    wait(lambda:probe(18002)=='tcp_udp_ok');wait(lambda:probe(18003)=='tcp_udp_ok');wait(lambda:usage_total(nf1['id'])>0 and usage_total(nf2['id'])>0);time.sleep(1.5)
     a=sql('SELECT in_flow+out_flow AS total FROM user WHERE id=%s',(normal,))[0]['total'];b=sql('SELECT in_flow+out_flow AS total FROM user_tunnel WHERE id=%s',(permission,))[0]['total']
     check('forward, user and user-tunnel ledgers agree',a==b and a==usage_total(nf1['id'])+usage_total(nf2['id']))
     sql('UPDATE user SET flow=1,in_flow=1073741825,out_flow=0 WHERE id=%s',(normal,))
     wait(lambda:all(x['status']==0 for x in sql('SELECT status FROM forward WHERE user_id=%s',(normal,))),20)
     check('quota pauses every forwarding with its own service id',probe(18002,'blocked')=='tcp_udp_blocked' and probe(18003,'blocked')=='tcp_udp_blocked')
     sql('UPDATE user SET flow=1000,in_flow=0,out_flow=0 WHERE id=%s',(normal,));api('forward/resume',{'id':nf1['id']});api('forward/resume',{'id':nf2['id']})
-    check('normal forwards recover after quota reset',probe(18002)=='tcp_udp_ok' and probe(18003)=='tcp_udp_ok')
+    wait(lambda:probe(18002)=='tcp_udp_ok' and probe(18003)=='tcp_udp_ok');check('normal forwards recover after quota reset')
     # Two real Agents in different router namespaces share one nearly-empty
     # user budget. Every data packet remains on private veth links.
     for extra in ['client2','router2']:

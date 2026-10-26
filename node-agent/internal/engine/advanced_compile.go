@@ -82,6 +82,15 @@ func compileAdvancedPlane(p advancedPlane, rules map[string]Spec, addresses []st
 		}
 		switch table {
 		case "mangle":
+			local := false
+			for _, s := range included {
+				if s.localTraffic() {
+					local = true
+				}
+			}
+			if local {
+				renderMarkChain(&b, p, "OMARK", "OBIND")
+			}
 			fmt.Fprintf(&b, "-A %s -m connmark --mark %s -j CONNMARK --restore-mark --nfmask %s --ctmask %s\n", p.set("MARK"), advancedMark, markMask, markMask)
 			fmt.Fprintf(&b, "-A %s -m connmark --mark %s -j %s\n-A %s -m connmark --mark %s -j RETURN\n", p.set("MARK"), advancedMark, p.set("AUX"), p.set("MARK"), advancedMark)
 			fmt.Fprintf(&b, "-A %s -m conntrack --ctdir ORIGINAL -m addrtype --dst-type LOCAL -m set --match-set %s dst,dst -j SET --map-set %s dst,dst --map-mark\n", p.set("MARK"), p.set("BIND"), p.set("BIND"))
@@ -114,7 +123,30 @@ func compileAdvancedPlane(p advancedPlane, rules map[string]Spec, addresses []st
 			fmt.Fprintf(&b, "-A %s -p %s -m connmark --mark %s -j %s\n", p.set("FWD"), icmp, advancedMark, p.set("ICMP"))
 			fmt.Fprintf(&b, "-A %s -m connmark --mark %s -m conntrack --ctdir ORIGINAL -m set --match-set %s dst,dst -m set --match-set %s dst,dst -j ACCEPT\n", p.set("FWD"), advancedMark, p.set("ALLOW"), p.set("UP"))
 			fmt.Fprintf(&b, "-A %s -m connmark --mark %s -m conntrack --ctdir REPLY -m set --match-set %s src,src -m set --match-set %s src,src -j ACCEPT\n", p.set("FWD"), advancedMark, p.set("ALLOW"), p.set("DOWN"))
-			fmt.Fprintf(&b, "-A %s -m connmark --mark %s -j DROP\n-A %s -m connmark --mark %s -j DROP\n", p.set("FWD"), advancedMark, p.set("INPUT"), advancedMark)
+			fmt.Fprintf(&b, "-A %s -m connmark --mark %s -j DROP\n", p.set("FWD"), advancedMark)
+			local := false
+			for _, s := range included {
+				if s.localTraffic() {
+					local = true
+				}
+			}
+			if local {
+				// Count at the terminal INPUT hook, or OUTPUT only when leaving the host.
+				// A local-to-local exchange traverses both hooks, but is charged once.
+				fmt.Fprintf(&b, "-A %s -m addrtype --dst-type LOCAL -j RETURN\n", p.set("OUTPUT"))
+				for _, chain := range []string{"INPUT", "OUTPUT"} {
+					fmt.Fprintf(&b, "-A %s -p %s -m connmark --mark %s -j %s\n", p.set(chain), icmp, advancedMark, p.set("ICMP"))
+					upPolicy, downPolicy := "LTARG", "LORIG"
+					if chain == "OUTPUT" {
+						upPolicy, downPolicy = "LORIG", "LTARG"
+					}
+					fmt.Fprintf(&b, "-A %s -m connmark --mark %s -m conntrack --ctdir ORIGINAL -m set --match-set %s dst,dst -m set --match-set %s dst,dst -m set --match-set %s dst,dst -j ACCEPT\n", p.set(chain), advancedMark, p.set(upPolicy), p.set("ALLOW"), p.set("UP"))
+					fmt.Fprintf(&b, "-A %s -m connmark --mark %s -m conntrack --ctdir REPLY -m set --match-set %s src,src -m set --match-set %s src,src -m set --match-set %s src,src -j ACCEPT\n", p.set(chain), advancedMark, p.set(downPolicy), p.set("ALLOW"), p.set("DOWN"))
+					fmt.Fprintf(&b, "-A %s -m connmark --mark %s -j DROP\n", p.set(chain), advancedMark)
+				}
+			} else {
+				fmt.Fprintf(&b, "-A %s -m connmark --mark %s -j DROP\n", p.set("INPUT"), advancedMark)
+			}
 		case "nat":
 			names := []string{}
 			for node := range nodes {
@@ -131,6 +163,17 @@ func compileAdvancedPlane(p advancedPlane, rules map[string]Spec, addresses []st
 				mask := uint32(0xffffffff) << uint(24-len(node)*4)
 				value = 0xf2000000 | (value << uint(24-len(node)*4))
 				fmt.Fprintf(&b, "-A %s -m connmark --mark 0x%08x/0x%08x -j %s_N%s\n", parent, value, mask, p.prefix, node)
+			}
+			local, preserve := false, false
+			for _, s := range included {
+				local = local || s.localTraffic()
+				preserve = preserve || s.preserveSource()
+			}
+			if local {
+				fmt.Fprintf(&b, "-A %s -m connmark --mark %s -m addrtype --dst-type LOCAL -j RETURN\n", p.set("POST"), advancedMark)
+			}
+			if preserve {
+				fmt.Fprintf(&b, "-A %s -m connmark --mark %s -m set --match-set %s dst,dst -j RETURN\n", p.set("POST"), advancedMark, p.set("NOSNAT"))
 			}
 			sources := map[uint8]string{}
 			for _, id := range keys(included) {
@@ -244,7 +287,7 @@ func (a *AdvancedKernel) updateControl(s State) error {
 				continue
 			}
 			rules[id] = rule
-			live := rule.Active()
+			live := rule.Active() && a.runtimeErrors[rule.ID] == ""
 			if live && rule.LeaseRequired {
 				lease, ok := s.Leases[id]
 				q, exists := quota[quotaName(rule, lease)]
@@ -277,4 +320,60 @@ func (a *AdvancedKernel) updateControl(s State) error {
 		a.control[family] = identity
 	}
 	return nil
+}
+
+// Keep lookup costs independent of the number of forwards. NOSNAT uses the
+// same target+business-mark identity as the allowance and accounting sets.
+func trafficSets(p advancedPlane, rules map[string]Spec, addresses []string) (map[string]string, map[string]string) {
+	output, noSNAT := map[string]string{}, map[string]string{}
+	for _, id := range keys(rules) {
+		s := rules[id]
+		if s.Deleted {
+			continue
+		}
+		if s.Traffic.LocalOutput {
+			for _, l := range s.Listeners {
+				if l.Family != p.family {
+					continue
+				}
+				ips := []string{l.Host}
+				if l.Host == "0.0.0.0" || l.Host == "::" {
+					ips = append(append([]string{}, addresses...), map[string]string{"ipv4": "127.0.0.1", "ipv6": "::1"}[p.family])
+				}
+				for _, ip := range ips {
+					output[fmt.Sprintf("%s,%s:%d", ip, l.Protocol, l.Port)] = fmt.Sprintf("skbmark 0x%x/%s comment flux:v5:%s:output", flowMark(s), markMask, id)
+				}
+			}
+		}
+		if s.preserveSource() {
+			for _, t := range s.Paths() {
+				if t.Family == p.family {
+					noSNAT[fmt.Sprintf("%s,0x%x", t.Host, flowMark(s))] = "comment flux:v5:" + id + ":preserve"
+				}
+			}
+		}
+	}
+	return output, noSNAT
+}
+func renderMarkChain(b *strings.Builder, p advancedPlane, chain, binding string) {
+	fmt.Fprintf(b, "-A %s -m connmark --mark %s -j CONNMARK --restore-mark --nfmask %s --ctmask %s\n", p.set(chain), advancedMark, markMask, markMask)
+	fmt.Fprintf(b, "-A %s -m connmark --mark %s -j %s\n-A %s -m connmark --mark %s -j RETURN\n", p.set(chain), advancedMark, p.set("AUX"), p.set(chain), advancedMark)
+	fmt.Fprintf(b, "-A %s -m conntrack --ctdir ORIGINAL -m addrtype --dst-type LOCAL -m set --match-set %s dst,dst -j SET --map-set %s dst,dst --map-mark\n", p.set(chain), p.set(binding), p.set(binding))
+	fmt.Fprintf(b, "-A %s -m mark --mark %s -j CONNMARK --save-mark --nfmask %s --ctmask %s\n-A %s -m connmark --mark %s -j %s\n", p.set(chain), advancedMark, markMask, markMask, p.set(chain), advancedMark, p.set("AUX"))
+}
+
+func localHookTargets(p advancedPlane, rules map[string]Spec, output bool) map[string]string {
+	entries := map[string]string{}
+	for _, id := range keys(rules) {
+		s := rules[id]
+		if s.Deleted || output && !s.Traffic.LocalOutput || !output && !s.Traffic.LocalTargets {
+			continue
+		}
+		for _, t := range s.Paths() {
+			if t.Family == p.family {
+				entries[fmt.Sprintf("%s,0x%x", t.Host, flowMark(s))] = "comment flux:v5:" + id + ":local-policy"
+			}
+		}
+	}
+	return entries
 }

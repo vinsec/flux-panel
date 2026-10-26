@@ -112,7 +112,7 @@ public class EngineBatchReconciler {
                 if(n(r,"type")!=1)throw new IllegalArgumentException("only direct forwarding is supported");
                 com.admin.entity.Tunnel tunnel=new com.admin.entity.Tunnel();tunnel.setType((int)n(r,"type"));tunnel.setEngine("iptables");tunnel.setTcpListenAddr(r.get("tcp_listen_addr").toString());tunnel.setUdpListenAddr(r.get("udp_listen_addr").toString());
                 ForwardSpec business=new ForwardSpec(id,(int)n(r,"in_port"),admin||r.get("speed_id")==null?null:(int)n(r,"speed_id"),r.get("remote_addr").toString(),1,tunnel,r.get("strategy")==null?"fifo":r.get("strategy").toString(),(String)r.get("interface_name"));business.setEngineOptions((String)r.get("engine_options"));
-                JSONObject advanced=specs.advanced(node,business);Endpoint target=null;String listen=tunnel.getTcpListenAddr();
+                JSONObject advanced=specs.advancedForReconcile(node,business);Endpoint target=null;String listen=tunnel.getTcpListenAddr();
                 if(advanced==null){IptablesForwardingEngine.validate(business);target=Endpoint.parse(business.getTarget());}
                 long expires =
                         admin ? 0 : Math.min(expiry(r, "user_exp"), expiry(r, "permission_exp"));
@@ -176,7 +176,7 @@ public class EngineBatchReconciler {
 
     private static boolean changed(JSONObject desired, JSONObject actual) {
         if (actual == null || actual.getBooleanValue("deleted")) return true;
-        if(desired.getIntValue("schemaVersion")==3){return !java.util.Objects.equals(desired.getString("intentHash"),actual.getString("intentHash"))||desired.getBooleanValue("enabled")!=actual.getBooleanValue("enabled")||desired.getLongValue("expiresAt")!=actual.getLongValue("expiresAt")||desired.getBooleanValue("leaseRequired")!=actual.getBooleanValue("leaseRequired");}
+        if(desired.getIntValue("schemaVersion")>=3){return !java.util.Objects.equals(desired.getString("intentHash"),actual.getString("intentHash"))||desired.getBooleanValue("enabled")!=actual.getBooleanValue("enabled")||desired.getLongValue("expiresAt")!=actual.getLongValue("expiresAt")||desired.getBooleanValue("leaseRequired")!=actual.getBooleanValue("leaseRequired");}
         for (String key : List.of("listenIP", "targetIP"))
             if (!Objects.equals(desired.getString(key), actual.getString(key))) return true;
         for (String key : List.of("listenPort", "targetPort", "expiresAt"))

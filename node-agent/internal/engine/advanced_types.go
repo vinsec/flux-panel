@@ -19,6 +19,7 @@ type AdvancedOptions struct {
 	Health    HealthPolicy    `json:"health,omitempty"`
 	Egress    EgressPolicy    `json:"egress,omitempty"`
 	Bandwidth BandwidthPolicy `json:"bandwidth,omitempty"`
+	Traffic   TrafficPolicy   `json:"traffic,omitempty,omitzero"`
 	Runtime   ResolutionState `json:"runtime,omitempty"`
 }
 
@@ -89,7 +90,35 @@ type ResolutionState struct {
 	Targets       []ResolvedTarget `json:"targets,omitempty"`
 }
 
-func (s Spec) Advanced() bool { return s.SchemaVersion == 3 }
+// TrafficPolicy changes hook coverage and NAT semantics, so requires schema 4.
+// ReturnPathConfirmed is an operator assertion about the target's routing; the
+// agent cannot prove a remote host's return route from a local route lookup.
+type TrafficPolicy struct {
+	LocalOutput         bool   `json:"localOutput,omitempty"`
+	LocalTargets        bool   `json:"localTargets,omitempty"`
+	SourceMode          string `json:"sourceMode,omitempty"`
+	ReturnPathConfirmed bool   `json:"returnPathConfirmed,omitempty"`
+}
+
+func (s Spec) Advanced() bool { return s.SchemaVersion == 3 || s.SchemaVersion == 4 }
+func (s Spec) localTraffic() bool {
+	return s.AdvancedOptions != nil && (s.Traffic.LocalOutput || s.Traffic.LocalTargets)
+}
+func (s Spec) preserveSource() bool {
+	return s.AdvancedOptions != nil && s.Traffic.SourceMode == "preserve"
+}
+func requiredStateFormat(rules map[string]Spec) int {
+	version := 3
+	for _, s := range rules {
+		if s.SchemaVersion == 4 {
+			return 5
+		}
+		if s.Advanced() {
+			version = 4
+		}
+	}
+	return version
+}
 func (l Listener) Key() string {
 	return l.Family + "/" + l.Protocol + "/" + (Endpoint{Host: l.Host, Port: l.Port}).String()
 }
@@ -153,7 +182,7 @@ func (s Spec) normalizeAdvanced() (Spec, error) {
 			return s, err
 		}
 		ip := netip.MustParseAddr(e.Host)
-		if ip.IsLoopback() || ip.IsMulticast() || ip.IsLinkLocalUnicast() {
+		if ip.IsLoopback() && !s.Traffic.LocalOutput || ip.IsMulticast() || ip.IsLinkLocalUnicast() {
 			return s, fmt.Errorf("listener must be an external unicast or wildcard address")
 		}
 		l.Host = e.Host
@@ -189,7 +218,7 @@ func (s Spec) normalizeAdvanced() (Spec, error) {
 		}
 		if e.Kind == "ip" {
 			ip := netip.MustParseAddr(e.Host)
-			if ip.IsUnspecified() || ip.IsLoopback() || ip.IsMulticast() || ip.IsLinkLocalUnicast() || ip == netip.MustParseAddr("255.255.255.255") {
+			if ip.IsUnspecified() || ip.IsLoopback() && !s.Traffic.LocalTargets || ip.IsMulticast() || ip.IsLinkLocalUnicast() || ip == netip.MustParseAddr("255.255.255.255") {
 				return s, fmt.Errorf("target must be external unicast; scoped/link-local targets are not enabled")
 			}
 		}
@@ -296,6 +325,24 @@ func (s Spec) validateAdvanced() error {
 	if s.AdvancedOptions == nil {
 		return fmt.Errorf("missing advanced options")
 	}
+	if s.SchemaVersion < 4 && s.Traffic != (TrafficPolicy{}) {
+		return fmt.Errorf("traffic options require ForwardSpec schema 4")
+	}
+	if s.Traffic.SourceMode != "" && s.Traffic.SourceMode != "masquerade" && s.Traffic.SourceMode != "preserve" {
+		return fmt.Errorf("source mode must be masquerade or preserve")
+	}
+	if s.preserveSource() && !s.Traffic.ReturnPathConfirmed {
+		return fmt.Errorf("preserving source requires confirmed return routing through this node")
+	}
+	if !s.preserveSource() && s.Traffic.ReturnPathConfirmed {
+		return fmt.Errorf("return routing confirmation requires preserve mode")
+	}
+	if s.preserveSource() && (s.Egress.SourceIPv4 != "" || s.Egress.SourceIPv6 != "") {
+		return fmt.Errorf("source preservation conflicts with explicit SNAT")
+	}
+	// Local INPUT cannot pass the egress IFB. The kernel apply path retains
+	// desired intent but closes this rule if a shared cap is introduced later;
+	// rejecting the update here would leave the old unlimited rule running.
 	if len(s.Listeners) == 0 || len(s.Targets) == 0 {
 		return fmt.Errorf("advanced spec requires listeners and targets")
 	}
@@ -350,7 +397,7 @@ func desiredNetworkDigest(s Spec) string {
 	if !s.Advanced() {
 		return digest([]any{s.ListenIP, s.ListenPort, s.TargetIP, s.TargetPort})
 	}
-	return digest([]any{s.SchemaVersion, s.Listeners, s.Targets, s.Selection, s.Egress})
+	return digest([]any{s.SchemaVersion, s.Listeners, s.Targets, s.Selection, s.Egress, s.Traffic})
 }
 func allNumericTargets(s Spec) bool {
 	for _, t := range s.Targets {

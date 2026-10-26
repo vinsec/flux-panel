@@ -51,7 +51,7 @@ func New(path string, k Kernel) (manager *Manager, err error) {
 	} else if !fresh {
 		return nil, e
 	}
-	if m.state.FormatVersion > 4 {
+	if m.state.FormatVersion > 5 {
 		return nil, fmt.Errorf("unsupported state format")
 	}
 	if !fresh && (len(m.state.Epoch) != 32 || m.state.Sequence < 0) {
@@ -217,13 +217,7 @@ func (m *Manager) defaults() {
 	if s.NextToken == 0 {
 		s.NextToken = 1
 	}
-	s.FormatVersion = 3
-	for _, rule := range s.Rules {
-		if rule.Advanced() {
-			s.FormatVersion = 4
-			break
-		}
-	}
+	s.FormatVersion = requiredStateFormat(s.Rules)
 }
 func (m *Manager) validateState() error {
 	if m.state.NextToken > 65536 {
@@ -665,9 +659,7 @@ func (m *Manager) ApplyBatch(b Batch) error {
 			}
 		}
 		after.Rules[s.ID] = s
-		if s.Advanced() {
-			after.FormatVersion = 4
-		}
+		after.FormatVersion = max(after.FormatVersion, requiredStateFormat(map[string]Spec{s.ID: s}))
 		changed = true
 		if s.Deleted {
 			after.RetiredAt[s.ID] = time.Now().UnixMilli()
