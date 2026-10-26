@@ -39,6 +39,7 @@ public final class EngineCapabilities {
         JSONObject current = info(node);
         if (current != null) return current;
         String expectedSession=WebSocketServer.nodeSessionId(node);
+        if(expectedSession==null)return info(node);
         GostDto result = WebSocketServer.send_msg(node, new JSONObject(), "GetCapabilities");
         if ("OK".equals(result.getMsg()) && result.getData() != null) {
             JSONObject value = (JSONObject) JSONObject.toJSON(result.getData());
@@ -52,7 +53,14 @@ public final class EngineCapabilities {
         // Short-lived credentials rotate the socket. Its new EngineHello may
         // still be queued when a batch arrives; negotiate the current session
         // instead of treating a missing advertisement as an unsupported engine.
-        if(info(node)==null)negotiate(node);
+        long deadline=System.nanoTime()+java.util.concurrent.TimeUnit.SECONDS.toNanos(3);
+        while(info(node)==null){
+            negotiate(node);
+            if(info(node)!=null)break;
+            if(System.nanoTime()>=deadline)throw new IllegalStateException("node capabilities unavailable during reconnect");
+            java.util.concurrent.locks.LockSupport.parkNanos(java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(50));
+            if(Thread.currentThread().isInterrupted())throw new IllegalStateException("capability negotiation interrupted");
+        }
         if (!supports(node, feature))
             throw new IllegalArgumentException("node does not advertise capability: " + feature);
     }
