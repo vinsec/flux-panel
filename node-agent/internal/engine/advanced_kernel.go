@@ -503,7 +503,7 @@ func (a *AdvancedKernel) apply(plan []Spec) error {
 				ips := []string{l.Host}
 				if l.Host == "0.0.0.0" || l.Host == "::" {
 					ips = append([]string{}, addresses[family]...)
-					if s.trafficPolicy().LocalOutput && loopbackOutputAllowed(s, p, addresses[family]) {
+					if s.trafficPolicy().LocalOutput {
 						ips = append(ips, map[string]string{"ipv4": "127.0.0.1", "ipv6": "::1"}[family])
 					}
 				}

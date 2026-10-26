@@ -39,20 +39,6 @@ def exact_udp(where,host,port,ident,ipv6=False):
 try:
  topology()
  server=http.server.ThreadingHTTPServer(('10.205.4.1',8000),Handler);server.daemon_threads=True;threading.Thread(target=server.serve_forever,daemon=True).start()
- cfg={'addr':'http://10.205.4.1:8000','secret':SECRET,'statePath':str(STATE),'apply':True,'allowInsecure':True,'intervalSeconds':1};helper=None
- if os.getenv('FLUX_P2_HELPER')=='1':
-  directory=pathlib.Path('/tmp/flux-p2-helper');directory.mkdir(mode=0o750);os.chown(directory,0,12345);cfg['helperSocket']=str(directory/'kernel.sock')
- CONFIG.write_text(json.dumps(cfg));CONFIG.chmod(0o644)
- def start_helper():
-  p=spawn(ns('router','setpriv','--regid=12345','--clear-groups',str(BUILD/'flux-agent'),'--kernel-helper','--helper-user','12345','--config',str(CONFIG)),'helper.log');wait(lambda:pathlib.Path(cfg['helperSocket']).exists());return p
- if cfg.get('helperSocket'):
-  helper=start_helper()
-  def agent(fault='',timeout=20):
-   serial=PANEL.serial;p=spawn(ns('router','setpriv','--reuid=12345','--regid=12345','--clear-groups','--bounding-set=-all',str(BUILD/'flux-agent'),'--config',str(CONFIG)),'network.log');wait(lambda:PANEL.serial>serial and p.poll() is None,timeout);return p
- a=agent()
- if helper:
-  status=pathlib.Path('/proc/'+str(a.pid)+'/status').read_text();check('P2 typed policy travels through dedicated UID with zero capabilities','Uid:\t12345' in status and 'CapEff:\t0000000000000000' in status)
-
  # Dual stack is provisioned entirely inside the same disposable topology.
  for n in ['client','router','transit','target']:
   run(ns(n,'sysctl','-w','net.ipv6.conf.all.disable_ipv6=0'))
@@ -82,6 +68,23 @@ threading.Event().wait()
 """
  for where in ['target','router']:spawn(ns(where,'python3','-c',echo6),where+'-echo6.log')
  time.sleep(.2)
+ cfg={'addr':'http://10.205.4.1:8000','secret':SECRET,'statePath':str(STATE),'apply':True,'allowInsecure':True,'intervalSeconds':1};helper=None
+ if os.getenv('FLUX_P2_HELPER')=='1':
+  directory=pathlib.Path('/tmp/flux-p2-helper');directory.mkdir(mode=0o750);os.chown(directory,0,12345);cfg['helperSocket']=str(directory/'kernel.sock')
+ CONFIG.write_text(json.dumps(cfg));CONFIG.chmod(0o644)
+ def start_helper():
+  p=spawn(ns('router','setpriv','--regid=12345','--clear-groups',str(BUILD/'flux-agent'),'--kernel-helper','--helper-user','12345','--config',str(CONFIG)),'helper.log');wait(lambda:pathlib.Path(cfg['helperSocket']).exists());return p
+ if cfg.get('helperSocket'):
+  helper=start_helper()
+  def agent(fault='',timeout=20):
+   serial=PANEL.serial;p=spawn(ns('router','setpriv','--reuid=12345','--regid=12345','--clear-groups','--bounding-set=-all',str(BUILD/'flux-agent'),'--config',str(CONFIG)),'network.log');wait(lambda:PANEL.serial>serial and p.poll() is None,timeout);return p
+ a=agent()
+ # Let the initial address-watcher synchronization settle before probing an
+ # otherwise immutable topology. Transient transaction drops are intentional.
+ time.sleep(1.5)
+ if helper:
+  status=pathlib.Path('/proc/'+str(a.pid)+'/status').read_text();check('P2 typed policy travels through dedicated UID with zero capabilities','Uid:\t12345' in status and 'CapEff:\t0000000000000000' in status)
+
  base=v4spec('1_1_0',18000);apply(base);check('schema4 preserves ordinary external ingress',probe())
  check('local OUTPUT is opt in',exchange('router','10.205.1.1',18000,True))
  out=v4spec('2_1_0',18001,traffic={'localOutput':True});apply(out)
@@ -184,16 +187,20 @@ pathlib.Path('/tmp/p2-held-ok').touch()
  lo6_external=spec6('18_1_0',18017,'::1',{'localTargets':True})
  check('external IPv6 loopback targets require an assigned target alternative',not apply(lo6_external,False)['success'])
 
- limited=v4spec('8_2_3',18007,'10.205.2.1',traffic={'localOutput':True,'localTargets':True});limited['leaseRequired']=True;limited['health']={'protocol':'tcp','port':19999,'intervalMillis':1000,'timeoutMillis':50,'rise':1,'fall':1};PANEL.quota=8192;apply(limited)
+ limited=v4spec('8_2_3',18007,'10.205.2.1',traffic={'localOutput':True,'localTargets':True});limited['listen']['host']='0.0.0.0';limited['leaseRequired']=True;limited['health']={'protocol':'tcp','port':19999,'intervalMillis':1000,'timeoutMillis':50,'rise':1,'fall':1};PANEL.quota=8192;apply(limited)
  wait(lambda:'8_2_3' in state().get('leases',{}))
  def quota_ready():
   table=json.loads(router('nft','-j','list','table','inet','FP4_QUOTA'))['nftables']
   return any('quota' in x for x in table) and not any(x.get('chain',{}).get('name','').startswith('transaction') for x in table)
  wait(quota_ready)
+ racer_code=pathlib.Path('/tests/echo_server.py').read_text().replace('[19000,19001]','[18007]')
+ racer=spawn(ns('router','python3','-c',racer_code),'unmanaged-after-apply.log');time.sleep(.2)
+ check('unhealthy wildcard output never falls through to a later local listener',exchange('router','127.0.0.1',18007,True))
+ stop(racer)
  check('unhealthy local target rejects both origins without fallback',exchange('router','10.205.1.1',18007,True) and exchange('client','10.205.1.1',18007,True))
  obj=json.loads(router('nft','-j','list','table','inet','FP4_QUOTA'))['nftables'];check('packets without a DNAT target do not burn reserved quota',all(x['quota']['used']==0 for x in obj if 'quota' in x) and sum(counters('8_2_3'))==0)
  limited.pop('health');limited['revision']=2;apply(limited)
- wait(lambda:exchange('router','10.205.1.1',18007,protocols=('udp',)))
+ wait(lambda:exchange('router','127.0.0.1',18007,protocols=('udp',)))
  check('target recovery reuses its untouched reservation',sum(counters('8_2_3'))>0)
 
  run(ns('router','python3','-c',"import socket;s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.settimeout(.01)\nfor i in range(30):\n try:s.sendto(b'b'*400,('10.205.1.1',18007));s.recv(1024)\n except (socket.timeout,PermissionError):pass"))

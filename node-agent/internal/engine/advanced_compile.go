@@ -3,7 +3,6 @@ package engine
 import (
 	"fmt"
 	"net"
-	"net/netip"
 	"slices"
 	"sort"
 	"strings"
@@ -404,9 +403,10 @@ func trafficSets(p advancedPlane, rules map[string]Spec, addresses []string) (ma
 				ips := []string{l.Host}
 				if l.Host == "0.0.0.0" || l.Host == "::" {
 					ips = append([]string{}, addresses...)
-					if loopbackOutputAllowed(s, p, addresses) {
-						ips = append(ips, map[string]string{"ipv4": "127.0.0.1", "ipv6": "::1"}[p.family])
-					}
+					// Keep capture stable even while all targets are unhealthy. An
+					// unsupported routed loopback path fails closed, never falls through
+					// to an unrelated process that later binds this listening port.
+					ips = append(ips, map[string]string{"ipv4": "127.0.0.1", "ipv6": "::1"}[p.family])
 				}
 				for _, ip := range ips {
 					output[fmt.Sprintf("%s,%s:%d", ip, l.Protocol, l.Port)] = fmt.Sprintf("skbmark 0x%x/%s comment flux:v5:%s:output", flowMark(s), markMask, id)
@@ -470,21 +470,4 @@ func listenerAliases(s Spec, family string, addresses []string) []string {
 	}
 	slices.Sort(result)
 	return slices.Compact(result)
-}
-func loopbackOutputAllowed(s Spec, p advancedPlane, addresses []string) bool {
-	if p.family == "ipv4" && routeLocalnetEnabled() {
-		return true
-	}
-	seen := false
-	for _, target := range s.Paths() {
-		if target.Family != p.family || target.RetiredAt != 0 || !target.AcceptNew || !target.Healthy {
-			continue
-		}
-		seen = true
-		ip := netip.MustParseAddr(target.Host)
-		if !ip.IsLoopback() && !slices.Contains(addresses, target.Host) {
-			return false
-		}
-	}
-	return seen
 }
