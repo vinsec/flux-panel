@@ -187,6 +187,14 @@ func (m *Manager) recover() error {
 			}
 		}
 	}
+	// Re-establish the verified epoch before replaying auxiliary resources.
+	// Normal startup claims it later, but recovery may need routes and IFB
+	// ownership while replaying the interrupted generation itself.
+	if ledger, ok := m.Kernel.(interface{ ClaimLedger(string) (string, error) }); ok {
+		if _, e = ledger.ClaimLedger(m.state.Epoch); e != nil {
+			return e
+		}
+	}
 	if e = m.Kernel.Apply(Render(m.state.Rules, nil)); e != nil {
 		return fmt.Errorf("journal replay: %w", e)
 	}

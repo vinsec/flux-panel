@@ -284,6 +284,9 @@ func (x *Auxiliary) apply(rules map[string]Spec) error {
 	if e != nil {
 		return e
 	}
+	if e = x.auditRouteTables(newRoutes); e != nil {
+		return e
+	}
 	old := x.manifest
 	next := old
 	next.Routes = newRoutes
@@ -392,4 +395,81 @@ func (x *Auxiliary) apply(rules map[string]Spec) error {
 func numericAddress(value string) bool {
 	a, e := netip.ParseAddr(value)
 	return e == nil && a.Zone() == "" && !a.IsMulticast()
+}
+
+// A high-numbered table is not proof of ownership. Before any replace, check
+// its actual contents against the durable ownership manifest, including rules
+// that reference the table without a mark selector.
+func (x *Auxiliary) auditRouteTables(next []routeEntry) error {
+	groups := map[string]routeEntry{}
+	for _, r := range append(slices.Clone(x.manifest.Routes), next...) {
+		groups[r.Family+"/"+routeTable(r.Group)] = r
+	}
+	for _, r := range groups {
+		flag := "-4"
+		if r.Family == "ipv6" {
+			flag = "-6"
+		}
+		raw, e := x.parent.parent.run("ip", "", "-N", "-j", flag, "route", "show", "table", routeTable(r.Group))
+		if e != nil {
+			if strings.Contains(e.Error(), "FIB table does not exist") {
+				raw = "[]"
+			} else {
+				return e
+			}
+		}
+		var routes []map[string]any
+		if e = json.Unmarshal([]byte(raw), &routes); e != nil {
+			return e
+		}
+		for _, row := range routes {
+			dst, _ := row["dst"].(string)
+			if dst != "default" && !strings.Contains(dst, "/") {
+				if r.Family == "ipv6" {
+					dst += "/128"
+				} else {
+					dst += "/32"
+				}
+			}
+			owned := false
+			for _, old := range x.manifest.Routes {
+				if old.Family != r.Family || old.Group != r.Group || old.Destination != dst {
+					continue
+				}
+				gateway, _ := row["gateway"].(string)
+				source, _ := row["prefsrc"].(string)
+				if row["dev"] == old.Interface && gateway == old.Gateway && source == old.Source && jsonUint(row["protocol"]) == auxRouteProtocol {
+					owned = true
+					break
+				}
+			}
+			if !owned {
+				return fmt.Errorf("foreign route occupies reserved egress table %s", routeTable(r.Group))
+			}
+		}
+		raw, e = x.parent.parent.run("ip", "", "-N", "-j", flag, "rule", "show")
+		if e != nil {
+			return e
+		}
+		var rules []map[string]any
+		if e = json.Unmarshal([]byte(raw), &rules); e != nil {
+			return e
+		}
+		for _, row := range rules {
+			if fmt.Sprint(jsonUint(row["table"])) != routeTable(r.Group) {
+				continue
+			}
+			owned := false
+			for _, old := range x.manifest.Routes {
+				if old.Family == r.Family && old.Group == r.Group && jsonUint(row["fwmark"]) == uint64(0xf2000080)|uint64(r.Group) && jsonUint(row["fwmask"]) == 0xff0000bf && jsonUint(row["priority"]) == uint64(19000+int(r.Group)) && jsonUint(row["protocol"]) == auxRouteProtocol {
+					owned = true
+					break
+				}
+			}
+			if !owned {
+				return fmt.Errorf("foreign policy rule references reserved egress table %s", routeTable(r.Group))
+			}
+		}
+	}
+	return nil
 }

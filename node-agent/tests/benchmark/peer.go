@@ -154,7 +154,7 @@ func serveBulk(port int) {
 				return
 			}
 			n := int64(binary.BigEndian.Uint64(h[1:]))
-			if n < 1 || n > 256*1024*1024 {
+			if n < 1 || n > 1024*1024*1024 {
 				return
 			}
 			c.Write([]byte{1})

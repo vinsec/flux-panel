@@ -362,7 +362,9 @@ func (r *Resolver) Resolve(ctx context.Context, s Spec) (Spec, error) {
 				}
 				path.FreshUntil = now + answer.TTL.Milliseconds()
 				path.AcceptNew = true
-				refresh := max(250, answer.TTL.Milliseconds()*9/10)
+				var jitter [1]byte
+				_, _ = rand.Read(jitter[:])
+				refresh := max(250, answer.TTL.Milliseconds()*int64(80+int(jitter[0])%11)/100)
 				next = min(next, now+refresh)
 			}
 			if !exists || path.Host != prior.Host {

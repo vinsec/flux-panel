@@ -111,3 +111,17 @@ func TestDNSAdmissionDeadlineIndependentOfRefresh(t *testing.T) {
 		t.Fatal("fail-closed grace accepted")
 	}
 }
+
+func TestHTBGuaranteesCannotBypassSharedCeiling(t *testing.T) {
+	classes := map[string]shapeClass{"u": {Rate: 6000000}, "t": {Rate: 6000000, Parent: "u"}, "a": {Rate: 5000000, Parent: "t"}, "b": {Rate: 5000000, Parent: "t"}}
+	if e := assignGuarantees(classes); e != nil {
+		t.Fatal(e)
+	}
+	if classes["a"].Guarantee+classes["b"].Guarantee > classes["t"].Guarantee {
+		t.Fatal("overcommitted guarantees bypass parent ceiling")
+	}
+	classes["u"] = shapeClass{Rate: 8}
+	if e := assignGuarantees(classes); e == nil {
+		t.Fatal("unrepresentable HTB guarantees silently accepted")
+	}
+}

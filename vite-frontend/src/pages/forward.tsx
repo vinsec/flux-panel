@@ -1660,8 +1660,8 @@ export default function ForwardPage() {
                       maxRows={6}
                     />
                     
-                    {engineCapabilities?.engine==='iptables'&&<AdvancedForwardFields value={form.engineOptions} onChange={engineOptions=>setForm(previous=>({...previous,engineOptions}))} features={engineCapabilities?.node?.capabilities?.features||{}} port={form.inPort} remoteAddr={form.remoteAddr} tcpHost={engineCapabilities?.tcpListenAddr} udpHost={engineCapabilities?.udpListenAddr}/>}
-                    <Input
+                    {engineCapabilities?.engine==='iptables'&&<AdvancedForwardFields value={form.engineOptions} onChange={engineOptions=>setForm(previous=>({...previous,engineOptions}))} features={engineCapabilities?.node?.capabilities?.features||{}} port={form.inPort} remoteAddr={form.remoteAddr} strategy={form.strategy} tcpHost={engineCapabilities?.tcpListenAddr} udpHost={engineCapabilities?.udpListenAddr}/>}
+                    {engineCapabilities?.engine!=='iptables'&&<Input
                       label="出口网卡名或IP"
                       placeholder="请输入出口网卡名或IP"
                       value={form.interfaceName}
@@ -1670,9 +1670,9 @@ export default function ForwardPage() {
                       errorMessage={errors.interfaceName}
                       variant="bordered"
                       description="用于多IP服务器指定使用那个IP请求远程地址，不懂的默认为空就行"
-                    />
+                    />}
                     
-                    {getAddressCount(form.remoteAddr) > 1 && (
+                    {engineCapabilities?.engine!=='iptables'&&getAddressCount(form.remoteAddr) > 1 && (
                       <Select
                         label="负载策略"
                         placeholder="请选择负载均衡策略"

@@ -14,6 +14,7 @@ type shapeClass struct {
 	Key, Parent  string
 	ID, ParentID uint16
 	Rate         uint64
+	Guarantee    uint64
 	Depth        int
 }
 
@@ -117,6 +118,9 @@ func (x *Auxiliary) shapePlan(rules map[string]Spec) (map[string]shapeClass, []s
 			}
 			leafKeys[id][up] = lk
 		}
+	}
+	if e := assignGuarantees(definitions); e != nil {
+		return nil, nil, e
 	}
 	classKeys := make([]string, 0, len(definitions))
 	for key := range definitions {
@@ -258,7 +262,7 @@ func (x *Auxiliary) applyShaping(rules map[string]Spec) error {
 		if burst > 4000000000 {
 			burst = 4000000000
 		}
-		if _, e = x.runTC("class", "replace", "dev", shapingDevice, "parent", fmt.Sprintf("f100:%x", c.ParentID), "classid", fmt.Sprintf("f100:%x", c.ID), "htb", "rate", fmt.Sprint(c.Rate)+"bit", "ceil", fmt.Sprint(c.Rate)+"bit", "burst", fmt.Sprint(burst), "cburst", fmt.Sprint(burst), "quantum", "1514"); e != nil {
+		if _, e = x.runTC("class", "replace", "dev", shapingDevice, "parent", fmt.Sprintf("f100:%x", c.ParentID), "classid", fmt.Sprintf("f100:%x", c.ID), "htb", "rate", fmt.Sprint(c.Guarantee)+"bit", "ceil", fmt.Sprint(c.Rate)+"bit", "burst", fmt.Sprint(burst), "cburst", fmt.Sprint(burst), "quantum", "1514"); e != nil {
 			return e
 		}
 		if c.Depth == 3 {
@@ -301,6 +305,7 @@ func (x *Auxiliary) applyShaping(rules map[string]Spec) error {
 		oldMap[filterKey(f)] = f
 	}
 	created := slices.Clone(x.manifest.CreatedClsact)
+	presentFilters := map[string]bool{}
 	interfaces := map[string]bool{}
 	for _, f := range filters {
 		interfaces[f.Interface] = true
@@ -350,7 +355,9 @@ func (x *Auxiliary) applyShaping(rules map[string]Spec) error {
 				return fmt.Errorf("existing egress classifiers require explicit coexistence review")
 			}
 			if hasHandle {
-				if _, ok := oldMap[filterKey(shapeFilter{Interface: iface, Mark: uint32(mark)})]; !ok {
+				key := filterKey(shapeFilter{Interface: iface, Mark: uint32(mark)})
+				presentFilters[key] = true
+				if _, ok := oldMap[key]; !ok {
 					return fmt.Errorf("foreign egress classifier occupies reserved priority")
 				}
 			}
@@ -362,7 +369,7 @@ func (x *Auxiliary) applyShaping(rules map[string]Spec) error {
 		return e
 	}
 	for _, f := range filters {
-		if old, ok := oldMap[filterKey(f)]; ok && old.Class == f.Class {
+		if old, ok := oldMap[filterKey(f)]; ok && old.Class == f.Class && presentFilters[filterKey(f)] {
 			continue
 		}
 		if _, e = x.runTC("filter", "add", "dev", f.Interface, "egress", "protocol", "all", "pref", "49151", "handle", fmt.Sprintf("0x%x/0xffffffc0", f.Mark), "fw", "action", "skbedit", "mark", "0x40/0x40", "priority", fmt.Sprintf("f100:%x", f.Class), "action", "mirred", "egress", "redirect", "dev", shapingDevice); e != nil {
@@ -419,4 +426,36 @@ func (x *Auxiliary) removeShaping() error {
 	x.shapeReady = false
 	x.classPlans = map[string]shapeClass{}
 	return nil
+}
+
+// HTB only borrows through ancestors after a child's guaranteed tokens are
+// spent. Setting each child's rate equal to its independent ceiling lets an
+// overcommitted sibling group bypass the intended shared ceiling. Allocate
+// non-overcommitted guarantees top-down; keep requested maxima as ceilings.
+func assignGuarantees(classes map[string]shapeClass) error {
+	children := map[string][]string{}
+	for key, c := range classes {
+		children[c.Parent] = append(children[c.Parent], key)
+	}
+	var visit func(string, uint64) error
+	visit = func(parent string, budget uint64) error {
+		names := children[parent]
+		if len(names) == 0 {
+			return nil
+		}
+		share := budget / uint64(len(names))
+		if share < 8 {
+			return fmt.Errorf("bandwidth group has too many children for its rate; minimum HTB guarantee is 8 bit/s per child")
+		}
+		for _, key := range names {
+			c := classes[key]
+			c.Guarantee = min(c.Rate, share)
+			classes[key] = c
+			if e := visit(key, c.Guarantee); e != nil {
+				return e
+			}
+		}
+		return nil
+	}
+	return visit("", 1000000000000)
 }

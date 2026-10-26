@@ -62,7 +62,9 @@ func compileAdvancedPlane(p advancedPlane, rules map[string]Spec, addresses []st
 				for depth := 1; depth <= 3; depth++ {
 					nodes[token[:depth]] = true
 				}
-				chains = append(chains, p.prefix+"_T"+token)
+				if len(targets[s.ID]) > 1 {
+					chains = append(chains, p.prefix+"_T"+token)
+				}
 			}
 			names := []string{}
 			for node := range nodes {
@@ -134,48 +136,57 @@ func compileAdvancedPlane(p advancedPlane, rules map[string]Spec, addresses []st
 			for _, id := range keys(included) {
 				s := included[id]
 				token := fmt.Sprintf("%04x", s.Token)
-				leaf := p.prefix + "_T" + token
-				for _, protocol := range s.Protocols {
-					fmt.Fprintf(&b, "-A %s_N%s -p %s -m connmark --mark %s -j %s\n", p.prefix, token[:3], protocol, fullMark(s), leaf)
-				}
 				pool := targets[id]
-				total := 0
-				for _, target := range pool {
-					total += target.Weight
-				}
-				slot := 0
-				for index, target := range pool {
-					destination := net.JoinHostPort(target.Host, fmt.Sprint(target.Port))
-					match := ""
-					switch s.Selection {
-					case "hash":
-						mask := uint32(0)
-						for n := 0; n < target.Weight; n++ {
-							mask |= 1 << uint(slot+n)
+				if len(pool) <= 1 {
+					if len(pool) == 1 {
+						destination := net.JoinHostPort(pool[0].Host, fmt.Sprint(pool[0].Port))
+						for _, protocol := range s.Protocols {
+							fmt.Fprintf(&b, "-A %s_N%s -p %s -m connmark --mark %s -j DNAT --to-destination %s\n", p.prefix, token[:3], protocol, fullMark(s), destination)
 						}
-						slot += target.Weight
-						match = fmt.Sprintf(" -m cluster --cluster-total-nodes %d --cluster-local-nodemask 0x%x --cluster-hash-seed 0xf204", total, mask)
-					case "random":
-						if index < len(pool)-1 {
-							match = fmt.Sprintf(" -m statistic --mode random --probability %.10f", float64(target.Weight)/float64(total-slot))
-						}
-						slot += target.Weight
-					case "round":
-						for n := 0; n < target.Weight; n++ {
-							remaining := total - slot
-							selector := ""
-							if remaining > 1 {
-								selector = fmt.Sprintf(" -m statistic --mode nth --every %d --packet 0", remaining)
-							}
-							for _, protocol := range s.Protocols {
-								fmt.Fprintf(&b, "-A %s -p %s%s -j DNAT --to-destination %s\n", leaf, protocol, selector, destination)
-							}
-							slot++
-						}
-						continue
 					}
+				} else {
+					leaf := p.prefix + "_T" + token
 					for _, protocol := range s.Protocols {
-						fmt.Fprintf(&b, "-A %s -p %s%s -j DNAT --to-destination %s\n", leaf, protocol, match, destination)
+						fmt.Fprintf(&b, "-A %s_N%s -p %s -m connmark --mark %s -j %s\n", p.prefix, token[:3], protocol, fullMark(s), leaf)
+					}
+					total := 0
+					for _, target := range pool {
+						total += target.Weight
+					}
+					slot := 0
+					for index, target := range pool {
+						destination := net.JoinHostPort(target.Host, fmt.Sprint(target.Port))
+						match := ""
+						switch s.Selection {
+						case "hash":
+							mask := uint32(0)
+							for n := 0; n < target.Weight; n++ {
+								mask |= 1 << uint(slot+n)
+							}
+							slot += target.Weight
+							match = fmt.Sprintf(" -m cluster --cluster-total-nodes %d --cluster-local-nodemask 0x%x --cluster-hash-seed 0xf204", total, mask)
+						case "random":
+							if index < len(pool)-1 {
+								match = fmt.Sprintf(" -m statistic --mode random --probability %.10f", float64(target.Weight)/float64(total-slot))
+							}
+							slot += target.Weight
+						case "round":
+							for n := 0; n < target.Weight; n++ {
+								remaining := total - slot
+								selector := ""
+								if remaining > 1 {
+									selector = fmt.Sprintf(" -m statistic --mode nth --every %d --packet 0", remaining)
+								}
+								for _, protocol := range s.Protocols {
+									fmt.Fprintf(&b, "-A %s -p %s%s -j DNAT --to-destination %s\n", leaf, protocol, selector, destination)
+								}
+								slot++
+							}
+							continue
+						}
+						for _, protocol := range s.Protocols {
+							fmt.Fprintf(&b, "-A %s -p %s%s -j DNAT --to-destination %s\n", leaf, protocol, match, destination)
+						}
 					}
 				}
 				source := s.Egress.SourceIPv4

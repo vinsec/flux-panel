@@ -104,10 +104,10 @@ def topology():
  pathlib.Path('/run/flux-test-disposable').touch()
  spawn(ns('target','env','FLUX_ECHO_ALLOW_FRAGMENT=1','python3','/tests/echo_server.py'),'target.log')
  check('four private netns including an intermediate PMTU router; no external route')
-def agent(fault=''):
+def agent(fault='',timeout=20):
  serial=PANEL.serial;args=ns('router',str(BUILD/'flux-agent'),'--config',str(CONFIG))
  if fault:args+=['--test-fault',fault]
- p=spawn(args,'agent.log');wait(lambda:PANEL.serial>serial and p.poll() is None);return p
+ p=spawn(args,'agent.log');wait(lambda:PANEL.serial>serial and p.poll() is None,timeout);return p
 
 def spec(ident='1_1_0',port=18000,revision=1):return {'id':ident,'revision':revision,'listenIP':'10.205.1.1','listenPort':port,'targetIP':'10.205.3.2','targetPort':19000,'enabled':True}
 def probe(port=18000,blocked=False,size=128):

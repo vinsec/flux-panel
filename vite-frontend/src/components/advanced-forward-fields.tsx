@@ -31,7 +31,7 @@ export function engineOptionsForSubmit(value:string|undefined,remote:string,port
   return Object.keys(options).length?JSON.stringify(options):undefined;
 }
 
-export default function AdvancedForwardFields({value,onChange,features,port,remoteAddr,tcpHost='0.0.0.0',udpHost='0.0.0.0'}:{value?:string;onChange:(value:string)=>void;features:EngineFeatures;port:number|null;remoteAddr:string;tcpHost?:string;udpHost?:string}){
+export default function AdvancedForwardFields({value,onChange,features,port,remoteAddr,tcpHost='0.0.0.0',udpHost='0.0.0.0',strategy='fifo'}:{value?:string;onChange:(value:string)=>void;features:EngineFeatures;port:number|null;remoteAddr:string;tcpHost?:string;udpHost?:string;strategy?:string}){
   const options=readEngineOptions(value);const addresses=remoteAddr.split(/[\n,]/).map(s=>s.trim()).filter(Boolean);
   const set=(key:keyof EngineOptions,data:any)=>{const next={...options};if(data===undefined)delete next[key];else (next as any)[key]=data;onChange(JSON.stringify(next));};
   const listener=(index:number,key:string,v:any)=>set('listeners',options.listeners?.map((l,i)=>i===index?{...l,[key]:v}:l));
@@ -51,7 +51,7 @@ export default function AdvancedForwardFields({value,onChange,features,port,remo
       </div>}
     </>}
     {features.multiTarget&&addresses.length>1&&<>
-      <Select label="新连接选择" selectedKeys={[options.selection||'fifo']} onSelectionChange={keys=>set('selection',String(Array.from(keys)[0]))}><SelectItem key="fifo">首个可用目标</SelectItem><SelectItem key="hash">源地址哈希</SelectItem><SelectItem key="round">加权轮询</SelectItem><SelectItem key="random">加权随机</SelectItem></Select>
+      <Select label="新连接选择" selectedKeys={[options.selection||(strategy==='rand'?'random':strategy)||'fifo']} onSelectionChange={keys=>set('selection',String(Array.from(keys)[0]))}><SelectItem key="fifo">首个可用目标</SelectItem><SelectItem key="hash">源地址哈希</SelectItem><SelectItem key="round">加权轮询</SelectItem><SelectItem key="random">加权随机</SelectItem></Select>
       <div className="space-y-2">{addresses.map((address,index)=><Input key={index} size="sm" label={`权重 · ${address}`} type="number" min={1} max={32} value={String(options.targets?.[index]?.weight||1)} onValueChange={v=>{try{set('targets',addresses.map((addr,i)=>({endpoint:parseForwardEndpoint(addr),weight:i===index?Number(v):options.targets?.[i]?.weight||1})))}catch{}}}/>)}</div>
     </>}
     {features.dns&&<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

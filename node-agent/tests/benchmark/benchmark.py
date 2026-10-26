@@ -40,7 +40,7 @@ class Sink(http.server.BaseHTTPRequestHandler):
  def log_message(self,*args):pass
  def do_POST(self):
   n=int(self.headers.get('Content-Length','0'));assert n<16*1024*1024;raw=self.rfile.read(n);body=b'ok'
-  if os.getenv('FLUX_BENCH_FOUNDATION_CREDIT_ONLY')=='1':
+  if os.getenv('FLUX_BENCH_FOUNDATION_CREDIT_ONLY')=='1' or os.getenv('FLUX_BENCH_P1')=='1':
    v=json.loads(raw);grants=[]
    if 'usage' in v:
     for ident in v.get('requests',[]):

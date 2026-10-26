@@ -250,14 +250,17 @@ func expireRuntime(state State, now int64) (State, bool) {
 		if !current.Advanced() || current.Deleted {
 			continue
 		}
-		s := cloneSpec(current)
+		s := current
 		closed := false
-		for i, p := range s.Runtime.Targets {
-			grace := s.DNS.StaleMillis
-			if s.DNS.FailClosed {
+		for i, p := range current.Runtime.Targets {
+			grace := current.DNS.StaleMillis
+			if current.DNS.FailClosed {
 				grace = 0
 			}
 			if p.AcceptNew && p.FreshUntil > 0 && now >= p.FreshUntil+grace {
+				if !closed {
+					s = cloneSpec(current)
+				}
 				s.Runtime.Targets[i].AcceptNew = false
 				closed = true
 			}

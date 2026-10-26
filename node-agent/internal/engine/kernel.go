@@ -201,7 +201,15 @@ func (m *Manager) forget(specs []Spec) error {
 }
 
 func (k *IPTables) run(name, input string, args ...string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+	timeout := 4 * time.Second
+	// Large restores are submitted as asynchronous jobs. Bound their process
+	// lifetime without killing a valid 10k-rule transaction at the small-command
+	// deadline on slower native hosts. Short control/inspection commands retain
+	// the normal deadline.
+	if len(input) > 512*1024 && strings.HasSuffix(name, "restore") {
+		timeout = 30 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	c := exec.CommandContext(ctx, name, args...)
 	if input != "" {
