@@ -28,7 +28,7 @@ func TestTrafficPolicyRequiresSchema4AndConfirmedRouting(t *testing.T) {
 }
 
 // A subsequent shared-cap update must reach apply, which closes unsupported
-// local paths. Refusing the desired update would keep old unlimited rules live.
+// unprepared local paths. Refusing the desired update would keep old unlimited rules live.
 func TestLocalPathsRetainNewSharedCapsForFailClosedApply(t *testing.T) {
 	for _, b := range []BandwidthPolicy{{UpBitsPerSecond: 1000000}, {User: BandwidthGroup{ID: "u1", DownBitsPerSecond: 1000000}}, {Tunnel: BandwidthGroup{ID: "t1", UpBitsPerSecond: 1000000}}} {
 		s := advancedExample()
@@ -73,15 +73,19 @@ func TestP1TrafficPolicyDoesNotGrowStateOrWire(t *testing.T) {
 	}
 }
 
-func TestExternalLoopbackUDPIsRejectedWithoutChangingLocalOnlySupport(t *testing.T) {
+func TestIPv6ExternalLoopbackRemainsExplicitlyUnsupported(t *testing.T) {
 	for _, pair := range [][2]string{{"10.0.0.1", "127.0.0.1"}, {"fd00::1", "::1"}} {
 		s := advancedExample()
 		s.SchemaVersion = 4
 		s.Traffic = &TrafficPolicy{LocalOutput: true, LocalTargets: true, SourceMode: "preserve", ReturnPathConfirmed: true}
 		s.Listeners = []Listener{{Protocol: "udp", Host: pair[0], Port: 18000}}
 		s.Targets = []Target{{Endpoint: Endpoint{Host: pair[1], Port: 19000}, Weight: 1}}
-		if _, err := s.Normalize(); err == nil {
-			t.Fatal("unsupported external UDP loopback accepted")
+		_, err := s.Normalize()
+		if pair[1] == "::1" && err == nil {
+			t.Fatal("unsupported external IPv6 loopback accepted")
+		}
+		if pair[1] == "127.0.0.1" && err != nil {
+			t.Fatal("fixed-bind UDP source policy cannot reach node verification", err)
 		}
 		s.Listeners[0].Host = pair[1]
 		s.Traffic.SourceMode = ""

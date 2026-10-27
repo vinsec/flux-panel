@@ -150,11 +150,14 @@ func (x *Auxiliary) shapePlan(rules map[string]Spec) (map[string]shapeClass, []s
 	}
 	filters := []shapeFilter{}
 	for _, iface := range interfaces {
-		if iface.Name == shapingDevice || iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+		if iface.Name == shapingDevice || iface.Flags&net.FlagUp == 0 {
 			continue
 		}
 		for _, id := range keys(rules) {
 			for _, up := range []bool{true, false} {
+				if iface.Flags&net.FlagLoopback != 0 && !rules[id].localTraffic() {
+					continue
+				}
 				key := leafKeys[id][up]
 				if key == "" {
 					continue
@@ -187,6 +190,7 @@ func (x *Auxiliary) ensureShape() error {
 		return nil
 	}
 	text, e := x.parent.parent.run("ip", "", "-j", "link", "show", "dev", shapingDevice)
+	hadShape := e == nil
 	if e == nil {
 		var links []map[string]any
 		if e = json.Unmarshal([]byte(text), &links); e != nil || len(links) != 1 {
@@ -202,6 +206,13 @@ func (x *Auxiliary) ensureShape() error {
 		}
 		if _, e = x.parent.parent.run("ip", "", "link", "del", shapingDevice); e != nil {
 			return e
+		}
+	}
+	if !hadShape {
+		for _, filter := range x.manifest.Filters {
+			if e = x.removeFilter(filter); e != nil {
+				return e
+			}
 		}
 	}
 	if _, e = x.parent.parent.run("ip", "", "link", "add", shapingDevice, "type", "ifb"); e != nil {
@@ -223,6 +234,11 @@ func (x *Auxiliary) ensureShape() error {
 	if _, e = x.runTC("filter", "add", "dev", shapingDevice, "parent", "f100:", "protocol", "all", "pref", "9999", "matchall", "action", "drop"); e != nil {
 		return e
 	}
+	iface, e := net.InterfaceByName(shapingDevice)
+	if e != nil {
+		return e
+	}
+	x.shapeIndex = iface.Index
 	x.shapeReady = true
 	x.classPlans = map[string]shapeClass{}
 	return nil
@@ -235,6 +251,9 @@ func (x *Auxiliary) applyShaping(rules map[string]Spec) error {
 	}
 	if len(filters) == 0 {
 		return x.removeShaping()
+	}
+	if e = x.removeLocalShaping(); e != nil {
+		return e
 	}
 	oldFilters := slices.Clone(x.manifest.Filters)
 	initializing := !x.shapeReady
@@ -368,11 +387,20 @@ func (x *Auxiliary) applyShaping(rules map[string]Spec) error {
 	if e = x.save(); e != nil {
 		return e
 	}
+	if e = x.applyLocalShaping(rules, classes, filters); e != nil {
+		return e
+	}
 	for _, f := range filters {
 		if old, ok := oldMap[filterKey(f)]; ok && old.Class == f.Class && presentFilters[filterKey(f)] {
 			continue
 		}
-		if _, e = x.runTC("filter", "add", "dev", f.Interface, "egress", "protocol", "all", "pref", "49151", "handle", fmt.Sprintf("0x%x/0xffffffc0", f.Mark), "fw", "action", "skbedit", "mark", "0x40/0x40", "priority", fmt.Sprintf("f100:%x", f.Class), "action", "mirred", "egress", "redirect", "dev", shapingDevice); e != nil {
+		args := []string{"filter", "add", "dev", f.Interface, "egress", "protocol", "all", "pref", "49151", "handle", fmt.Sprintf("0x%x/0xffffffc0", f.Mark), "fw", "action", "skbedit", "mark", "0x40/0x40", "priority", fmt.Sprintf("f100:%x", f.Class)}
+		if f.Interface == "lo" {
+			args = append(args, "action", "goto", "chain", "201")
+		} else {
+			args = append(args, "action", "mirred", "egress", "redirect", "dev", shapingDevice)
+		}
+		if _, e = x.runTC(args...); e != nil {
 			return e
 		}
 	}
@@ -394,6 +422,15 @@ func jsonUint(v any) uint64 {
 	return 0
 }
 func (x *Auxiliary) removeShaping() error {
+	if e := x.removeLocalShaping(); e != nil {
+		return e
+	}
+	if e := x.removeLocalProbe(); e != nil {
+		return e
+	}
+	if e := x.removeRestoreObject(); e != nil {
+		return e
+	}
 	for _, f := range x.manifest.Filters {
 		if e := x.removeFilter(f); e != nil {
 			return e

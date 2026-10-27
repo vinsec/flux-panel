@@ -28,20 +28,23 @@ type shapeFilter struct {
 	Class     uint16 `json:"class"`
 }
 type auxManifest struct {
-	Version       int              `json:"version"`
-	Epoch         string           `json:"epoch"`
-	Groups        map[string]uint8 `json:"groups"`
-	Routes        []routeEntry     `json:"routes"`
-	Filters       []shapeFilter    `json:"filters"`
-	CreatedClsact []string         `json:"createdClsact"`
+	Version       int                `json:"version"`
+	Epoch         string             `json:"epoch"`
+	Groups        map[string]uint8   `json:"groups"`
+	Routes        []routeEntry       `json:"routes"`
+	Filters       []shapeFilter      `json:"filters"`
+	CreatedClsact []string           `json:"createdClsact"`
+	LocalFilters  []localShapeFilter `json:"localFilters,omitempty"`
 }
 type Auxiliary struct {
-	parent     *AdvancedKernel
-	manifest   auxManifest
-	classes    map[string]uint16
-	classPlans map[string]shapeClass
-	shapeReady bool
-	loaded     bool
+	parent       *AdvancedKernel
+	manifest     auxManifest
+	classes      map[string]uint16
+	classPlans   map[string]shapeClass
+	shapeReady   bool
+	shapeIndex   int
+	loaded       bool
+	pendingLocal []localShapeCommand
 }
 
 func (a *AdvancedKernel) auxiliary() (*Auxiliary, error) {
@@ -53,7 +56,7 @@ func (a *AdvancedKernel) auxiliary() (*Auxiliary, error) {
 		if e = json.Unmarshal(data, &x.manifest); e != nil {
 			return nil, e
 		}
-		if x.manifest.Version != 1 || x.manifest.Epoch != a.epoch {
+		if (x.manifest.Version != 1 && x.manifest.Version != 2) || x.manifest.Epoch != a.epoch {
 			return nil, fmt.Errorf("auxiliary ownership checkpoint mismatch")
 		}
 		x.loaded = true

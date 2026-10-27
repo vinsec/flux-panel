@@ -52,7 +52,12 @@ func (k *IPTables) RefreshBindings(rules map[string]Spec) (changed bool, failure
 			}
 		}
 	}()
-	if k.P1 == nil || !k.P1.addressDirty.Swap(false) {
+	if k.P1 == nil {
+		return false, nil
+	}
+	addressDirty := k.P1.addressDirty.Swap(false)
+	contractsChanged := k.P1.runtimeContractsChanged(rules)
+	if !addressDirty && !contractsChanged {
 		return false, nil
 	}
 	plan := []Spec{}

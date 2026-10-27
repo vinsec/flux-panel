@@ -19,19 +19,24 @@ const advancedMark = "0xf2000000/0xff000000"
 const advancedGate = "flux-advanced-transaction:v4"
 
 type AdvancedKernel struct {
-	parent        *IPTables
-	StatePath     string
-	ready         map[string]bool
-	trafficReady  map[string]bool
-	shape         map[string]string
-	control       map[string]string
-	last          map[string]Spec
-	bindings      map[string]string
-	addressDirty  atomic.Bool
-	quota         *SharedQuota
-	aux           *Auxiliary
-	epoch         string
-	runtimeErrors map[string]string
+	parent            *IPTables
+	StatePath         string
+	ready             map[string]bool
+	trafficReady      map[string]bool
+	shape             map[string]string
+	control           map[string]string
+	last              map[string]Spec
+	bindings          map[string]string
+	addressDirty      atomic.Bool
+	quota             *SharedQuota
+	aux               *Auxiliary
+	epoch             string
+	runtimeErrors     map[string]string
+	udpContracts      map[string]string
+	localShapeWatch   bool
+	localShapePrereq  string
+	localProbeChecked bool
+	localProbeError   string
 }
 type advancedPlane struct{ family, prefix, binary, sentinel string }
 
@@ -294,7 +299,7 @@ func localAddresses() (map[string][]string, error) {
 		return nil, e
 	}
 	for _, iface := range interfaces {
-		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 || iface.Name == shapingDevice || iface.Name == localProbeDevice {
 			continue
 		}
 		addresses, e := iface.Addrs()
@@ -334,13 +339,33 @@ func (a *AdvancedKernel) apply(plan []Spec) error {
 	}
 	routeLocal := routeLocalnetEnabled()
 	a.runtimeErrors = map[string]string{}
+	a.udpContracts = map[string]string{}
+	a.localShapeWatch = false
+	a.localShapePrereq = ""
+	for _, s := range rules {
+		if !s.Deleted && s.localTraffic() && s.Bandwidth.Enabled() {
+			a.localShapeWatch = true
+			a.localShapePrereq = localShapingProblem()
+			if a.localShapePrereq == "" && !a.localProbeChecked {
+				a.localProbeError = a.probeLocalShaping()
+				a.localProbeChecked = true
+			}
+			break
+		}
+	}
 	for id, s := range rules {
 		if s.Deleted {
 			continue
 		}
 		problem := s.localPathProblem(addresses, routeLocal)
+		if s.preserveSource() && s.trafficPolicy().LocalTargets && slices.Contains(s.Protocols, "udp") {
+			a.udpContracts[id] = problem
+		}
 		if problem == "" && s.localTraffic() && s.Bandwidth.Enabled() {
-			problem = "local traffic with smooth/shared shaping is not yet supported"
+			problem = a.localShapePrereq
+			if problem == "" {
+				problem = a.localProbeError
+			}
 		}
 		if problem == "" && s.Egress.Interface != "" {
 			iface, err := net.InterfaceByName(s.Egress.Interface)
@@ -804,7 +829,9 @@ func (s Spec) localPathProblem(addresses map[string][]string, routeLocal bool) s
 			return "local target requires explicit localTargets mode"
 		}
 		if local && s.preserveSource() && slices.Contains(s.Protocols, "udp") {
-			return "source preservation with local UDP targets is not supported; use masquerade or TCP-only"
+			if problem := localUDPSourceProblem(target); problem != "" {
+				return problem
+			}
 		}
 		if local && s.Egress.Interface != "" {
 			return "a local target has no selectable physical egress; remove the egress policy"
@@ -829,4 +856,32 @@ func (s Spec) localPathProblem(addresses map[string][]string, routeLocal bool) s
 		}
 	}
 	return ""
+}
+
+func (a *AdvancedKernel) runtimeContractsChanged(rules map[string]Spec) bool {
+	if a.aux != nil && a.aux.shapeReady {
+		iface, e := net.InterfaceByName(shapingDevice)
+		if e != nil || iface.Flags&net.FlagUp == 0 || iface.Index != a.aux.shapeIndex {
+			a.aux.shapeReady = false
+			return true
+		}
+	}
+	if a.localShapeWatch && localShapingProblem() != a.localShapePrereq {
+		return true
+	}
+	if len(a.udpContracts) == 0 {
+		return false
+	}
+	addresses, err := localAddresses()
+	if err != nil {
+		return true
+	}
+	for id, old := range a.udpContracts {
+		if s, ok := rules[id]; ok && !s.Deleted {
+			if s.localPathProblem(addresses, routeLocalnetEnabled()) != old {
+				return true
+			}
+		}
+	}
+	return false
 }

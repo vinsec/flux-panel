@@ -20,6 +20,7 @@ public class EngineBatchReconciler {
     @Resource private EngineRevision revisions;
     @Resource private EngineCreditService credits;
     @Resource private EngineSpecFactory specs;
+    @Resource private EnginePortPolicy ports;
     private final ConcurrentHashMap<Long, JSONObject> pending = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Long, Object> locks = new ConcurrentHashMap<>();
 
@@ -39,6 +40,12 @@ public class EngineBatchReconciler {
     }
 
     public JSONObject reconcile(Long node) {
+        // Serialize the DB snapshot with interactive mutations through their
+        // final DB write. A fresh revision cannot legitimize an old snapshot
+        // captured while DeleteForward was still settling usage.
+        return ports.lockedNode(node,()->reconcileLocked(node));
+    }
+    private JSONObject reconcileLocked(Long node) {
         synchronized (locks.computeIfAbsent(node, x -> new Object())) {
             EngineCapabilities.require(node, "batch");
             JSONObject existing = pending.get(node);

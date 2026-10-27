@@ -66,6 +66,13 @@ public class ForwardServiceImpl extends ServiceImpl<ForwardMapper, Forward> impl
     NodeService nodeService;
 
 
+    @Resource private org.springframework.transaction.PlatformTransactionManager engineTransactions;
+    private R lockedForward(Long id,java.util.function.Supplier<R> action) {
+        Forward f=validateForwardExists(id,getCurrentUserInfo());if(f==null)return R.err("端口转发不存在");
+        Tunnel t=tunnelService.getById(f.getTunnelId());if(t==null)return action.get();
+        try{return portPolicy.locked(t,action);}catch(IllegalArgumentException|IllegalStateException error){return R.err(error.getMessage());}
+    }
+
     @Override
     public R createForward(ForwardDto forwardDto) {
         Tunnel t=tunnelService.getById(forwardDto.getTunnelId());if(t==null)return R.err("隧道不存在");
@@ -257,7 +264,8 @@ public class ForwardServiceImpl extends ServiceImpl<ForwardMapper, Forward> impl
     }
 
     @Override
-    public R deleteForward(Long id) {
+    public R deleteForward(Long id) {return lockedForward(id,()->deleteForwardLocked(id));}
+    private R deleteForwardLocked(Long id) {
         // 1. 获取当前用户信息
         UserInfo currentUser = getCurrentUserInfo();
 
@@ -308,17 +316,19 @@ public class ForwardServiceImpl extends ServiceImpl<ForwardMapper, Forward> impl
 
     @Override
     public R pauseForward(Long id) {
-        return changeForwardStatus(id, FORWARD_STATUS_PAUSED, "暂停", "PauseService");
+        return lockedForward(id,()->changeForwardStatus(id, FORWARD_STATUS_PAUSED, "暂停", "PauseService"));
     }
 
     @Override
-    @org.springframework.transaction.annotation.Transactional
     public R resumeForward(Long id) {
-        return changeForwardStatus(id, FORWARD_STATUS_ACTIVE, "恢复", "ResumeService");
+        // Acquire the physical-host lock before starting the DB transaction;
+        // retain the existing after-commit first-credit allocation contract.
+        return lockedForward(id,()->new org.springframework.transaction.support.TransactionTemplate(engineTransactions).execute(status->changeForwardStatus(id, FORWARD_STATUS_ACTIVE, "恢复", "ResumeService")));
     }
 
     @Override
-    public R forceDeleteForward(Long id) {
+    public R forceDeleteForward(Long id) {return lockedForward(id,()->forceDeleteForwardLocked(id));}
+    private R forceDeleteForwardLocked(Long id) {
         // 1. 获取当前用户信息
         UserInfo currentUser = getCurrentUserInfo();
 

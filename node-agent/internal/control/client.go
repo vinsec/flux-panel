@@ -53,7 +53,7 @@ func (c Config) URLs() (string, string, error) {
 	q := ws.Query()
 	q.Set("type", "1")
 	q.Set("engine", "iptables")
-	q.Set("version", "iptables-v5")
+	q.Set("version", "iptables-v5.1")
 	if c.LegacyQueryAuth {
 		q.Set("secret", c.Secret)
 	}

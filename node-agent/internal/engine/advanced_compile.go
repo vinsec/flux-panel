@@ -134,6 +134,13 @@ func compileAdvancedPlane(p advancedPlane, rules map[string]Spec, addresses []st
 				if route {
 					mask = "0xffffff00"
 				}
+				if localShapingEnabled(rules) {
+					if route {
+						mask = "0xffffff40"
+					} else {
+						mask = "0xffffff7f"
+					}
+				}
 				fmt.Fprintf(&b, "-A %s -j MARK --and-mark %s\n-A %s -m conntrack --ctdir ORIGINAL -j MARK --or-mark 0x80\n", p.set("AUX"), mask, p.set("AUX"))
 				if route {
 					fmt.Fprintf(&b, "-A %s -m conntrack --ctdir ORIGINAL -m set --match-set %s dst,dst -j SET --map-set %s dst,dst --map-mark\n", p.set("AUX"), p.set("ROUTES"), p.set("ROUTES"))

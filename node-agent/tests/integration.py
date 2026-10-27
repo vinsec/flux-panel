@@ -5,7 +5,7 @@ on 10.203.0.0/16 veth links; the Docker network is --internal, never qcloud GZ.
 """
 import os,json,time,subprocess,socket,sys,pathlib,urllib.request,urllib.error,base64,hmac,hashlib,signal
 import pymysql
-import shutil,zipfile
+import shutil,zipfile,threading
 
 ROOT=pathlib.Path('/repo');OUT=pathlib.Path('/evidence');OUT.mkdir(exist_ok=True)
 for name in ['agent.log','panel.log','gost.log','target.log','unmanaged-listener.log']:
@@ -66,6 +66,7 @@ def counted_bytes(text,comment):
         if comment in fields and 'bytes' in fields:total+=int(fields[fields.index('bytes')+1])
     return total
 def namespaces():
+    cmd('sh','-c','mountpoint -q /sys/fs/bpf || mount -t bpf bpf /sys/fs/bpf; mkdir -p /sys/fs/bpf/tc/globals /sys/fs/bpf/ip/globals /sys/fs/bpf/xdp/globals')
     for n in ['client','router','target']:cmd('ip','netns','add',n);cmd('ip','-n',n,'link','set','lo','up')
     for a,b,na,nb,ia,ib in [('c0','r0','client','router','10.203.1.2/24','10.203.1.1/24'),('t0','r1','target','router','10.203.2.2/24','10.203.2.1/24')]:
         cmd('ip','link','add',a,'type','veth','peer','name',b);cmd('ip','link','set',a,'netns',na);cmd('ip','link','set',b,'netns',nb)
@@ -79,7 +80,7 @@ def namespaces():
     check('isolated client/router/target namespaces; forwarding default DROP')
 def start_agent(n):
     p=pathlib.Path('/tmp/flux-agent-config.json');p.write_text(json.dumps({'addr':'http://10.203.3.1:6365','secret':n['secret'],'statePath':'/tmp/flux-agent-state.json','apply':True,'allowInsecure':True,'intervalSeconds':1,'useSessions':True}))
-    return start(['ip','netns','exec','router',str(AGENT),'--config',str(p)],'agent.log')
+    return start(['ip','netns','exec','router','sh','-c','mountpoint -q /sys/fs/bpf || mount -t bpf bpf /sys/fs/bpf; mkdir -p /sys/fs/bpf/tc/globals /sys/fs/bpf/ip/globals /sys/fs/bpf/xdp/globals; exec \"$@\"','sh',str(AGENT),'--config',str(p)],'agent.log')
 def usage_total(fid):return sql('SELECT in_flow+out_flow AS total FROM forward WHERE id=%s',(fid,))[0]['total']
 try:
     for name,source,destination in [('agent',pathlib.Path('/build/flux-agent'),AGENT),('panel',ROOT/'springboot-backend/target/admin-0.0.1-SNAPSHOT.jar',JAR)]:
@@ -172,12 +173,36 @@ try:
     check('P2 schema4 and traffic intent survive real panel accounting',p2state['schemaVersion']==4 and p2state['traffic']['localOutput'])
     api('engine/set-bandwidth-group',{'nodeId':n['id'],'scope':'user','ownerId':1,'upBitsPerSecond':6000000,'downBitsPerSecond':6000000})
     wait(lambda:api('engine/forward-states',{'ids':[p2['id']]})['data'][0]['state']['status']=='failed',30)
-    check('later shared cap closes unsupported local OUTPUT instead of retaining unlimited traffic',router('python3','/repo/node-agent/tests/traffic_client.py','18015','blocked')=='tcp_udp_blocked')
+    check('later shared cap closes unprepared local OUTPUT instead of retaining unlimited traffic',router('python3','/repo/node-agent/tests/traffic_client.py','18015','blocked')=='tcp_udp_blocked')
+    router('ip','link','set','lo','mtu','131072');router('sh','-c','mount -o remount,rw /proc/sys; sysctl -w net.ipv4.conf.lo.accept_local=1 net.ipv4.conf.lo.rp_filter=2')
+    wait(lambda:api('engine/forward-states',{'ids':[p2['id']]})['data'][0]['state']['status']=='applied',30)
+    check('real Java shared-bandwidth reconciliation enables prepared local shaping',router('python3','/repo/node-agent/tests/traffic_client.py','18015','probe')=='tcp_udp_ok')
     api('engine/set-bandwidth-group',{'nodeId':n['id'],'scope':'user','ownerId':1,'upBitsPerSecond':0,'downBitsPerSecond':0})
     wait(lambda:router('python3','/repo/node-agent/tests/traffic_client.py','18015','probe')=='tcp_udp_ok',30)
-    check('removing conflicting cap restores local OUTPUT with its ledger intact',usage_total(p2['id'])>0)
-    api('forward/delete',{'id':p2['id']})
-    invalid=api('forward/create',{'name':'p2-unconfirmed-source','tunnelId':t['id'],'remoteAddr':'10.203.2.2:19000','inPort':18015,'engineOptions':json.dumps({'traffic':{'sourceMode':'preserve'}})},expect=False)
+    check('removing local cap retains OUTPUT and its ledger',usage_total(p2['id'])>0)
+    # Hold this service's revision row so deletion stops after taking the
+    # physical-host barrier. A limiter reconcile must not snapshot its old DB
+    # row and resurrect it with a freshly allocated revision after deletion.
+    blocker=pymysql.connect(host='mysql',user='root',password='isolated-test-db-only',database='flux_test',autocommit=False)
+    with blocker.cursor() as cursor:cursor.execute('SELECT revision FROM engine_revision WHERE node_id=%s AND service_id=%s FOR UPDATE',(n['id'],p2key))
+    deleted=[];delete_errors=[]
+    def concurrent_delete():
+        try:deleted.append(api('forward/delete',{'id':p2['id']}))
+        except Exception as error:delete_errors.append(str(error))
+    deleting=threading.Thread(target=concurrent_delete);deleting.start()
+    try:
+        wait(lambda:any('engine_revision' in str(row.get('trx_query','')) and p2key in str(row.get('trx_query','')) for row in sql("SELECT trx_query FROM information_schema.innodb_trx WHERE trx_state='LOCK WAIT'")),10)
+        api('engine/set-bandwidth-group',{'nodeId':n['id'],'scope':'user','ownerId':1,'upBitsPerSecond':6000000,'downBitsPerSecond':6000000})
+        time.sleep(1.5)
+    finally:blocker.commit();blocker.close()
+    deleting.join(30);check('concurrent delete finishes while limiter reconciliation is queued',not deleting.is_alive() and not delete_errors and len(deleted)==1)
+    for _ in range(12):
+        live=json.loads(pathlib.Path('/tmp/flux-agent-state.json').read_text())['rules'].get(p2key,{})
+        assert not live or live.get('deleted'),('deleted forward resurrected',p2key,live.get('revision'))
+        time.sleep(.25)
+    check('limiter reconciliation cannot resurrect a deleted local forward')
+    api('engine/set-bandwidth-group',{'nodeId':n['id'],'scope':'user','ownerId':1,'upBitsPerSecond':0,'downBitsPerSecond':0})
+    invalid=api('forward/create' ,{'name':'p2-unconfirmed-source','tunnelId':t['id'],'remoteAddr':'10.203.2.2:19000','inPort':18015,'engineOptions':json.dumps({'traffic':{'sourceMode':'preserve'}})},expect=False)
     check('Java rejects DNAT-only without operator confirmation',invalid['code']!=0)
     traffic={'traffic':{'sourceMode':'preserve','returnPathConfirmed':True}}
     api('forward/create',{'name':'p2-source-preserve','tunnelId':t['id'],'remoteAddr':'10.203.2.2:19000','inPort':18015,'strategy':'fifo','engineOptions':json.dumps(traffic)})

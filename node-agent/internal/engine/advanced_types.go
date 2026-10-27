@@ -351,9 +351,9 @@ func (s Spec) validateAdvanced() error {
 	if s.preserveSource() && (s.Egress.SourceIPv4 != "" || s.Egress.SourceIPv6 != "") {
 		return fmt.Errorf("source preservation conflicts with explicit SNAT")
 	}
-	// Local INPUT cannot pass the egress IFB. The kernel apply path retains
-	// desired intent but closes this rule if a shared cap is introduced later;
-	// rejecting the update here would leave the old unlimited rule running.
+	// Local shaping prerequisites are checked operationally by the kernel.
+	// Reconciliation must retain new desired limits and close unprepared rules,
+	// rather than keeping the preceding unlimited generation active.
 	if len(s.Listeners) == 0 || len(s.Targets) == 0 {
 		return fmt.Errorf("advanced spec requires listeners and targets")
 	}
@@ -453,13 +453,6 @@ func (s Spec) validateLocalTargetOptions(host, family string) error {
 			}
 		}
 	}
-	if !s.preserveSource() {
-		return nil
-	}
-	for _, l := range s.Listeners {
-		if l.Family == family && l.Protocol == "udp" {
-			return fmt.Errorf("source preservation with local UDP targets is not supported; use masquerade or TCP-only")
-		}
-	}
+
 	return nil
 }

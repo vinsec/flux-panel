@@ -18,10 +18,11 @@ public class EnginePortPolicy {
     @Resource private DataSource dataSource;
     @Resource private NodeMapper nodes;
     private final java.util.concurrent.ConcurrentHashMap<String,java.util.concurrent.locks.ReentrantLock> locks=new java.util.concurrent.ConcurrentHashMap<>();
-    public <T>T locked(Tunnel tunnel,Supplier<T> action){
+    public <T>T locked(Tunnel tunnel,Supplier<T> action){return lockedNode(tunnel.getInNodeId(),action);}
+    public <T>T lockedNode(Long nodeId,Supplier<T> action){
         if(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
             throw new IllegalStateException("port mutations require their own autocommit boundary");
-        Node node=nodes.selectById(tunnel.getInNodeId());if(node==null)return action.get();
+        Node node=nodes.selectById(nodeId);if(node==null)return action.get();
         String host=node.getServerIp();if(host==null||host.isBlank())host="node:"+node.getId();
         String key="flux-port-"+NodeCredentials.hash(host.toLowerCase(Locale.ROOT)).substring(0,40);
         var mutex=locks.computeIfAbsent(key,k->new java.util.concurrent.locks.ReentrantLock());mutex.lock();
