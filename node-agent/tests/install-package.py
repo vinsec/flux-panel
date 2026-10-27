@@ -19,7 +19,7 @@ try:
  before=binary.stat().st_mtime_ns;install();check('repeated identical install is idempotent',binary.stat().st_mtime_ns==before)
  serial=PANEL.serial;a=spawn(ns('router',str(binary),'--config',str(prefix/'etc/flux-agent/config.json')),'installed-agent.log');wait(lambda:PANEL.serial>serial);apply(spec());check('installed artifact actually forwards TCP and UDP',probe());stop(a)
  install('uninstall');check('uninstall keeps durable state and backup while removing owned dataplane',not binary.exists() and ledger.exists() and 'keep-unrelated' in router('iptables-save'))
- baseline=BUILD/'agent-v2'
+ baseline=pathlib.Path(os.getenv('FLUX_INSTALL_BASELINE',str(BUILD/'agent-v2')))
  if baseline.exists():
   # Prepare a genuine previous executable/checkpoint before the new installer.
   prefix=pathlib.Path('/tmp/package-upgrade');ledger=prefix/'var/lib/flux-agent/state.json';binary=prefix/'usr/local/bin/flux-agent';binary.parent.mkdir(parents=True);(prefix/'etc/flux-agent').mkdir(parents=True)
