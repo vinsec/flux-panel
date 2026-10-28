@@ -32,7 +32,7 @@ def setup(engine,count,round_id):
  if expected_backend=='nftables':assert state['formatVersion']==6 and 'FP_NATIVE' in router('nft','list','tables') and not router('ipset','list','-name')
  return p
 start=source.index('\ndef latency(');end=source.index('\ndef collection(',start)
-exec(compile(source[start:end].replace("[('tcp',False,500),('tcp',True,100),('udp',False,500)]", "[('tcp',False,5000),('udp',False,5000)]"),'/code/benchmark.py','exec'))
+exec(compile(source[start:end].replace("[('tcp',False,500),('tcp',True,100),('udp',False,500)]", "[('tcp',False,5000),('tcp',True,1000),('udp',False,5000)]"),'/code/benchmark.py','exec'))
 WINDOWS=[]
 window_source=Path('/code/p2-security-window.py').read_text()
 start=window_source.index('\ndef window(');end=window_source.index('\ntry:\n topology();',start)
@@ -50,6 +50,6 @@ try:
     finally:stop(p)
  assert artifacts=={p:hashlib.sha256(Path(p).read_bytes()).hexdigest() for p in artifacts}
  for row in ROWS+WINDOWS+LATENCY:row['release']=labels[row['engine']]
- (OUT/'native-nft-window.json').write_text(json.dumps({'success':True,'artifactSHA256':artifacts,'throughput':WINDOWS,'paced':ROWS,'latency':LATENCY,'payloadBytes':TOTAL_BYTES,'byteLimit':BYTE_LIMIT,'allTargetsPrivate':True,'externalForwardTestTargets':[],'statsIntervalSeconds':1,'pacedSeconds':20,'persistentSamplesPerProbe':5000,'windowBytes':8*1024**3,'roundsPerBackendPerCount':3},indent=2))
+ (OUT/'native-nft-window.json').write_text(json.dumps({'success':True,'artifactSHA256':artifacts,'throughput':WINDOWS,'paced':ROWS,'latency':LATENCY,'payloadBytes':TOTAL_BYTES,'byteLimit':BYTE_LIMIT,'allTargetsPrivate':True,'externalForwardTestTargets':[],'statsIntervalSeconds':1,'pacedSeconds':20,'persistentSamplesPerProbe':5000,'freshTCPSamplesPerProbe':1000,'windowBytes':8*1024**3,'roundsPerBackendPerCount':3},indent=2))
 finally:
  for p in reversed(PROCESSES):stop(p)

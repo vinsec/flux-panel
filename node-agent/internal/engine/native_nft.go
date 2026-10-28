@@ -5,9 +5,11 @@ package engine
 // No iptables rule translation or global ruleset flush is involved.
 import (
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/netip"
 	"os"
 	"sort"
@@ -25,6 +27,7 @@ type NativeNFT struct {
 	ready        bool
 	shape        string
 	controlShape string
+	bindings     string
 	rules        map[string]Spec
 }
 type nativeDocument struct {
@@ -106,6 +109,23 @@ func (n *NativeNFT) ensure() error {
 		if e = n.batch(input); e != nil {
 			return e
 		}
+	}
+	existingChains := map[string]bool{}
+	for _, item := range d.NFT {
+		if raw := item["chain"]; raw != nil {
+			var c struct{ Name string }
+			_ = json.Unmarshal(raw, &c)
+			existingChains[c.Name] = true
+		}
+	}
+	control := ""
+	for _, name := range []string{"control4", "control6"} {
+		if !existingChains[name] {
+			control += fmt.Sprintf("add chain inet %s %s\n", nativeTable, name)
+		}
+	}
+	if e = n.batch(control); e != nil {
+		return e
 	}
 	n.ready = true
 	return nil
@@ -191,27 +211,20 @@ func decodeNativeCounter(c nativeCounter) (counterRecord, error) {
 	return r, nil
 }
 func (n *NativeNFT) counters() (map[string]counterRecord, error) {
-	text, e := n.run("", "-j", "list", "counters", "table", "inet", nativeTable)
-	var d nativeDocument
-	if e == nil {
-		e = json.Unmarshal([]byte(text), &d)
-	}
+	objects, e := n.readCounterObjects()
 	if e != nil {
 		return nil, e
 	}
-	out := map[string]counterRecord{}
-	for _, item := range d.NFT {
-		if b := item["counter"]; b != nil {
-			var c nativeCounter
-			if e = json.Unmarshal(b, &c); e != nil {
-				return nil, e
-			}
-			r, e := decodeNativeCounter(c)
-			if e != nil {
-				return nil, e
-			}
-			out[c.Name] = r
+	out := make(map[string]counterRecord, len(objects))
+	for _, c := range objects {
+		r, e := decodeNativeCounter(c)
+		if e != nil {
+			return nil, e
 		}
+		if _, exists := out[c.Name]; exists {
+			return nil, fmt.Errorf("duplicate nft counter identity")
+		}
+		out[c.Name] = r
 	}
 	return out, nil
 }
@@ -378,9 +391,52 @@ func (n *NativeNFT) apply(plan []Spec) error {
 	if e = a.applyAux(advancedRules(mapSpecs(rules))); e != nil {
 		return e
 	}
+	if n.bindings, e = nativeBindingIdentity(rules, addresses); e != nil {
+		return e
+	}
 	n.rules = rules
 	a.last = advancedRules(mapSpecs(rules))
 	return nil
+}
+
+// Netlink starts with a dirty notification even when the initial apply already
+// bound the same addresses. Cache the relevant inventory, not just that flag:
+// rebuilding a 10k graph behind a global gate would interrupt a live transfer.
+func nativeBindingIdentity(rules map[string]Spec, addresses map[string][]string) (string, error) {
+	interfaces := map[string]bool{}
+	all, local := false, false
+	for _, s := range rules {
+		if s.Deleted || !s.Advanced() {
+			continue
+		}
+		if s.Egress.Interface != "" {
+			interfaces[s.Egress.Interface] = true
+		}
+		all = all || s.Bandwidth.Enabled()
+		local = local || s.localTraffic()
+	}
+	type link struct {
+		Name  string
+		Index int
+		Flags net.Flags
+		MTU   int
+	}
+	links := []link{}
+	if all || len(interfaces) > 0 {
+		entries, e := net.Interfaces()
+		if e != nil {
+			return "", e
+		}
+		for _, i := range entries {
+			if i.Name == shapingDevice || i.Name == localProbeDevice || i.Name == localPrepareDevice {
+				continue
+			}
+			if interfaces[i.Name] || all && (i.Flags&net.FlagLoopback == 0 || local) {
+				links = append(links, link{i.Name, i.Index, i.Flags, i.MTU})
+			}
+		}
+	}
+	return digest([]any{addresses, links}), nil
 }
 
 func (n *NativeNFT) updateControl(s State) error {
@@ -388,41 +444,54 @@ func (n *NativeNFT) updateControl(s State) error {
 	if e != nil {
 		return e
 	}
-	var b strings.Builder
-	identity := []any{}
-	fmt.Fprintf(&b, "flush set inet %s live_control\n", nativeTable)
+	type entry struct {
+		mark    uint32
+		timeout int64
+	}
+	entries := make([]entry, 0, len(s.Rules))
+	identity := make([]byte, 0, 20*len(s.Rules))
+	now, boot := time.Now().UnixMilli(), bootMillis()
 	for _, id := range keys(s.Rules) {
 		r := s.Rules[id]
-		if !r.Active() || n.parent.P1.runtimeErrors[id] != "" {
+		if r.Deleted || !r.Enabled || (r.ExpiresAt > 0 && r.ExpiresAt <= now) || n.parent.P1.runtimeErrors[id] != "" {
 			continue
 		}
-		ms := int64(0)
+		ms, deadline := int64(0), int64(0)
 		if r.ExpiresAt > 0 {
-			ms = r.ExpiresAt - time.Now().UnixMilli()
+			ms = r.ExpiresAt - now
 		}
 		if r.LeaseRequired {
 			l, ok := s.Leases[id]
 			q, exists := objects[quotaName(r, l)]
-			if !ok || l.Closed || l.DeadlineBootMillis <= bootMillis() || !exists || q.Used >= q.Bytes {
+			if !ok || l.Closed || l.DeadlineBootMillis <= boot || !exists || q.Used >= q.Bytes {
 				continue
 			}
-			remaining := l.DeadlineBootMillis - bootMillis()
+			deadline = l.DeadlineBootMillis
+			remaining := deadline - boot
 			if ms == 0 || remaining < ms {
 				ms = remaining
 			}
-			identity = append(identity, []any{flowMark(r), r.ExpiresAt, l.DeadlineBootMillis})
-		} else {
-			identity = append(identity, []any{flowMark(r), r.ExpiresAt})
 		}
-		timeout := ""
-		if ms > 0 {
-			timeout = fmt.Sprintf(" timeout %dms", ms)
-		}
-		fmt.Fprintf(&b, "add element inet %s live_control { 0x%x%s }\n", nativeTable, flowMark(r), timeout)
+		value := flowMark(r)
+		entries = append(entries, entry{value, ms})
+		identity = binary.LittleEndian.AppendUint32(identity, value)
+		identity = binary.LittleEndian.AppendUint64(identity, uint64(r.ExpiresAt))
+		identity = binary.LittleEndian.AppendUint64(identity, uint64(deadline))
 	}
-	shape := digest(identity)
+	sum := sha256.Sum256(identity)
+	shape := hex.EncodeToString(sum[:])
 	if shape == n.controlShape {
 		return nil
+	}
+	// Do not format a 10k-element transaction on unchanged sampling ticks.
+	var b strings.Builder
+	fmt.Fprintf(&b, "flush set inet %s live_control\n", nativeTable)
+	for _, v := range entries {
+		timeout := ""
+		if v.timeout > 0 {
+			timeout = fmt.Sprintf(" timeout %dms", v.timeout)
+		}
+		fmt.Fprintf(&b, "add element inet %s live_control { 0x%x%s }\n", nativeTable, v.mark, timeout)
 	}
 	_, e = n.run(b.String(), "-f", "-")
 	if e == nil {

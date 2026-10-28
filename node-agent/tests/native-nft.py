@@ -20,6 +20,10 @@ try:
  CONFIG.write_text(json.dumps(cfg));a=agent()
  check('native mode initializes without ipset or owned iptables chains','FP4_' not in router('iptables-save') and 'FPV' not in router('ipset','list','-name'))
  s=spec();apply(s);check('native IPv4 TCP/UDP sockets pass',probe())
+ time.sleep(1.3)
+ def rule_handles():return [x['rule']['handle'] for x in json.loads(router('nft','-j','list','table','inet','FP_NATIVE'))['nftables'] if 'rule' in x]
+ handles=rule_handles();router('ip','link','add','flux-noop','type','dummy');time.sleep(1.3);router('ip','link','del','flux-noop');time.sleep(1.3)
+ check('irrelevant addressless link events do not rebuild rules or fence traffic',rule_handles()==handles and probe())
  before=raw_counts(s['id']);payload=b'e'*123
  run(ns('client','python3','-c',f"import socket;s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.settimeout(2);s.sendto({payload!r},('10.205.1.1',18000));assert s.recv(1024)=={payload!r}"))
  after=raw_counts(s['id']);check('exact network accounting once per direction',[b-a for a,b in zip(before,after)]==[151,151])

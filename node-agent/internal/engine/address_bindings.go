@@ -40,7 +40,22 @@ func (m *Manager) refreshAddressesLocked() error {
 }
 func (k *IPTables) RefreshBindings(rules map[string]Spec) (changed bool, failure error) {
 	if k.Native != nil {
-		if !k.P1.addressDirty.Swap(false) && !k.P1.runtimeContractsChanged(rules) {
+		dirty := k.P1.addressDirty.Swap(false)
+		contractsChanged := k.P1.runtimeContractsChanged(rules)
+		if !dirty && !contractsChanged {
+			return false, nil
+		}
+		addresses, e := localAddresses()
+		if e != nil {
+			_ = k.Native.gate(nil, false, false)
+			return false, e
+		}
+		identity, e := nativeBindingIdentity(rules, addresses)
+		if e != nil {
+			_ = k.Native.gate(nil, false, false)
+			return false, e
+		}
+		if identity == k.Native.bindings && !contractsChanged {
 			return false, nil
 		}
 		if e := k.Native.gate(nil, false, false); e != nil {

@@ -18,8 +18,16 @@ round 为加权轮询，random 为加权随机，hash 保持同一来源 IP 的�
 暂停、到期或运行时前置条件失败的转发没有许可；既有连接也必须通过该检查。
 普通转发的规则数量不随总转发数增长。原子事务只替换配置元素与规则引用，
 命名累计 counter 不重建、不归零，历史对象由既有 ACK/conntrack/保留期 GC 回收。
-只读采样使用 `list counters table`，不导出整个规则图；控制 map 缓存身份，
-不用每秒重装一万条元素。
+Linux 只读采样直接发 NETLINK_NETFILTER 的 `NFT_MSG_GETOBJ`，只读取本表的
+counter 对象；不启动 nft 子进程、不输出再解析 JSON，不发送 RESET 请求。
+按 [Linux nft UAPI](https://github.com/torvalds/linux/blob/v6.12/include/uapi/linux/netfilter/nf_tables.h)
+检查地址族、表名、类型、序号、内核来源、完整 multipart 结束和 userdata 中的
+计数身份。中断 dump 有限重试，不把半份结果当作零；命令有 4 秒总预算。
+控制 map 的身份使用紧凑二进制摘要，未变化时不格式化全量更新文本。
+
+地址/链路通知与已应用的地址、相关接口索引和状态比对。初始 dirty 通知以及
+无关的无地址接口变化不触发全量编译/停流；真正的地址增删、出口替换、IFB
+或限速前置条件变化仍重新对账。
 
 规则使用 [nftables map](https://wiki.nftables.org/wiki-nftables/index.php/Maps) 与
 [命名 stateful object map](https://wiki.nftables.org/wiki-nftables/index.php/Stateful_objects)。
@@ -38,6 +46,9 @@ token，大批整体拦截；回滚、崩溃恢复期间不提前放行。辅助
 本地原发、回环、hairpin、DNAT-only、双栈和 RELATED ICMP 保留各自路径。
 本机到本机只在 OUTPUT 计数；loopback INPUT 再检查许可但不重复计费。
 IPv6 ND 等无 conntrack 的控制报文保持宿主策略，不能落入业务的兜底丢弃。
+RELATED ICMP 继续限制允许的错误类型和大小；每个 token/地址族共享
+10 包/秒、突发 10 包的 meter，INPUT/OUTPUT/FORWARD 复用同一个限频状态。
+暂停或额度耗尽后，相关控制报文也关闭，不把它们计入普通业务字节。
 
 ## 所有权与迁移
 

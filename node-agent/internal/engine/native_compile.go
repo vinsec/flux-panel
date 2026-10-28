@@ -9,10 +9,11 @@ import (
 	"time"
 )
 
-var nativeChains = []string{"mark_pre", "mark_out", "dnat_pre", "dnat_out", "snat_post", "snat_input", "filter_forward", "filter_input", "filter_output"}
+var nativeChains = []string{"mark_pre", "mark_out", "dnat_pre", "dnat_out", "snat_post", "snat_input", "filter_forward", "filter_input", "filter_output", "control4", "control6"}
 
 func nativeMaps() map[string]string {
 	m := map[string]string{"preserve": "mark", "lorig": "mark", "ltarg": "mark", "live_control": "mark", "routes": "mark : mark", "routes_shaped": "mark : mark", "multi4": "mark : verdict", "multi6": "mark : verdict"}
+	m["control_meter4"], m["control_meter6"] = "mark", "mark"
 	for _, f := range []string{"4", "6"} {
 		addr := "ipv" + f + "_addr"
 		for _, name := range []string{"bind", "obind"} {
@@ -58,6 +59,9 @@ func (n *NativeNFT) ensureMaps() error {
 		opts := ""
 		if strings.HasPrefix(name, "allow") || name == "live_control" {
 			opts = " flags timeout;"
+		}
+		if strings.HasPrefix(name, "control_meter") {
+			opts = " flags dynamic,timeout; timeout 1m; size 131072;"
 		}
 		fmt.Fprintf(&b, "add %s inet %s %s { type %s;%s }\n", kind, nativeTable, name, typ, opts)
 	}
@@ -242,6 +246,10 @@ func compileNative(rules map[string]Spec, addresses map[string][]string, objects
 		fmt.Fprintf(&b, "add rule inet %s %s %s\n", nativeTable, chain, weighted[chain])
 	}
 	rule := func(chain, expr string) { fmt.Fprintf(&b, "add rule inet %s %s %s\n", nativeTable, chain, expr) }
+	rule("control4", "meta length >= 28 meta length <= 576 icmp type { 3, 11, 12 } ct mark & 0xffffff00 @live_control update @control_meter4 { ct mark & 0xffffff00 timeout 1m limit rate 10/second burst 10 packets } accept")
+	rule("control6", "meta length >= 48 meta length <= 1280 icmpv6 type { 1, 2, 3, 4 } ct mark & 0xffffff00 @live_control update @control_meter6 { ct mark & 0xffffff00 timeout 1m limit rate 10/second burst 10 packets } accept")
+	rule("control4", "drop")
+	rule("control6", "drop")
 	for _, which := range []string{"pre", "out"} {
 		chain := "mark_" + which
 		binding := "bind"
@@ -296,6 +304,8 @@ func compileNative(rules map[string]Spec, addresses map[string][]string, objects
 	for _, hook := range []string{"forward", "input", "output"} {
 		chain := "filter_" + hook
 		rule(chain, "ct mark & 0xff000000 != 0xf1000000 ct mark & 0xff000000 != 0xf2000000 return")
+		rule(chain, "ct state related meta l4proto icmp goto control4")
+		rule(chain, "ct state related meta l4proto ipv6-icmp goto control6")
 		rule(chain, "ct status & dnat == 0 drop")
 		if hook == "input" {
 			rule(chain, "ct direction original ct mark & 0xffffff00 != @ltarg drop")
@@ -324,7 +334,6 @@ func compileNative(rules map[string]Spec, addresses map[string][]string, objects
 				// mark set, compiled below, rather than trusting that outer address.
 			}
 		}
-		rule(chain, "ct state related meta l4proto { icmp, ipv6-icmp } ct mark & 0xffffff00 @live_control accept")
 		// Untracked control packets (notably IPv6 ND) have no ct mark at
 		// all, so a negative ct-mark match does not evaluate to true. Only
 		// drop our positively identified connections; preserve host policy.
