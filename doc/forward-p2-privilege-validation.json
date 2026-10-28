@@ -411,5 +411,14 @@
     }
   ],
   "sourceInputsSHA256": "87c3937b0042a54ce8828478eabed2a68072d189b18cb98659276648900f96b1",
-  "bpfSHA256": "3e24ed639ff08a8e164f07dbf61ce2648994f8fe8eaedd01f1d3c7e33944c58f"
+  "bpfSHA256": "3e24ed639ff08a8e164f07dbf61ce2648994f8fe8eaedd01f1d3c7e33944c58f",
+  "packaging": {
+    "success": true,
+    "checks": 11,
+    "sourceCommit": "02587e7931ab85abde4e00ee11fdb51c1d057bb6",
+    "sourceDirty": false,
+    "manifestSHA256": "871bcd98220111820488e9d1b676504a2f9a28ad076c4d48f05aa4cc0779b213",
+    "arm64SHA256": "ff1441efc744054500e96c296a87a534288864bef7328c5268500799a926a933",
+    "amd64SHA256": "c19d7ed8a564a0f925539dc5dca1e02b6354ffb04253f1a81e790e74d28bb3de"
+  }
 }
