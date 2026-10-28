@@ -24,6 +24,6 @@ lines=[]
 for f in sorted(out.iterdir()):
  if f.is_file():lines.append(hashlib.sha256(f.read_bytes()).hexdigest()+'  '+f.name)
 checks='\n'.join(lines)+'\n';(out/'SHA256SUMS').write_text(checks);pin=hashlib.sha256(checks.encode()).hexdigest();(out/'MANIFEST.sha256').write_text(pin+'\n')
-archive=out.with_suffix('.tar.gz')
+archive=out.parent/(out.name+'.tar.gz')
 with tarfile.open(archive,'w:gz') as t:t.add(out,arcname=out.name)
 print(json.dumps({'directory':str(out),'archive':str(archive),'manifestSha256':pin,'published':False}))
