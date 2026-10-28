@@ -68,7 +68,7 @@ func relevantAddressEvent(m syscall.NetlinkMessage, ignored map[uint32]bool) boo
 		for _, attr := range attrs {
 			if attr.Attr.Type == syscall.IFLA_IFNAME {
 				name := strings.TrimRight(string(attr.Value), "\x00")
-				if name == shapingDevice || name == localProbeDevice {
+				if name == shapingDevice || name == localProbeDevice || name == localPrepareDevice {
 					if len(ignored) > 128 {
 						clear(ignored)
 					}
@@ -88,7 +88,7 @@ func relevantAddressEvent(m syscall.NetlinkMessage, ignored map[uint32]bool) boo
 		if ignored[index] {
 			return false
 		}
-		if iface, e := net.InterfaceByIndex(int(index)); e == nil && (iface.Name == shapingDevice || iface.Name == localProbeDevice) {
+		if iface, e := net.InterfaceByIndex(int(index)); e == nil && (iface.Name == shapingDevice || iface.Name == localProbeDevice || iface.Name == localPrepareDevice) {
 			ignored[index] = true
 			return false
 		}

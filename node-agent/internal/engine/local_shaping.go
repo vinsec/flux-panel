@@ -41,10 +41,8 @@ func localShapingEnabled(rules map[string]Spec) bool {
 	return false
 }
 func localShapingProblem() string {
-	for _, name := range []string{"tc", "ip", "xdp"} {
-		if st, e := os.Stat("/sys/fs/bpf/" + name + "/globals"); e != nil || !st.IsDir() {
-			return "local shaping requires administrator-prepared bpffs tc/ip/xdp globals directories"
-		}
+	if _, e := preparedLocalProgram(); e != nil {
+		return "local shaping short-lived preparation is unavailable: " + e.Error()
 	}
 	iface, e := net.InterfaceByName("lo")
 	if e != nil || iface.MTU < 131072 {
@@ -280,7 +278,7 @@ func (x *Auxiliary) applyLocalShaping(rules map[string]Spec, classes map[string]
 	if e := x.auditEmptyTC("lo", "egress"); e != nil {
 		return e
 	}
-	object, e := x.restoreObject()
+	object, e := preparedLocalProgram()
 	if e != nil {
 		return e
 	}
@@ -295,7 +293,7 @@ func (x *Auxiliary) applyLocalShaping(rules map[string]Spec, classes map[string]
 			return e
 		}
 	}
-	if e = add(localShapeFilter{"lo", "egress", "all", 201, 1, 1, "bpf"}, "da", "obj", object, "section", "tc"); e != nil {
+	if e = add(localShapeFilter{"lo", "egress", "all", 201, 1, 1, "bpf"}, "da", "pinned", object); e != nil {
 		return fmt.Errorf("kernel does not support local conntrack restoration: %w", e)
 	}
 	if e = add(localShapeFilter{"lo", "egress", "all", 201, 2, 1, "matchall"}, "action", "mirred", "egress", "redirect", "dev", shapingDevice); e != nil {
@@ -402,44 +400,11 @@ func (x *Auxiliary) removeLocalProbe() error {
 	return e
 }
 
-// Load the exact embedded program on an unconnected, down IFB first. A kernel,
-// BTF, libbpf or permission failure must become an operational failed rule,
-// not roll back a newly introduced user cap to its old unlimited generation.
-func (a *AdvancedKernel) probeLocalShaping() (problem string) {
-	x, e := a.auxiliary()
+// The long-lived process only opens and attaches an already verified pin.
+func (a *AdvancedKernel) probeLocalShaping() string {
+	_, e := preparedLocalProgram()
 	if e != nil {
 		return e.Error()
-	}
-	if e = x.removeLocalProbe(); e != nil {
-		return e.Error()
-	}
-	object, e := x.restoreObject()
-	if e != nil {
-		return e.Error()
-	}
-	if _, e = a.parent.run("ip", "", "link", "add", localProbeDevice, "type", "ifb"); e != nil {
-		return "local shaping IFB probe: " + e.Error()
-	}
-	if _, e = a.parent.run("ip", "", "link", "set", "dev", localProbeDevice, "alias", advancedOwner+":"+a.epoch+":probe"); e != nil {
-		_, _ = a.parent.run("ip", "", "link", "del", localProbeDevice)
-		return e.Error()
-	}
-	defer func() {
-		if e := x.removeLocalProbe(); e != nil {
-			if problem != "" {
-				problem += "; "
-			}
-			problem += "local shaping probe cleanup: " + e.Error()
-		}
-	}()
-	for _, args := range [][]string{
-		{"qdisc", "add", "dev", localProbeDevice, "clsact"},
-		{"filter", "add", "dev", localProbeDevice, "ingress", "protocol", "all", "pref", "1", "matchall", "action", "ct", "zone", "0", "pipe"},
-		{"filter", "add", "dev", localProbeDevice, "egress", "chain", "201", "protocol", "all", "pref", "1", "bpf", "da", "obj", object, "section", "tc"},
-	} {
-		if _, e = x.runTC(args...); e != nil {
-			return "local shaping kernel preflight: " + e.Error()
-		}
 	}
 	return ""
 }

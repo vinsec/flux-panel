@@ -24,6 +24,7 @@ type ManagerAPI interface {
 	RuntimeStatus(string) map[string]any
 	RuntimeStatuses([]string) map[string]map[string]any
 	Diagnostics(context.Context, string, bool) (map[string]any, error)
+	ReturnPathDiagnostics(context.Context, string, bool, engine.ReturnPathQuery) (map[string]any, error)
 	StartJobs(context.Context)
 	StartRuntime(context.Context) error
 	RefreshRuntime(context.Context) error

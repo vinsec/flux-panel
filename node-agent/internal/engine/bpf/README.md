@@ -42,3 +42,11 @@ Kernel/BTF/libbpf/permission failures close desired locally limited rules before
 installing their active generation. The optional helper profile requires CAP_SYS_ADMIN for module-BTF discovery, as well as CAP_BPF.
 Administrator-prepared bpffs and its empty tc/ip/xdp globals directories let tc load a
 mapless object under the documented optional capability profile and a read-only /sys mount.
+
+
+As of v5.2, module-BTF loading belongs only to the explicit short-lived
+`--prepare-local-shaping` command. The daemon validates a committed root-owned
+pin/record (object SHA, boot ID, program ID and tag), opens the pin and attaches
+it; the base three networking capabilities suffice. No SYS_ADMIN or BPF
+capability remains in the optional long-lived helper profile. The packet
+program is unchanged. See doc/forward-p2-privilege-returnpath.md for lifecycle.

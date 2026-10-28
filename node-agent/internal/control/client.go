@@ -53,7 +53,7 @@ func (c Config) URLs() (string, string, error) {
 	q := ws.Query()
 	q.Set("type", "1")
 	q.Set("engine", "iptables")
-	q.Set("version", "iptables-v5.1")
+	q.Set("version", "iptables-v5.2")
 	if c.LegacyQueryAuth {
 		q.Set("secret", c.Secret)
 	}
@@ -127,11 +127,13 @@ func Handle(m ManagerAPI, data []byte) ([]byte, error) {
 		}
 	case "DiagnoseForward":
 		var query struct {
-			ID    string `json:"id"`
-			Probe bool   `json:"probe"`
+			ID               string `json:"id"`
+			Probe            bool   `json:"probe"`
+			ClientIP         string `json:"clientIP"`
+			IngressInterface string `json:"ingressInterface"`
 		}
 		if e = strictJSON(cmd.Data, &query); e == nil {
-			r.Data, e = m.Diagnostics(context.Background(), query.ID, query.Probe)
+			r.Data, e = m.ReturnPathDiagnostics(context.Background(), query.ID, query.Probe, engine.ReturnPathQuery{ClientIP: query.ClientIP, IngressInterface: query.IngressInterface})
 		}
 	case "SubmitBatch":
 		var b engine.Batch

@@ -74,9 +74,9 @@ threading.Event().wait()
  if os.getenv('FLUX_P2_HELPER')=='1':
   directory=pathlib.Path('/tmp/flux-p2-helper');directory.mkdir(mode=0o750);os.chown(directory,0,12345);cfg['helperSocket']=str(directory/'kernel.sock')
  CONFIG.write_text(json.dumps(cfg));CONFIG.chmod(0o644)
- BPF_PREP='mountpoint -q /sys/fs/bpf || mount -t bpf bpf /sys/fs/bpf; mount -o remount,rw /sys/fs/bpf; mkdir -p /sys/fs/bpf/tc/globals /sys/fs/bpf/ip/globals /sys/fs/bpf/xdp/globals; mount --bind /sys/fs/bpf /sys/fs/bpf; mount -o remount,bind,ro /sys/fs/bpf; exec "$@"'
+ BPF_PREP='mountpoint -q /sys/fs/bpf || mount -t bpf bpf /sys/fs/bpf; mount -o remount,rw /sys/fs/bpf; mkdir -p /sys/fs/bpf/tc/globals /sys/fs/bpf/ip/globals /sys/fs/bpf/xdp/globals; mkdir -p /run/flux-agent-bpf; mount -t tmpfs -o mode=0700 tmpfs /run/flux-agent-bpf; /build/flux-agent --prepare-local-shaping > /dev/null; mount --bind /sys/fs/bpf /sys/fs/bpf; mount -o remount,bind,ro /sys/fs/bpf; exec "$@"'
  def start_helper():
-  p=spawn(ns('router','sh','-c',BPF_PREP,'sh','setpriv','--regid=12345','--clear-groups','--bounding-set=-all,+net_admin,+net_raw,+net_bind_service,+bpf,+sys_admin',str(BUILD/'flux-agent'),'--kernel-helper','--helper-user','12345','--config',str(CONFIG)),'helper.log');wait(lambda:pathlib.Path(cfg['helperSocket']).exists());return p
+  p=spawn(ns('router','sh','-c',BPF_PREP,'sh','setpriv','--regid=12345','--clear-groups','--bounding-set=-all,+net_admin,+net_raw,+net_bind_service',str(BUILD/'flux-agent'),'--kernel-helper','--helper-user','12345','--config',str(CONFIG)),'helper.log');wait(lambda:pathlib.Path(cfg['helperSocket']).exists());return p
  if cfg.get('helperSocket'):
   helper=start_helper()
   def agent(fault='',timeout=20):
@@ -93,6 +93,7 @@ threading.Event().wait()
  time.sleep(1.5)
  if helper:
   status=pathlib.Path('/proc/'+str(a.pid)+'/status').read_text();check('P2 typed policy travels through dedicated UID with zero capabilities','Uid:\t12345' in status and 'CapEff:\t0000000000000000' in status)
+  caplines=pathlib.Path('/proc/'+str(helper.pid)+'/status').read_text().splitlines();check('long-lived helper retains only base capabilities',all(int(line.split()[1],16)&((1<<21)|(1<<39))==0 for line in caplines if line.startswith(('CapEff:','CapPrm:','CapBnd:','CapAmb:'))))
 
  spawn(ns('router','python3','-c',"import socketserver;socketserver.UDPServer.max_packet_size=65535;exec(open('/tests/echo_server.py').read())"),'local-target.log');time.sleep(.2)
  rows=[]

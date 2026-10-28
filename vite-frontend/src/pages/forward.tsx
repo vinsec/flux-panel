@@ -97,6 +97,7 @@ interface AddressItem {
 }
 
 interface DiagnosisResult {
+  returnPath?: {status:string;sourceMode:string;administratorConfirmed:boolean;remoteReturnVerified:boolean;limitations:string[];ingress:Array<{interface:string;ipv4RPFilterEffective:number|null;srcValidMarkEffective:number|null;risk:string}>};
   forwardName: string;
   timestamp: number;
   results: Array<{
@@ -169,6 +170,9 @@ export default function ForwardPage() {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [diagnosisLoading, setDiagnosisLoading] = useState(false);
+  const [diagnosisClientIP, setDiagnosisClientIP] = useState("");
+  const [diagnosisIngress, setDiagnosisIngress] = useState("");
+  const [diagnosisProbe, setDiagnosisProbe] = useState(false);
   const [forwardToDelete, setForwardToDelete] = useState<Forward | null>(null);
   const [currentDiagnosisForward, setCurrentDiagnosisForward] = useState<Forward | null>(null);
   const [diagnosisResult, setDiagnosisResult] = useState<DiagnosisResult | null>(null);
@@ -658,7 +662,7 @@ export default function ForwardPage() {
     setDiagnosisResult(null);
 
     try {
-      const response = await diagnoseForward(forward.id);
+      const response = await diagnoseForward(forward.id, {clientIP:diagnosisClientIP.trim()||undefined, ingressInterface:diagnosisIngress.trim()||undefined, probe:diagnosisProbe});
       if (response.code === 0) {
         setDiagnosisResult(response.data);
       } else {
@@ -2086,6 +2090,16 @@ export default function ForwardPage() {
                     </div>
                   ) : diagnosisResult ? (
                     <div className="space-y-4">
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <Input label="客户端 IP（可选）" value={diagnosisClientIP} onValueChange={setDiagnosisClientIP} placeholder="用于本机反向路由检查" />
+                        <Input label="入口网卡（可选）" value={diagnosisIngress} onValueChange={setDiagnosisIngress} placeholder="例如 eth0" />
+                      </div>
+                      <label className="flex gap-2 text-small"><input type="checkbox" checked={diagnosisProbe} onChange={e=>setDiagnosisProbe(e.target.checked)} />内核节点附加 TCP 握手（最多两次，会建立连接）</label>
+                      {diagnosisResult.returnPath && <Card className="border border-warning"><CardBody className="space-y-2 text-small">
+                        <p>远端实际回程：未验证。管理员确认：{diagnosisResult.returnPath.administratorConfirmed?'已确认':'未确认'}。</p>
+                        {diagnosisResult.returnPath.ingress.map(item=><p key={item.interface}>{item.interface}：IPv4 rp_filter={item.ipv4RPFilterEffective??'未知'}，src_valid_mark={item.srcValidMarkEffective??'未知'}；{({'client-sample-missing':'未提供客户端 IP，无法检查来源路由','strict-interface-mismatch-risk':'反向路由出口与入口不同，严格过滤可能丢包','unreachable-risk':'本机客户端路由不可用，存在丢包风险','no-obvious-destination-route-conflict':'本机路由未见明显冲突；远端回程仍未验证','ipv6-no-ipv4-rp-filter':'IPv6 不适用 IPv4 rp_filter 检查','disabled':'IPv4 rp_filter 已关闭','unknown':'信息不足'} as Record<string,string>)[item.risk]??item.risk}</p>)}
+                        {diagnosisResult.returnPath.limitations.map(line=><p key={line}>{line}</p>)}
+                      </CardBody></Card>}
                       {diagnosisResult.results.map((result, index) => {
                         const quality = getQualityDisplay(result.averageTime, result.packetLoss);
                         
@@ -2102,7 +2116,7 @@ export default function ForwardPage() {
                                       variant="flat" 
                                       size="sm"
                                     >
-                                      {result.success ? '连接成功' : '连接失败'}
+                                      {result.probeKind==='routeOnly'?(result.success?'路由已读取':'路由不可用'):(result.success?'连接成功':'连接失败')}
                                     </Chip>
                                   </div>
                                 </div>

@@ -7,7 +7,7 @@ commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).st
 for arch in ['amd64','arm64']:
  env=__import__('os').environ.copy();env.update(CGO_ENABLED='0',GOOS='linux',GOARCH=arch)
  subprocess.run(['go','build','-trimpath','-buildvcs=false','-o',str(out/('flux-agent-linux-'+arch)),'./cmd/flux-agent'],cwd=root/'node-agent',env=env,check=True)
-shutil.copyfile(root/'node-agent/packaging/flux-agent-tmpfiles.conf',out/'flux-agent-tmpfiles.conf');shutil.copyfile(root/'node-agent/packaging/install.sh',out/'install.sh');shutil.copyfile(root/'node-agent/packaging/flux-agent.service',out/'flux-agent.service');shutil.copyfile(root/'node-agent/packaging/flux-kernel.service',out/'flux-kernel.service');shutil.copyfile(root/'node-agent/packaging/flux-kernel-local-shaping.conf',out/'flux-kernel-local-shaping.conf')
+shutil.copyfile(root/'node-agent/packaging/flux-agent-tmpfiles.conf',out/'flux-agent-tmpfiles.conf');shutil.copyfile(root/'node-agent/packaging/install.sh',out/'install.sh');shutil.copyfile(root/'node-agent/packaging/flux-agent.service',out/'flux-agent.service');shutil.copyfile(root/'node-agent/packaging/flux-kernel.service',out/'flux-kernel.service');shutil.copyfile(root/'node-agent/packaging/flux-kernel-local-shaping.conf',out/'flux-kernel-local-shaping.conf');shutil.copyfile(root/'node-agent/packaging/flux-local-shaping-prepare.service',out/'flux-local-shaping-prepare.service')
 proof={}
 if a.gost_amd64 or a.gost_arm64:
  if not(a.gost_amd64 and a.gost_arm64 and a.gost_proof):p.error('both GOST binaries and native WS/WSS verification evidence are required')

@@ -101,7 +101,7 @@ threading.Event().wait()
  s=v4spec('95_1_0',18405,'10.205.2.1',traffic={'localOutput':True,'localTargets':True});apply(s);time.sleep(1);check('base helper still supports uncapped local TCP/UDP',exchange('router','10.205.1.1',18405))
  s['revision']=2;s['bandwidth']={'user':{'id':'u1','upBitsPerSecond':1000000}};apply(s)
  status=PANEL.rpc('GetForwardStatuses',{'ids':['95_1_0']})['data']['95_1_0']
- check('missing BPF privilege closes a newly introduced cap without rollback to unlimited',status['status']=='failed' and state()['rules']['95_1_0']['revision']==2 and exchange('router','10.205.1.1',18405,True))
+ check('missing preparation closes a newly introduced cap without rollback to unlimited',status['status']=='failed' and state()['rules']['95_1_0']['revision']==2 and exchange('router','10.205.1.1',18405,True))
  check('failed preflight removes every probe device','fp4probe' not in router('ip','link','show'))
  remote=v4spec('96_1_0',18406);remote['bandwidth']={'upBitsPerSecond':8000000};apply(remote);check('ordinary physical shaping remains usable without BPF',probe(18406))
  DONE=True

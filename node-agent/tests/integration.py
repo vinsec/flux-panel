@@ -80,7 +80,7 @@ def namespaces():
     check('isolated client/router/target namespaces; forwarding default DROP')
 def start_agent(n):
     p=pathlib.Path('/tmp/flux-agent-config.json');p.write_text(json.dumps({'addr':'http://10.203.3.1:6365','secret':n['secret'],'statePath':'/tmp/flux-agent-state.json','apply':True,'allowInsecure':True,'intervalSeconds':1,'useSessions':True}))
-    return start(['ip','netns','exec','router','sh','-c','mountpoint -q /sys/fs/bpf || mount -t bpf bpf /sys/fs/bpf; mkdir -p /sys/fs/bpf/tc/globals /sys/fs/bpf/ip/globals /sys/fs/bpf/xdp/globals; exec \"$@\"','sh',str(AGENT),'--config',str(p)],'agent.log')
+    return start(['ip','netns','exec','router','sh','-c','mountpoint -q /sys/fs/bpf || mount -t bpf bpf /sys/fs/bpf; mkdir -p /run/flux-agent-bpf; mount -t tmpfs -o mode=0700 tmpfs /run/flux-agent-bpf; "$1" --prepare-local-shaping >/dev/null; exec setpriv --bounding-set=-all,+net_admin,+net_raw,+net_bind_service "$@"','sh',str(AGENT),'--config',str(p)],'agent.log')
 def usage_total(fid):return sql('SELECT in_flow+out_flow AS total FROM forward WHERE id=%s',(fid,))[0]['total']
 try:
     for name,source,destination in [('agent',pathlib.Path('/build/flux-agent'),AGENT),('panel',ROOT/'springboot-backend/target/admin-0.0.1-SNAPSHOT.jar',JAR)]:
@@ -225,7 +225,9 @@ try:
     check('admin bandwidth group changes reach existing forwards through batch reconciliation')
     api('engine/set-bandwidth-group',{'nodeId':n['id'],'scope':'user','ownerId':1,'upBitsPerSecond':0,'downBitsPerSecond':0})
     live=api('engine/capabilities',{'nodeId':n['id']})['data'];check('admin inspection returns current capacity and fresh report acknowledgement',live.get('lastAckAt',0)>0 and live['capacity']['configuredForwards']>=2)
-    diagnosis=api('forward/diagnose',{'forwardId':adv['id']})['data'];check('diagnostics identify bounded TCP handshake without inventing packet loss',all(x.get('probeKind')=='tcpHandshake' and 'packetLoss' not in x for x in diagnosis['results']))
+    diagnosis=api('forward/diagnose',{'forwardId':adv['id'],'clientIP':'10.203.1.2','ingressInterface':'r0'})['data'];check('Java diagnostics default to route-only and keep remote return unverified',all(x.get('probeKind')=='routeOnly' for x in diagnosis['results']) and not diagnosis['probePerformed'] and not diagnosis['returnPath']['remoteReturnVerified'])
+    diagnosis=api('forward/diagnose',{'forwardId':adv['id'],'probe':True})['data'];check('explicit Java diagnostics identify bounded node TCP handshake without inventing return proof',all(x.get('probeKind')=='tcpHandshake' and 'packetLoss' not in x for x in diagnosis['results']) and not diagnosis['returnPath']['remoteReturnVerified'])
+    check('Java diagnostics reject non-Boolean probe',api('forward/diagnose',{'forwardId':adv['id'],'probe':'true'},expect=False)['code']!=0)
     assert sql('SELECT COUNT(*) n FROM engine_session WHERE node_id=%s',(n['id'],))[0]['n']>0
     check('new agent registers with opaque short-lived bearer session stored only by hash')
     serial=(OUT/'agent.log').read_text().count('iptables agent connected')

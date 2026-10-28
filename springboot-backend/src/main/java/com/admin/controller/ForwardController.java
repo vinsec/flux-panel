@@ -83,7 +83,9 @@ public class ForwardController extends BaseController {
     @PostMapping("/diagnose")
     public R diagnoseForward(@RequestBody Map<String, Object> params) {
         Long forwardId = Long.valueOf(params.get("forwardId").toString());
-        return forwardService.diagnoseForward(forwardId);
+        if(params.containsKey("probe") && !(params.get("probe") instanceof Boolean))return R.err("probe must be boolean");
+        for(String key:new String[]{"clientIP","ingressInterface"})if(params.containsKey(key)&&params.get(key)!=null&&!(params.get(key) instanceof String))return R.err(key+" must be text");
+        return forwardService.diagnoseForward(forwardId,(String)params.get("clientIP"),(String)params.get("ingressInterface"),Boolean.TRUE.equals(params.get("probe")));
     }
 
     /**

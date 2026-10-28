@@ -457,7 +457,10 @@ public class ForwardServiceImpl extends ServiceImpl<ForwardMapper, Forward> impl
     }
 
     @Override
-    public R diagnoseForward(Long id) {
+    public R diagnoseForward(Long id) {return diagnoseForward(id,null,null,false);}
+
+    @Override
+    public R diagnoseForward(Long id,String clientIP,String ingressInterface,boolean probe) {
         // 1. 获取当前用户信息
         UserInfo currentUser = getCurrentUserInfo();
 
@@ -482,10 +485,23 @@ public class ForwardServiceImpl extends ServiceImpl<ForwardMapper, Forward> impl
 
         if("iptables".equals(inNode.getEngine())) {
             UserTunnel permission=getUserTunnel(forward.getUserId(),tunnel.getId().intValue());User owner=userService.getById(forward.getUserId());if(owner!=null&&owner.getRoleId()==0)permission=null;
-            String service=buildServiceName(forward.getId(),forward.getUserId(),permission);JSONObject query=new JSONObject();query.put("id",service);query.put("probe",true);
+            String service=buildServiceName(forward.getId(),forward.getUserId(),permission);JSONObject query=new JSONObject();query.put("id",service);query.put("probe",probe);
+            if(clientIP!=null&&!clientIP.isBlank()||ingressInterface!=null&&!ingressInterface.isBlank()){com.admin.common.engine.EngineCapabilities.require(inNode.getId(),"returnPathDiagnostics");}
+            if(com.admin.common.engine.EngineCapabilities.supports(inNode.getId(),"returnPathDiagnostics")){query.put("clientIP",clientIP==null?"":clientIP.trim());query.put("ingressInterface",ingressInterface==null?"":ingressInterface.trim());}
             GostDto reply=WebSocketServer.send_msg(inNode.getId(),query,"DiagnoseForward");if(!"OK".equals(reply.getMsg()))return R.err(reply.getMsg());
-            JSONObject data=(JSONObject)JSONObject.toJSON(reply.getData());List<Map<String,Object>> details=new ArrayList<>();var routes=data.getJSONArray("routes");if(routes!=null)for(Object value:routes){JSONObject route=(JSONObject)value;Map<String,Object> detail=new HashMap<>();detail.put("nodeId",inNode.getId());detail.put("nodeName",inNode.getName());detail.put("targetIp",route.getString("target"));detail.put("targetPort",route.getIntValue("port"));detail.put("description","节点到当前目标（有界诊断）");detail.put("success",route.getBooleanValue("reachable"));detail.put("averageTime",route.get("tcpHandshakeMs"));detail.put("probeKind","tcpHandshake");detail.put("message",route.containsKey("probeError")?route.getString("probeError"):route.containsKey("probe")?route.getString("probe"):"已读取实际路由并执行最多一次 TCP 连接");details.add(detail);}
-            Map<String,Object> report=new HashMap<>();report.put("forwardId",id);report.put("forwardName",forward.getName());report.put("timestamp",System.currentTimeMillis());report.put("results",details);report.put("engineState",data.get("state"));return R.ok(report);
+            JSONObject data=(JSONObject)JSONObject.toJSON(reply.getData());List<Map<String,Object>> details=new ArrayList<>();var routes=data.getJSONArray("routes");
+            if(routes!=null)for(Object value:routes){
+                JSONObject route=(JSONObject)value;boolean performed=route.getBooleanValue("probePerformed");
+                // Older agents do not carry a per-route performed flag.
+                if(!route.containsKey("probePerformed"))performed=probe&&route.containsKey("reachable");
+                JSONObject evidence=route.getJSONObject("routeEvidence");boolean routeAvailable=evidence!=null&&evidence.getBooleanValue("available");
+                if(evidence==null&&route.get("route")!=null)routeAvailable=true;
+                Map<String,Object> detail=new HashMap<>();detail.put("nodeId",inNode.getId());detail.put("nodeName",inNode.getName());detail.put("targetIp",route.getString("target"));detail.put("targetPort",route.getIntValue("port"));
+                detail.put("description",performed?"节点自身连接探测（不证明客户端回程）":"节点路由与回程线索（只读）");detail.put("success",performed?route.getBooleanValue("reachable"):routeAvailable);detail.put("averageTime",route.get("tcpHandshakeMs"));detail.put("probeKind",performed?"tcpHandshake":"routeOnly");
+                detail.put("message",performed?(route.containsKey("probeError")?route.getString("probeError"):"节点接口/源地址的 TCP 握手成功；不等于客户端回程或策略网关已验证"):"已读取路由；未执行连接探测");
+                detail.put("routeEvidence",route.get("routeEvidence"));detail.put("forwardRouteEvidence",route.get("forwardRouteEvidence"));details.add(detail);
+            }
+            Map<String,Object> report=new HashMap<>();report.put("forwardId",id);report.put("forwardName",forward.getName());report.put("timestamp",System.currentTimeMillis());report.put("results",details);report.put("engineState",data.get("state"));report.put("returnPath",data.get("returnPath"));report.put("probePerformed",data.get("probePerformed"));report.put("routesTruncated",data.get("routesTruncated"));return R.ok(report);
         }
         List<DiagnosisResult> results = new ArrayList<>();
         String[] remoteAddresses = forward.getRemoteAddr().split(",");

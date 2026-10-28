@@ -4,6 +4,9 @@
 沿用 schema 4 / state format 5、业务 token、共享额度和累计账本。
 本批不表示 P2 23–27 或生产上线已完成。
 
+当前缩权与回程诊断实现已更新至 [v5.2 说明](forward-p2-privilege-returnpath.md)。
+以下保留 v5.1 的实现与权限成本记录。
+
 ## 本地平滑限速
 
 `localTrafficShaping=true`。本机 OUTPUT、本机目标和普通转发共用已有

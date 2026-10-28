@@ -299,7 +299,7 @@ func localAddresses() (map[string][]string, error) {
 		return nil, e
 	}
 	for _, iface := range interfaces {
-		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 || iface.Name == shapingDevice || iface.Name == localProbeDevice {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 || iface.Name == shapingDevice || iface.Name == localProbeDevice || iface.Name == localPrepareDevice {
 			continue
 		}
 		addresses, e := iface.Addrs()

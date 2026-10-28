@@ -317,3 +317,9 @@ func (r *RemoteManager) Diagnostics(ctx context.Context, id string, probe bool) 
 	e := r.call("DiagnoseForward", map[string]any{"id": id, "probe": probe}, &v)
 	return v, e
 }
+
+func (r *RemoteManager) ReturnPathDiagnostics(ctx context.Context, id string, probe bool, q engine.ReturnPathQuery) (map[string]any, error) {
+	var result map[string]any
+	e := r.call("DiagnoseForward", map[string]any{"id": id, "probe": probe, "clientIP": q.ClientIP, "ingressInterface": q.IngressInterface}, &result)
+	return result, e
+}

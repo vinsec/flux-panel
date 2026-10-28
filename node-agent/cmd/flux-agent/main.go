@@ -37,7 +37,17 @@ func main() {
 	status := flag.Bool("status", false, "read checkpoint metadata without changing rules")
 	testFault := flag.String("test-fault", "", "crash injection in a marked disposable test container")
 	plan := flag.String("plan", "", "render a single ForwardSpec without executing commands")
+	prepareLocal := flag.Bool("prepare-local-shaping", false, "short-lived administrative preparation of the embedded local BPF program")
 	flag.Parse()
+	if *prepareLocal {
+		result, e := engine.PrepareLocalShaping()
+		if e != nil {
+			log.Fatal(e)
+		}
+		b, _ := json.Marshal(result)
+		fmt.Println(string(b))
+		return
+	}
 	if *plan != "" {
 		b, e := os.ReadFile(*plan)
 		if e != nil {
