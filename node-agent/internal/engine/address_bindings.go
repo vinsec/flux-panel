@@ -39,6 +39,19 @@ func (m *Manager) refreshAddressesLocked() error {
 	return nil
 }
 func (k *IPTables) RefreshBindings(rules map[string]Spec) (changed bool, failure error) {
+	if k.Native != nil {
+		if !k.P1.addressDirty.Swap(false) && !k.P1.runtimeContractsChanged(rules) {
+			return false, nil
+		}
+		if e := k.Native.gate(nil, false, false); e != nil {
+			return false, e
+		}
+		if e := k.Native.apply(mapSpecs(rules)); e != nil {
+			k.P1.addressDirty.Store(true)
+			return false, e
+		}
+		return true, nil
+	}
 	defer func() {
 		if failure != nil && k.P1 != nil {
 			k.P1.addressDirty.Store(true)

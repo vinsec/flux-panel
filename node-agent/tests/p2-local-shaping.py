@@ -18,6 +18,7 @@ for proto in PROTOCOLS:
 print('ok')'''.replace('PROTOCOLS',repr(protocols)).replace('HOST',repr(host)).replace('PORT',str(port)).replace('BLOCKED',str(blocked))
  return run(ns(where,'python3','-c',code)).splitlines()[-1]=='ok'
 def counters(ident):
+ if KERNEL_BACKEND=='nftables':return native_counters(ident)
  result=[0,0]
  for family in ['FP4','FP6']:
   for index,direction in enumerate(['UP','DOWN']):
@@ -45,7 +46,7 @@ try:
  for n,i,address in [('client','c0','fd25:1::2/64'),('router','r0','fd25:1::1/64'),('router','r1','fd25:2::1/64'),('transit','m0','fd25:2::2/64'),('transit','m1','fd25:3::1/64'),('target','t0','fd25:3::2/64')]:run(['ip','-n',n,'-6','addr','add',address,'dev',i,'nodad'])
  for n in ['router','transit']:run(ns(n,'sysctl','-w','net.ipv6.conf.all.forwarding=1'))
  for n,route in [('client',['default','via','fd25:1::1']),('target',['default','via','fd25:3::1']),('router',['fd25:3::/64','via','fd25:2::2']),('transit',['fd25:1::/64','via','fd25:2::1'])]:run(['ip','-n',n,'-6','route','add',*route])
- router('ip6tables','-P','FORWARD','DROP')
+ router('ip6tables','-P','FORWARD','ACCEPT' if KERNEL_BACKEND=='nftables' else 'DROP')
  echo6="""import socketserver,threading,socket
 socketserver.UDPServer.max_packet_size=65535
 class T(socketserver.BaseRequestHandler):
@@ -73,7 +74,7 @@ threading.Event().wait()
  cfg={'addr':'http://10.205.4.1:8000','secret':SECRET,'statePath':str(STATE),'apply':True,'allowInsecure':True,'intervalSeconds':1};helper=None
  if os.getenv('FLUX_P2_HELPER')=='1':
   directory=pathlib.Path('/tmp/flux-p2-helper');directory.mkdir(mode=0o750);os.chown(directory,0,12345);cfg['helperSocket']=str(directory/'kernel.sock')
- CONFIG.write_text(json.dumps(cfg));CONFIG.chmod(0o644)
+ write_config(cfg);CONFIG.chmod(0o644)
  BPF_PREP='mountpoint -q /sys/fs/bpf || mount -t bpf bpf /sys/fs/bpf; mount -o remount,rw /sys/fs/bpf; mkdir -p /sys/fs/bpf/tc/globals /sys/fs/bpf/ip/globals /sys/fs/bpf/xdp/globals; mkdir -p /run/flux-agent-bpf; mount -t tmpfs -o mode=0700 tmpfs /run/flux-agent-bpf; /build/flux-agent --prepare-local-shaping > /dev/null; mount --bind /sys/fs/bpf /sys/fs/bpf; mount -o remount,bind,ro /sys/fs/bpf; exec "$@"'
  def start_helper():
   p=spawn(ns('router','sh','-c',BPF_PREP,'sh','setpriv','--regid=12345','--clear-groups','--bounding-set=-all,+net_admin,+net_raw,+net_bind_service',str(BUILD/'flux-agent'),'--kernel-helper','--helper-user','12345','--config',str(CONFIG)),'helper.log');wait(lambda:pathlib.Path(cfg['helperSocket']).exists());return p
@@ -128,6 +129,13 @@ s.close();print(time.monotonic()-t)
  for j in jobs:j.start()
  for j in jobs:j.join()
  elapsed=time.monotonic()-t;check('local and routed forwards share one user HTB ceiling',not errors and len(values)==2 and 1.5<elapsed<7);rows.append({'path':'shared-local-remote','seconds':elapsed,'payloadBytes':2097152,'rateBitsPerSecond':8000000})
+ # A reboot keeps the durable aux manifest but loses lo's clsact. Rebuild
+ # from that state instead of treating deletion of absent filters as fatal.
+ stop(a)
+ if helper:stop(helper)
+ router('tc','qdisc','del','dev','lo','clsact')
+ if helper:helper=start_helper()
+ a=agent();check('cold clsact loss recovers persisted local shaping',exchange('router','10.205.1.1',18200) and .65<bulk('router','10.205.1.1',18200)<5)
  for i in range(2):PANEL.rpc('DeleteForward',{'id':f'{60+i}_7_0','revision':2})
  check('deleting last local cap removes IFB and every owned classifier','fp4shape' not in router('ip','link','show') and all(router('tc','-j','filter','show','dev',dev,'ingress')=='[]' and router('tc','-j','filter','show','dev',dev,'egress')=='[]' for dev in ['lo','r0','r1','r2']))
  # Losing a host prerequisite must close the desired capped rule, and

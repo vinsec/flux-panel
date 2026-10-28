@@ -18,6 +18,7 @@ for proto in PROTOCOLS:
 print('ok')'''.replace('PROTOCOLS',repr(protocols)).replace('HOST',repr(host)).replace('PORT',str(port)).replace('BLOCKED',str(blocked))
  return run(ns(where,'python3','-c',code)).splitlines()[-1]=='ok'
 def counters(ident):
+ if KERNEL_BACKEND=='nftables':return native_counters(ident)
  result=[0,0]
  for family in ['FP4','FP6']:
   for index,direction in enumerate(['UP','DOWN']):
@@ -45,7 +46,7 @@ try:
  for n,i,address in [('client','c0','fd25:1::2/64'),('router','r0','fd25:1::1/64'),('router','r1','fd25:2::1/64'),('transit','m0','fd25:2::2/64'),('transit','m1','fd25:3::1/64'),('target','t0','fd25:3::2/64')]:run(['ip','-n',n,'-6','addr','add',address,'dev',i,'nodad'])
  for n in ['router','transit']:run(ns(n,'sysctl','-w','net.ipv6.conf.all.forwarding=1'))
  for n,route in [('client',['default','via','fd25:1::1']),('target',['default','via','fd25:3::1']),('router',['fd25:3::/64','via','fd25:2::2']),('transit',['fd25:1::/64','via','fd25:2::1'])]:run(['ip','-n',n,'-6','route','add',*route])
- router('ip6tables','-P','FORWARD','DROP')
+ router('ip6tables','-P','FORWARD','ACCEPT' if KERNEL_BACKEND=='nftables' else 'DROP')
  echo6="""import socketserver,threading,socket
 class T(socketserver.BaseRequestHandler):
  def handle(self):
@@ -71,7 +72,7 @@ threading.Event().wait()
  cfg={'addr':'http://10.205.4.1:8000','secret':SECRET,'statePath':str(STATE),'apply':True,'allowInsecure':True,'intervalSeconds':1};helper=None
  if os.getenv('FLUX_P2_HELPER')=='1':
   directory=pathlib.Path('/tmp/flux-p2-helper');directory.mkdir(mode=0o750);os.chown(directory,0,12345);cfg['helperSocket']=str(directory/'kernel.sock')
- CONFIG.write_text(json.dumps(cfg));CONFIG.chmod(0o644)
+ write_config(cfg);CONFIG.chmod(0o644)
  def start_helper():
   p=spawn(ns('router','setpriv','--regid=12345','--clear-groups',str(BUILD/'flux-agent'),'--kernel-helper','--helper-user','12345','--config',str(CONFIG)),'helper.log');wait(lambda:pathlib.Path(cfg['helperSocket']).exists());return p
  if cfg.get('helperSocket'):
@@ -208,7 +209,7 @@ pathlib.Path('/tmp/p2-held-ok').touch()
  check('exhaustion blocks local OUTPUT and external INPUT',exchange('router','10.205.1.1',18007,True) and exchange('client','10.205.1.1',18007,True));PANEL.quota=0
  stop(a)
  if helper:stop(helper);helper=start_helper()
- a=agent();check('state5 restart restores hook coverage and source policy',state()['formatVersion']==5 and exchange('router','127.0.0.1',18003) and exchange('router','10.205.1.1',18002))
+ a=agent();check('checkpoint restart restores hook coverage and source policy',state()['formatVersion']==(6 if KERNEL_BACKEND=='nftables' else 5) and exchange('router','127.0.0.1',18003) and exchange('router','10.205.1.1',18002))
  run(['ip','-n','router','addr','add','10.205.3.2/32','dev','r1'])
  check('enabling another local rule cannot opt a remote-only rule into INPUT',exchange('client','10.205.1.1',18000,True))
  run(['ip','-n','router','addr','del','10.205.3.2/32','dev','r1'])

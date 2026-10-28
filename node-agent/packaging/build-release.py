@@ -18,7 +18,7 @@ if a.gost_amd64 or a.gost_arm64:
   if expected.get('sha256')!=sha or not expected.get('ws') or not expected.get('wss'):p.error('unverified GOST binary '+arch)
   shutil.copyfile(source,out/('gost-linux-'+arch));(out/('gost-linux-'+arch)).chmod(0o755)
  (out/'gost-wss-evidence.json').write_text(json.dumps(proof,indent=2))
-manifest={'format':1,'sourceCommit':commit,'sourceDirty':dirty,'engines':['iptables']+(['gost'] if proof else []),'stateVersion':5,'requiresExplicitDatabaseMigration':['001-forward-engines.sql','002-engine-foundation.sql','003-engine-p1.sql']}
+manifest={'format':1,'sourceCommit':commit,'sourceDirty':dirty,'engines':['iptables']+(['gost'] if proof else []),'kernelBackends':['iptables','nftables'],'stateVersion':6,'requiresExplicitDatabaseMigration':['001-forward-engines.sql','002-engine-foundation.sql','003-engine-p1.sql']}
 (out/'release.json').write_text(json.dumps(manifest,indent=2)+'\n')
 lines=[]
 for f in sorted(out.iterdir()):

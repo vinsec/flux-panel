@@ -7,6 +7,31 @@ import base64,hashlib,http.server,json,os,pathlib,queue,signal,socket,struct,sub
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 OUT=pathlib.Path(os.environ.get('FLUX_TEST_EVIDENCE','/evidence'));OUT.mkdir(exist_ok=True);BUILD=pathlib.Path('/build');SECRET='isolated-foundation-only';KEY=hashlib.sha256(SECRET.encode()).digest();CHECKS=[];PROCS=[];DONE=False
 STATE=pathlib.Path('/tmp/foundation-state.json');CONFIG=pathlib.Path('/tmp/foundation-config.json')
+KERNEL_BACKEND=os.getenv('FLUX_KERNEL_BACKEND','iptables')
+def write_config(cfg):
+ cfg=dict(cfg)
+ if KERNEL_BACKEND=='nftables':cfg['kernelBackend']='nftables'
+ CONFIG.write_text(json.dumps(cfg))
+def native_counters(ident):
+ totals=[0,0]
+ for item in json.loads(router('nft','-j','list','table','inet','FP_NATIVE'))['nftables']:
+  c=item.get('counter')
+  if not c:continue
+  fields=c['comment'].split('|')
+  for i,d in enumerate(['up','down']):
+   if fields[2]=='flux:v2:'+ident+':'+d:totals[i]+=c['bytes']
+ return totals
+def binding_text(family):
+ if KERNEL_BACKEND!='nftables':return router('ipset','save',family+'_BIND')
+ f='4' if family=='FP4' else '6';d=json.loads(router('nft','-j','list','map','inet','FP_NATIVE','bind'+f));rows=[]
+ def visit(v):
+  if isinstance(v,dict):
+   if 'concat' in v and len(v['concat'])==3:
+    ip,proto,port=v['concat'];proto={6:'tcp',17:'udp'}.get(proto,proto);rows.append(f'{ip},{proto}:{port}')
+   for x in v.values():visit(x)
+  elif isinstance(v,list):
+   for x in v:visit(x)
+ visit(d);return '\n'.join(rows)
 def check(name,condition=True):
  assert condition,name
  CHECKS.append(name);print('PASS',name,flush=True)
@@ -101,9 +126,13 @@ def topology():
  for n in ['router','transit']:run(ns(n,'sh','-c','(mount -o remount,rw /proc/sys 2>/dev/null || true); sysctl -w net.ipv4.ip_forward=1'))
  run(['ip','-n','router','route','add','10.205.3.0/24','via','10.205.2.2']);run(['ip','-n','transit','route','add','10.205.1.0/24','via','10.205.2.1']);run(['ip','-n','client','route','add','default','via','10.205.1.1']);run(['ip','-n','target','route','add','default','via','10.205.3.1'])
  router('iptables','-P','FORWARD','DROP');router('iptables','-N','UNRELATED_FOUNDATION');router('iptables','-A','UNRELATED_FOUNDATION','-m','comment','--comment','keep-unrelated','-j','RETURN');router('iptables','-A','FORWARD','-m','conntrack','--ctstate','ESTABLISHED,RELATED','-j','ACCEPT')
+ if KERNEL_BACKEND=='nftables':router('iptables','-P','FORWARD','ACCEPT')
  assert not any('default' in l for l in router('ip','route').splitlines())
  pathlib.Path('/run/flux-test-disposable').touch()
  spawn(ns('target','env','FLUX_ECHO_ALLOW_FRAGMENT=1','python3','/tests/echo_server.py'),'target.log')
+ if os.getenv('FLUX_CAPTURE')=='1':
+  for n in ['client','router','transit','target']:spawn(ns(n,'tcpdump','-n','-l','-i','any','ip6'),n+'-capture.txt')
+  router('nft','add','table','inet','diagnostic');router('nft','add','chain','inet','diagnostic','out','{ type filter hook output priority -301; policy accept; }');router('nft','add','rule','inet','diagnostic','out','meta','nfproto','ipv6','meta','nftrace','set','1');spawn(ns('router','nft','monitor','trace'),'nft-trace.txt')
  check('four private netns including an intermediate PMTU router; no external route')
 def agent(fault='',timeout=20):
  serial=PANEL.serial;args=ns('router',str(BUILD/'flux-agent'),'--config',str(CONFIG))

@@ -180,7 +180,7 @@ func (x *Auxiliary) removeFilter(f shapeFilter) error {
 		return nil
 	}
 	_, e := x.runTC("filter", "del", "dev", f.Interface, "egress", "protocol", "all", "pref", "49151", "handle", fmt.Sprintf("0x%x", f.Mark), "fw")
-	if e != nil && !strings.Contains(e.Error(), "No such") && !strings.Contains(e.Error(), "Cannot find") {
+	if e != nil && !strings.Contains(e.Error(), "No such") && !strings.Contains(e.Error(), "Cannot find") && !strings.Contains(e.Error(), "Parent Qdisc doesn't exists") {
 		return e
 	}
 	return nil

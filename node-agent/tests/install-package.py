@@ -6,7 +6,7 @@ try:
  if os.getenv('IPTABLES_BACKEND')=='legacy':run(['update-alternatives','--set','iptables','/usr/sbin/iptables-legacy'])
  topology();server=http.server.ThreadingHTTPServer(('10.205.4.1',8000),Handler);server.daemon_threads=True;threading.Thread(target=server.serve_forever,daemon=True).start()
  package=pathlib.Path('/package');pin=hashlib.sha256((package/'SHA256SUMS').read_bytes()).hexdigest();arch='arm64' if os.uname().machine=='aarch64' else 'amd64';prefix=pathlib.Path('/tmp/package-root');config=pathlib.Path('/tmp/package-config.json');ledger=prefix/'var/lib/flux-agent/state.json';binary=prefix/'usr/local/bin/flux-agent'
- config.write_text(json.dumps({'addr':'http://10.205.4.1:8000','secret':SECRET,'statePath':str(ledger),'apply':True,'allowInsecure':True,'intervalSeconds':1}))
+ config.write_text(json.dumps({'addr':'http://10.205.4.1:8000','secret':SECRET,'statePath':str(ledger),'apply':True,'allowInsecure':True,'intervalSeconds':1,'kernelBackend':KERNEL_BACKEND}))
  def install(action='install',extra=(),success=True,service=False):
   args=ns('router','bash',str(package/'install.sh'),'--engine','iptables','--bundle',str(package),'--manifest-sha256',pin,'--config',str(config),'--prefix',str(prefix),'--action',action)
   if not service:args+=['--no-service']

@@ -108,6 +108,15 @@ func (a *AdvancedKernel) initializeFromState() error {
 	return nil
 }
 func (a *AdvancedKernel) ensurePlane(family string) error {
+	if a.parent.Native != nil {
+		if family == "ipv6" {
+			b, e := os.ReadFile("/proc/sys/net/ipv6/conf/all/forwarding")
+			if e != nil || strings.TrimSpace(string(b)) != "1" {
+				return fmt.Errorf("IPv6 forwarding must already be enabled")
+			}
+		}
+		return nil
+	}
 	if a.ready[family] {
 		return nil
 	}
@@ -337,63 +346,7 @@ func (a *AdvancedKernel) apply(plan []Spec) error {
 	if e != nil {
 		return e
 	}
-	routeLocal := routeLocalnetEnabled()
-	a.runtimeErrors = map[string]string{}
-	a.udpContracts = map[string]string{}
-	a.localShapeWatch = false
-	a.localShapePrereq = ""
-	for _, s := range rules {
-		if !s.Deleted && s.localTraffic() && s.Bandwidth.Enabled() {
-			a.localShapeWatch = true
-			a.localShapePrereq = localShapingProblem()
-			if a.localShapePrereq == "" && !a.localProbeChecked {
-				a.localProbeError = a.probeLocalShaping()
-				a.localProbeChecked = true
-			}
-			break
-		}
-	}
-	for id, s := range rules {
-		if s.Deleted {
-			continue
-		}
-		problem := s.localPathProblem(addresses, routeLocal)
-		if s.preserveSource() && s.trafficPolicy().LocalTargets && slices.Contains(s.Protocols, "udp") {
-			a.udpContracts[id] = problem
-		}
-		if problem == "" && s.localTraffic() && s.Bandwidth.Enabled() {
-			problem = a.localShapePrereq
-			if problem == "" {
-				problem = a.localProbeError
-			}
-		}
-		if problem == "" && s.Egress.Interface != "" {
-			iface, err := net.InterfaceByName(s.Egress.Interface)
-			if err != nil || iface.Flags&net.FlagUp == 0 {
-				problem = "egress interface unavailable"
-			} else {
-				addresses, _ := iface.Addrs()
-				assigned := map[string]bool{}
-				for _, address := range addresses {
-					ip, _, e := net.ParseCIDR(address.String())
-					if e == nil {
-						assigned[ip.String()] = true
-					}
-				}
-				for _, source := range []string{s.Egress.SourceIPv4, s.Egress.SourceIPv6} {
-					if source != "" && !assigned[source] {
-						problem = "egress source address unavailable"
-					}
-				}
-			}
-		}
-		if problem != "" {
-			a.runtimeErrors[id] = problem
-			s = cloneSpec(s)
-			s.Enabled = false
-			rules[id] = s
-		}
-	}
+	rules = a.prepareRuntimeRules(rules, addresses)
 	rules, e = a.prepareAux(rules)
 	if e != nil {
 		return e

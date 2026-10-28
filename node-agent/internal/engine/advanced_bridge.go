@@ -30,6 +30,9 @@ func legacyState(s State) State {
 	return r
 }
 func (k *IPTables) QuiesceTokens(tokens []uint32) error {
+	if k.Native != nil {
+		return k.Native.gate(tokens, false, false)
+	}
 	if e := k.quiesceBaseTokens(tokens); e != nil {
 		return e
 	}
@@ -39,12 +42,18 @@ func (k *IPTables) QuiesceTokens(tokens []uint32) error {
 	return nil
 }
 func (k *IPTables) QuiesceNewTokens(tokens []uint32) error {
+	if k.Native != nil {
+		return k.Native.gate(tokens, true, false)
+	}
 	if k.P1 == nil {
 		return k.QuiesceTokens(tokens)
 	}
 	return k.P1.gate(tokens, true, false)
 }
 func (k *IPTables) Activate() error {
+	if k.Native != nil {
+		return k.Native.gate(nil, false, true)
+	}
 	if e := k.activateBase(); e != nil {
 		return e
 	}
@@ -54,6 +63,12 @@ func (k *IPTables) Activate() error {
 	return nil
 }
 func (k *IPTables) SyncCredits(s State) error {
+	if k.Native != nil {
+		if e := k.P1.quota.sync(s); e != nil {
+			return e
+		}
+		return k.Native.updateControl(s)
+	}
 	if e := k.syncBaseCredits(legacyState(s)); e != nil {
 		return e
 	}
@@ -66,6 +81,9 @@ func (k *IPTables) SyncCredits(s State) error {
 	return nil
 }
 func (k *IPTables) UpdateControl(s State) error {
+	if k.Native != nil {
+		return k.Native.updateControl(s)
+	}
 	if e := k.updateBaseControl(legacyState(s)); e != nil {
 		return e
 	}
@@ -75,6 +93,9 @@ func (k *IPTables) UpdateControl(s State) error {
 	return nil
 }
 func (k *IPTables) CanRenewCredits(before, after State) (bool, error) {
+	if k.Native != nil {
+		return k.P1.quota.canRenew(before, after)
+	}
 	legacyChanged, advancedChanged := false, false
 	for id, l := range after.Leases {
 		if reflect.DeepEqual(l, before.Leases[id]) {
@@ -104,6 +125,9 @@ func (k *IPTables) CanRenewCredits(before, after State) (bool, error) {
 	return legacyChanged || advancedChanged, nil
 }
 func (k *IPTables) RenewCredits(before, after State) error {
+	if k.Native != nil {
+		return k.P1.quota.renew(after)
+	}
 	if e := k.renewBaseCredits(legacyState(before), legacyState(after)); e != nil {
 		return e
 	}

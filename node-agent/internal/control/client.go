@@ -17,6 +17,7 @@ import (
 )
 
 type Config struct {
+	KernelBackend   string   `json:"kernelBackend,omitempty"`
 	DNSServers      []string `json:"dnsServers,omitempty"`
 	LegacyQueryAuth bool     `json:"legacyQueryAuth,omitempty"`
 	UseSessions     bool     `json:"useSessions,omitempty"`
@@ -53,7 +54,7 @@ func (c Config) URLs() (string, string, error) {
 	q := ws.Query()
 	q.Set("type", "1")
 	q.Set("engine", "iptables")
-	q.Set("version", "iptables-v5.2")
+	q.Set("version", "iptables-v5.3")
 	if c.LegacyQueryAuth {
 		q.Set("secret", c.Secret)
 	}

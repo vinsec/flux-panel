@@ -96,6 +96,13 @@ func accumulate(s *State, c map[string]uint64) {
 	}
 }
 func (k *IPTables) inventory() (map[string]string, map[string]string, error) {
+	if k.Native != nil {
+		if e := k.Native.ensure(); e != nil {
+			return nil, nil, e
+		}
+		text, e := k.Native.run("", "list", "table", "inet", nativeTable)
+		return map[string]string{"native-nft": text}, map[string]string{}, e
+	}
 	tables := map[string]string{}
 	sets := map[string]string{}
 	for _, table := range []string{"filter", "mangle", "nat"} {
@@ -140,6 +147,9 @@ func (k *IPTables) inventory() (map[string]string, map[string]string, error) {
 	return tables, sets, nil
 }
 func (k *IPTables) removeOwned(tables map[string]string, sets map[string]string) error {
+	if k.Native != nil {
+		return k.Native.cleanup()
+	}
 	base := map[string]string{}
 	for name, saved := range sets {
 		if !strings.HasPrefix(name, "FP4_") && !strings.HasPrefix(name, "FP6_") {
@@ -234,7 +244,7 @@ func readMaintenanceState(path string) (State, error) {
 	if e = json.Unmarshal(b, &s); e != nil {
 		return s, e
 	}
-	if len(s.Epoch) != 32 || s.Sequence < 0 || s.Rules == nil || s.FormatVersion > 5 {
+	if len(s.Epoch) != 32 || s.Sequence < 0 || s.Rules == nil || s.FormatVersion > 6 {
 		return s, fmt.Errorf("invalid maintenance checkpoint")
 	}
 	return s, nil
@@ -287,6 +297,17 @@ func Maintain(path, configPath, action, backupDir string, k *IPTables, offline b
 	if e != nil {
 		return result, e
 	}
+	backend := "iptables"
+	if k.Native != nil {
+		backend = "nftables"
+	}
+	priorBackend := state.KernelBackend
+	if priorBackend == "" {
+		priorBackend = "iptables"
+	}
+	if backend != priorBackend {
+		return result, fmt.Errorf("maintenance must use the checkpoint's existing kernel backend; settle it before switching")
+	}
 	originalFormat := state.FormatVersion
 	var source State
 	var prior MaintenanceManifest
@@ -303,12 +324,17 @@ func Maintain(path, configPath, action, backupDir string, k *IPTables, offline b
 	if e != nil {
 		return result, e
 	}
+	if k.Native != nil {
+		if e = k.ClaimEpoch(state.Epoch); e != nil {
+			return result, e
+		}
+	}
 	if _, ok := sets[metaSet]; ok {
 		if e = k.ClaimEpoch(state.Epoch); e != nil {
 			return result, e
 		}
 	}
-	if k.P1 != nil {
+	if k.P1 != nil && k.Native == nil {
 		k.P1.epoch = state.Epoch
 		if e = k.P1.initializeFromState(); e != nil {
 			return result, e
@@ -520,6 +546,9 @@ func Maintain(path, configPath, action, backupDir string, k *IPTables, offline b
 			state = source
 		} else if action == "migrate" {
 			state.FormatVersion = requiredStateFormat(state.Rules)
+			if state.KernelBackend == "nftables" {
+				state.FormatVersion = 6
+			}
 			state.KernelID = ""
 			state.BootID = ""
 		}

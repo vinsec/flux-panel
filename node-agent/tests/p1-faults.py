@@ -4,7 +4,7 @@ DONE=False
 try:
  if os.getenv('IPTABLES_BACKEND')=='legacy':run(['update-alternatives','--set','iptables','/usr/sbin/iptables-legacy'])
  topology();server=http.server.ThreadingHTTPServer(('10.205.4.1',8000),Handler);server.daemon_threads=True;threading.Thread(target=server.serve_forever,daemon=True).start()
- CONFIG.write_text(json.dumps({'addr':'http://10.205.4.1:8000','secret':SECRET,'statePath':str(STATE),'apply':True,'allowInsecure':True,'intervalSeconds':1}));a=agent()
+ write_config({'addr':'http://10.205.4.1:8000','secret':SECRET,'statePath':str(STATE),'apply':True,'allowInsecure':True,'intervalSeconds':1});a=agent()
  s={'schemaVersion':3,'id':'1_1_0','revision':1,'enabled':True,'listen':{'host':'10.205.1.1','port':18000},'targets':[{'endpoint':{'host':'10.205.3.2','port':19000},'weight':1},{'endpoint':{'host':'10.205.3.2','port':19001},'weight':2}],'selection':'round','bandwidth':{'upBitsPerSecond':10000000,'downBitsPerSecond':10000000}}
  apply(s);check('advanced multi-target/shaping baseline forwards TCP/UDP',probe())
  for i,point in enumerate(['prepared','quiesced','kernel','credits','conntrack','counters','checkpoint','committed','activated']):

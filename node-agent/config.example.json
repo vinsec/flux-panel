@@ -4,6 +4,7 @@
   "apply": true,
   "statePath": "/var/lib/flux-agent/state.json",
   "iptables": "iptables",
+  "kernelBackend": "iptables",
   "intervalSeconds": 5,
   "allowInsecure": false
 }

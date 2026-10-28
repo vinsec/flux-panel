@@ -8,6 +8,10 @@ import (
 const metaSet = "FPV3_META"
 
 func (k *IPTables) ClaimLedger(epoch string) (string, error) {
+	if k.Native != nil {
+		k.P1.epoch = epoch
+		return k.Native.claim(epoch, false)
+	}
 	if k.P1 != nil {
 		k.P1.epoch = epoch
 	}
@@ -35,6 +39,9 @@ func (k *IPTables) ClaimLedger(epoch string) (string, error) {
 }
 func (k *IPTables) ClaimEpoch(epoch string) error { _, e := k.ClaimLedger(epoch); return e }
 func (k *IPTables) RotateLedger(epoch string) (string, error) {
+	if k.Native != nil {
+		return k.Native.claim(epoch, true)
+	}
 	id := identity()
 	_, e := k.run("ipset", "", "-exist", "add", metaSet, "192.0.2.255", "comment", owner+"|epoch="+epoch+"|instance="+id)
 	return id, e

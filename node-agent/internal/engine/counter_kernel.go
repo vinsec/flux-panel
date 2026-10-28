@@ -7,6 +7,9 @@ import (
 )
 
 func (k *IPTables) SnapshotDetailed() (map[string]uint64, []counterRecord, error) {
+	if k.Native != nil {
+		return k.Native.snapshot()
+	}
 	totals := map[string]uint64{}
 	records := []counterRecord{}
 	for _, name := range []string{upSet, downSet} {
@@ -38,6 +41,9 @@ func (k *IPTables) SnapshotDetailed() (map[string]uint64, []counterRecord, error
 	return totals, records, nil
 }
 func (k *IPTables) References() (map[string]bool, error) {
+	if k.Native != nil {
+		return k.Native.references()
+	}
 	text, e := k.run("conntrack", "", "-L", "-f", "ipv4", "--mark", mark)
 	if e != nil && !strings.Contains(e.Error(), "0 flow entries") {
 		return nil, e
@@ -95,6 +101,9 @@ func (k *IPTables) counterSets() (map[string]map[string]setElement, error) {
 	return out, nil
 }
 func (k *IPTables) RemoveCounters(records []counterRecord) error {
+	if k.Native != nil {
+		return k.Native.restore(records, true)
+	}
 	sets, e := k.counterSets()
 	if e != nil {
 		return e
@@ -120,6 +129,9 @@ func (k *IPTables) RemoveCounters(records []counterRecord) error {
 	return e
 }
 func (k *IPTables) RestoreCounters(records []counterRecord) error {
+	if k.Native != nil {
+		return k.Native.restore(records, false)
+	}
 	if len(records) == 0 {
 		return nil
 	}

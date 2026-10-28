@@ -85,7 +85,7 @@ Java 端统一 Endpoint 解析器，Go 端使用 `net/netip` 与 `net.JoinHostPo
 | 24 / P2 | 加密中继、隧道与 CDN 数据通道 | 现有 GOST relay/TLS/QUIC/WS/WSS 等继续交由 GOST。若需要内核方案，新增 WireGuard 隧道 capability，再在内层用本模式转发；WSS/HTTPS CDN 数据封装仍需具备协议能力的代理。控制面 WSS 已有，不等于数据面已经支持 CDN。 | 分开验证控制面与数据面、加密、重连、暂停/配额/统计口径；新隧道独立压测。 |
 | 25 / P2 | 应用协议屏蔽 | 先定义可承诺的识别范围。明文 HTTP 或可见 TLS 握手可由专门网关/代理实现；加密、ECH、分片/混淆不能靠端口或单包字符串可靠识别。保留 GOST 适配，必要时引入可选 DPI 模块及清晰误判策略。 | 按协议样本和绕过样本验收，明确支持/无法判断；不得破坏纯 L4 透明传输。 |
 | 26 / P2 | 单节点多引擎与在线迁移 | 目前同物理机需两个逻辑节点，节点/隧道引擎不可原地更改。若需按转发选择引擎，增加统一物理节点身份、多 Agent capability、全机端口仲裁、两阶段预备和停流切换；不同引擎间不宣称 TCP 无损迁移。 | 同机端口独占、失败回滚、账本连续和引擎选择生效；迁移断流边界可解释。 |
-| 27 / P2 | 原生 nftables map 后端 | 保留 ForwardingEngine/Spec，新增 nftables 编译器，以 map/vmap 进一步简化首包分发与原子批量事务；计数、暂停、配额语义与当前模式一致，不能仅切换命令名。 | 与 iptables-nft/legacy 同一黑盒矩阵和基准；共存/回滚清晰，明确这是新增后端而非当前已支持。 |
+| 27 / P2 · v5.3 已实现，隔离回归进行中 | 原生 nftables map 后端 | 保留 ForwardingEngine/Spec 与原 iptables 模式，新增原生 map/vmap、命名 counter、事务 guard、共享 quota 和独立 state format 6；[实现及迁移边界](forward-native-nft.md)。 | 双栈、DNS、多目标、暂停、配额、统计、缩权 helper 和故障黑盒矩阵已通过；本轮继续 10k 生命周期、性能及保留模式回归，结果单独记录。 |
 | 28 / P0 · 基础完成 | ICMP 错误、PMTU 与分片完整性 | IPv4 RELATED 错误 token 树、PMTU 与大 UDP 分片已实现；IPv6 控制编译器/Packet Too Big/分片通过独立前置验收，产品 IPv6 数据路径仍随第 12 项。策略位图缓存不变输入，完整 filter 重装强制使缓存失效。 | 缩小中间链路 MTU、阻断/恢复 ICMP、TCP/UDP 大包与分片均有端到端证据，暂停不被 RELATED ACCEPT 绕过。 |
 | 29 / P1 · 已完成本轮 | TCP/UDP 独立启用与监听配置 | 当前两种协议固定共享地址和端口。Spec 的 protocols/listeners 改为显式数组；绑定集合包含各自协议/地址/端口，冲突仲裁按协议与地址族判断，统计仍归属同一逻辑转发。 | TCP-only、UDP-only、不同监听地址/端口与跨引擎冲突按声明生效；原双协议记录兼容。 |
 

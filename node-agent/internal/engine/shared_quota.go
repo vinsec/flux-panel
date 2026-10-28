@@ -144,7 +144,11 @@ func (q *SharedQuota) snapshot() (map[string]nativeQuota, error) {
 	if !q.ready {
 		return result, nil
 	}
-	saved, e := q.parent.run("nft", "", "-j", "list", "table", "inet", quotaTable)
+	args := []string{"-j", "list", "table", "inet", quotaTable}
+	if q.parent.Native != nil {
+		args = []string{"-j", "list", "quotas", "table", "inet", quotaTable}
+	}
+	saved, e := q.parent.run("nft", "", args...)
 	if e != nil {
 		return nil, e
 	}
@@ -167,7 +171,7 @@ func (q *SharedQuota) sync(s State) error {
 	required := []Spec{}
 	for _, id := range keys(s.Rules) {
 		rule := s.Rules[id]
-		if rule.Advanced() && !rule.Deleted && rule.LeaseRequired && rule.Active() {
+		if (rule.Advanced() || q.parent.Native != nil) && !rule.Deleted && rule.LeaseRequired && rule.Active() {
 			required = append(required, rule)
 		}
 	}
@@ -287,7 +291,7 @@ func (q *SharedQuota) canRenew(before, after State) (bool, error) {
 	}
 	for id, lease := range after.Leases {
 		rule := after.Rules[id]
-		if !rule.Advanced() {
+		if !rule.Advanced() && q.parent.Native == nil {
 			continue
 		}
 		old := before.Leases[id]
@@ -311,7 +315,7 @@ func (q *SharedQuota) renew(after State) error {
 	fmt.Fprintf(&b, "flush set inet %s live\n", quotaTable)
 	for _, id := range keys(after.Rules) {
 		rule := after.Rules[id]
-		if !rule.Advanced() || !rule.Active() || !rule.LeaseRequired {
+		if (!rule.Advanced() && q.parent.Native == nil) || !rule.Active() || !rule.LeaseRequired {
 			continue
 		}
 		if q.parent.P1 != nil && q.parent.P1.runtimeErrors[id] != "" {

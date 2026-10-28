@@ -35,7 +35,7 @@ try:
  for n,i,address in [('client','c0','fd25:1::2/64'),('router','r0','fd25:1::1/64'),('router','r1','fd25:2::1/64'),('transit','m0','fd25:2::2/64'),('transit','m1','fd25:3::1/64'),('target','t0','fd25:3::2/64')]:run(['ip','-n',n,'-6','addr','add',address,'dev',i,'nodad'])
  for n in ['router','transit']:run(ns(n,'sh','-c','(mount -o remount,rw /proc/sys 2>/dev/null || true); sysctl -w net.ipv6.conf.all.forwarding=1'))
  for n,route in [('client',['default','via','fd25:1::1']),('target',['default','via','fd25:3::1']),('router',['fd25:3::/64','via','fd25:2::2']),('transit',['fd25:1::/64','via','fd25:2::1'])]:run(['ip','-n',n,'-6','route','add',*route])
- router('ip6tables','-P','FORWARD','DROP')
+ router('ip6tables','-P','FORWARD','ACCEPT' if KERNEL_BACKEND=='nftables' else 'DROP')
  code="""import socket,threading,time
 def tcp(c):
  try:
@@ -64,7 +64,7 @@ time.sleep(600)
  helper=None
  if os.getenv('FLUX_P1_HELPER')=='1':
   directory=pathlib.Path('/tmp/flux-p1-helper');directory.mkdir(mode=0o750);os.chown(directory,0,12345);cfg['helperSocket']=str(directory/'kernel.sock')
- CONFIG.write_text(json.dumps(cfg));CONFIG.chmod(0o644)
+ write_config(cfg);CONFIG.chmod(0o644)
  if cfg.get('helperSocket'):
   helper=spawn(ns('router','setpriv','--regid=12345','--clear-groups',str(BUILD/'flux-agent'),'--kernel-helper','--helper-user','12345','--config',str(CONFIG)),'helper.log');wait(lambda:pathlib.Path(cfg['helperSocket']).exists())
   def agent(fault=''):
@@ -235,16 +235,16 @@ print('ok')"""
  check('pausing the TCP business leaves its same-port UDP peer working',run(ns('client','python3','-c',protocol_probe))=='ok')
  # Wildcard expansion reacts to netlink events without a business revision.
  run(['ip','-n','router','addr','add','10.205.1.9/24','dev','r0'])
- wait(lambda:'10.205.1.9,udp:18005' in router('ipset','save','FP4_BIND'))
+ wait(lambda:'10.205.1.9,udp:18005' in binding_text('FP4'))
  check('new wildcard address forwards UDP without resuming paused TCP',run(ns('client','python3','-c',protocol_probe.replace('10.205.1.1','10.205.1.9')))=='ok')
  run(['ip','-n','router','addr','del','10.205.1.9/24','dev','r0'])
- wait(lambda:'10.205.1.9,' not in router('ipset','save','FP4_BIND'));check('deleted local address leaves no wildcard binding')
+ wait(lambda:'10.205.1.9,' not in binding_text('FP4'));check('deleted local address leaves no wildcard binding')
  router('sh','-c','(mount -o remount,rw /proc/sys 2>/dev/null || true); sysctl -w net.ipv6.conf.r0.dad_transmits=20')
  router('ip','-6','addr','add','fd25:1::9/64','dev','r0');time.sleep(1)
- check('IPv6 tentative addresses stay out of wildcard bindings until DAD completes','fd25:1::9,' not in router('ipset','save','FP6_BIND'))
+ check('IPv6 tentative addresses stay out of wildcard bindings until DAD completes','fd25:1::9,' not in binding_text('FP6'))
  router('ip','-6','addr','del','fd25:1::9/64','dev','r0');router('ip','-6','addr','add','fd25:1::9/64','dev','r0','nodad')
- wait(lambda:'fd25:1::9,' in router('ipset','save','FP6_BIND'));router('ip','-6','addr','del','fd25:1::9/64','dev','r0')
- wait(lambda:'fd25:1::9,' not in router('ipset','save','FP6_BIND'));check('usable IPv6 address is added and removed by netlink without business revision')
+ wait(lambda:'fd25:1::9,' in binding_text('FP6'));router('ip','-6','addr','del','fd25:1::9/64','dev','r0')
+ wait(lambda:'fd25:1::9,' not in binding_text('FP6'));check('usable IPv6 address is added and removed by netlink without business revision')
 
  # Weighted round-robin uses separate new sockets; established sockets stay pinned.
  pool={'schemaVersion':3,'id':'8_1_0','revision':1,'enabled':True,'listeners':[{'host':'10.205.1.1','port':18006,'protocol':'tcp'}],'selection':'round','targets':[{'endpoint':{'host':'10.205.3.2','port':19002},'weight':1},{'endpoint':{'host':'10.205.3.3','port':19002},'weight':3}]};apply(pool)

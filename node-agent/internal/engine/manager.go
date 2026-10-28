@@ -51,8 +51,33 @@ func New(path string, k Kernel) (manager *Manager, err error) {
 	} else if !fresh {
 		return nil, e
 	}
-	if m.state.FormatVersion > 5 {
+	if m.state.FormatVersion > 6 {
 		return nil, fmt.Errorf("unsupported state format")
+	}
+	if concrete, ok := k.(*IPTables); ok {
+		backend := "iptables"
+		if concrete.Native != nil {
+			backend = "nftables"
+		}
+		prior := m.state.KernelBackend
+		if prior == "" {
+			prior = "iptables"
+		}
+		if !fresh && prior != backend {
+			if _, e := os.Stat(path + ".journal"); e == nil {
+				return nil, fmt.Errorf("recover the existing backend's transaction before switching")
+			}
+			settled := m.state.KernelID == "" && len(m.state.Last) == 0
+			for _, s := range m.state.Rules {
+				if s.Enabled && !s.Deleted {
+					settled = false
+				}
+			}
+			if !settled {
+				return nil, fmt.Errorf("backend switch requires settled maintenance with all forwarding paused")
+			}
+		}
+		m.state.KernelBackend = backend
 	}
 	if !fresh && (len(m.state.Epoch) != 32 || m.state.Sequence < 0) {
 		return nil, fmt.Errorf("invalid persistent accounting identity")
@@ -218,6 +243,9 @@ func (m *Manager) defaults() {
 		s.NextToken = 1
 	}
 	s.FormatVersion = requiredStateFormat(s.Rules)
+	if s.KernelBackend == "nftables" {
+		s.FormatVersion = 6
+	}
 }
 func (m *Manager) validateState() error {
 	if m.state.NextToken > 65536 {
@@ -997,7 +1025,9 @@ func (m *Manager) Info() map[string]any {
 		sets[r.Set]++
 	}
 	capacity := map[string]any{"configuredForwards": configured, "retainedForwards": len(m.state.Rules), "forwardLimit": 10000, "resolvedPaths": paths, "resolvedPathLimit": 32768, "counterEntriesBySet": sets, "freeTokens": len(m.state.FreeTokens), "quarantinedTokens": len(m.state.Quarantine), "retiredCounters": len(m.state.CounterRetiredAt)}
-	return map[string]any{"capacity": capacity, "lastAckAt": m.state.LastAckAt, "lastConnectedAt": m.state.LastConnectedAt, "strictCreditPolicy": m.state.StrictCredit, "bootId": m.state.BootID, "capabilities": CurrentCapabilities(), "epoch": m.state.Epoch, "generation": m.state.Generation, "blocked": m.blocked, "maintenancePending": m.state.MaintenancePending, "accountingBlocked": m.state.AccountingBlocked, "lastDurableAt": m.state.LastDurableAt, "recovery": m.state.Recovery}
+	caps := CurrentCapabilities()
+	caps.Features["nativeNFTMap"] = m.state.KernelBackend == "nftables"
+	return map[string]any{"kernelBackend": m.state.KernelBackend, "capacity": capacity, "lastAckAt": m.state.LastAckAt, "lastConnectedAt": m.state.LastConnectedAt, "strictCreditPolicy": m.state.StrictCredit, "bootId": m.state.BootID, "capabilities": caps, "epoch": m.state.Epoch, "generation": m.state.Generation, "blocked": m.blocked, "maintenancePending": m.state.MaintenancePending, "accountingBlocked": m.state.AccountingBlocked, "lastDurableAt": m.state.LastDurableAt, "recovery": m.state.Recovery}
 }
 
 func (m *Manager) Connected(value bool) {

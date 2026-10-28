@@ -1,4 +1,13 @@
-# 独立 iptables Agent（实验版 v3）
+# 独立内核 Agent（v5.3）
+
+当前实现包含域名、双栈、多目标、出口路由、共享平滑限速、本地路径、源地址保留、
+缩权 helper，以及可选的[原生 nftables map 后端](../doc/forward-native-nft.md)。
+节点配置 `kernelBackend` 省略或为 `iptables` 时保持既有模式；显式为 `nftables`
+才选择新后端。模式切换须先用原配置维护结算/停流，不能直接覆盖活动节点配置。
+nft checkpoint 为 format 6；保留的 iptables 模式仍按功能写 3/4/5。
+
+完整能力和验收边界以 [实施清单](../doc/forward-engine-roadmap.md) 与各批验证报告为准。
+以下 v3 章节保留历史基础方案，不能据其中的历史“未支持”描述判断当前版本。
 
 本模块不依赖或启动 GOST。管理通信使用面板的 WSS 协议，业务数据在 Linux 内核完成 IPv4 TCP/UDP DNAT/SNAT。
 

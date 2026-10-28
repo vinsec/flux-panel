@@ -80,6 +80,7 @@ type RecoveryInfo struct {
 	Reason        string `json:"reason,omitempty"`
 }
 type State struct {
+	KernelBackend      string            `json:"kernelBackend,omitempty"`
 	CounterLast        map[string]uint64 `json:"counterLast,omitempty"`
 	ReportCursor       string            `json:"reportCursor,omitempty"`
 	StrictCredit       bool              `json:"strictCredit,omitempty"`

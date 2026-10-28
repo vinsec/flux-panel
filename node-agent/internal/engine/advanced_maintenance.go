@@ -8,6 +8,13 @@ import (
 
 func (a *AdvancedKernel) backupExtras() (map[string][]byte, error) {
 	files := map[string][]byte{}
+	if a.parent.Native != nil {
+		text, e := a.parent.Native.run("", "list", "table", "inet", nativeTable)
+		if e != nil {
+			return nil, e
+		}
+		files["native-nft.rules"] = []byte(text)
+	}
 	for _, family := range []string{"ipv4", "ipv6"} {
 		if !a.ready[family] {
 			continue

@@ -80,12 +80,18 @@ func main() {
 	if c.Iptables == "" {
 		c.Iptables = "iptables"
 	}
+	if c.KernelBackend != "" && c.KernelBackend != "iptables" && c.KernelBackend != "nftables" {
+		log.Fatal("unsupported kernelBackend")
+	}
 	if c.Iptables != "iptables" && c.Iptables != "iptables-nft" && c.Iptables != "iptables-legacy" {
 		log.Fatal("unsupported iptables binary")
 	}
 	if *preflight {
 		k := engine.IPTables{Binary: c.Iptables}
 		k.EnableAdvanced(c.StatePath)
+		if c.KernelBackend == "nftables" {
+			k.EnableNative(c.StatePath)
+		}
 		report, e := k.Preflight()
 		b, _ := json.MarshalIndent(report, "", "  ")
 		fmt.Println(string(b))
@@ -168,6 +174,16 @@ func main() {
 		if strings.TrimRight(prior.Addr, "/") != strings.TrimRight(c.Addr, "/") || prior.Secret != c.Secret || prior.StatePath != c.StatePath {
 			log.Fatal("node identity or ledger path differs")
 		}
+		oldBackend, newBackend := prior.KernelBackend, c.KernelBackend
+		if oldBackend == "" {
+			oldBackend = "iptables"
+		}
+		if newBackend == "" {
+			newBackend = "iptables"
+		}
+		if oldBackend != newBackend {
+			log.Fatal("kernel backend differs; complete explicit settled migration before installation")
+		}
 		fmt.Println("same node identity")
 		return
 	}
@@ -235,6 +251,9 @@ func main() {
 	defer namespace.Close()
 	k := engine.IPTables{Binary: c.Iptables}
 	k.EnableAdvanced(c.StatePath)
+	if c.KernelBackend == "nftables" {
+		k.EnableNative(c.StatePath)
+	}
 	if *testFault != "" {
 		if !c.AllowInsecure {
 			log.Fatal("fault injection is disabled outside isolated tests")

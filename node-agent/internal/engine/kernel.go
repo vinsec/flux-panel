@@ -18,6 +18,7 @@ type Kernel interface {
 	Apply(map[string]string) error
 }
 type IPTables struct {
+	Native       *NativeNFT
 	P1           *AdvancedKernel
 	Binary       string
 	shape        string
@@ -26,6 +27,9 @@ type IPTables struct {
 }
 
 func (k *IPTables) Configured() (bool, error) {
+	if k.Native != nil {
+		return k.Native.configured()
+	}
 	s, e := k.run(k.Binary+"-save", "", "-t", "nat")
 	for _, line := range strings.Split(s, "\n") {
 		if (strings.HasPrefix(line, "-A FP_PRE ") || strings.HasPrefix(line, "-A FP_N")) && strings.Contains(line, "-j DNAT") {
@@ -206,7 +210,7 @@ func (k *IPTables) run(name, input string, args ...string) (string, error) {
 	// lifetime without killing a valid 10k-rule transaction at the small-command
 	// deadline on slower native hosts. Short control/inspection commands retain
 	// the normal deadline.
-	if len(input) > 512*1024 && strings.HasSuffix(name, "restore") {
+	if len(input) > 512*1024 && (strings.HasSuffix(name, "restore") || name == "nft") {
 		timeout = 30 * time.Second
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -223,6 +227,15 @@ func (k *IPTables) run(name, input string, args ...string) (string, error) {
 }
 
 func (k *IPTables) Initialize() error {
+	if k.Native != nil {
+		if _, e := k.Native.preflight(); e != nil {
+			return e
+		}
+		if e := k.Native.ensure(); e != nil {
+			return e
+		}
+		return k.Native.ensureMaps()
+	}
 	if _, e := exec.LookPath("ipset"); e != nil {
 		return fmt.Errorf("ipset is required by the v2 hash path")
 	}
@@ -269,6 +282,10 @@ func (k *IPTables) Initialize() error {
 }
 
 func (k *IPTables) Snapshot() (map[string]uint64, error) {
+	if k.Native != nil {
+		totals, _, e := k.Native.snapshot()
+		return totals, e
+	}
 	if k.P1 != nil {
 		totals, _, e := k.SnapshotDetailed()
 		return totals, e
@@ -277,6 +294,13 @@ func (k *IPTables) Snapshot() (map[string]uint64, error) {
 }
 
 func (k *IPTables) Apply(tables map[string]string) error {
+	if k.Native != nil {
+		plan, e := decodePlan(tables)
+		if e != nil {
+			return e
+		}
+		return k.Native.apply(plan)
+	}
 	if k.P1 != nil {
 		plan, e := decodePlan(tables)
 		if e != nil {

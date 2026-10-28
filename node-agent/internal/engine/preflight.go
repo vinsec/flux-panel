@@ -18,6 +18,9 @@ type PreflightResult struct {
 }
 
 func (k *IPTables) Preflight() (PreflightResult, error) {
+	if k.Native != nil {
+		return k.Native.preflight()
+	}
 	result := PreflightResult{MarkMask: markMask}
 	var e error
 	if result.Kernel, e = k.run("uname", "", "-r"); e != nil {

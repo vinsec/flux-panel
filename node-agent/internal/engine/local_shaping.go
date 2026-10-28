@@ -71,7 +71,9 @@ func (x *Auxiliary) removeLocalShaping() error {
 		if _, e := net.InterfaceByName(f.Interface); e != nil {
 			continue
 		}
-		if _, e := x.runTC(append([]string{"filter", "del"}, f.selector()...)...); e != nil && !strings.Contains(e.Error(), "No such") && !strings.Contains(e.Error(), "Cannot find") && !strings.Contains(e.Error(), "not found") {
+		// After a host/netns restart lo still exists but its owned clsact and
+		// filters do not. tc reports this as a missing parent, not ENOENT text.
+		if _, e := x.runTC(append([]string{"filter", "del"}, f.selector()...)...); e != nil && !strings.Contains(e.Error(), "No such") && !strings.Contains(e.Error(), "Cannot find") && !strings.Contains(e.Error(), "not found") && !strings.Contains(e.Error(), "Parent Qdisc doesn't exists") {
 			return e
 		}
 	}
@@ -83,7 +85,7 @@ func (x *Auxiliary) removeLocalShaping() error {
 			continue
 		}
 		_, e := x.runTC("chain", "del", "dev", f.Interface, f.Hook, "chain", strconv.Itoa(f.Chain))
-		if e != nil && !strings.Contains(e.Error(), "No such") && !strings.Contains(e.Error(), "Cannot find") && !strings.Contains(e.Error(), "not found") {
+		if e != nil && !strings.Contains(e.Error(), "No such") && !strings.Contains(e.Error(), "Cannot find") && !strings.Contains(e.Error(), "not found") && !strings.Contains(e.Error(), "Parent Qdisc doesn't exists") {
 			return e
 		}
 	}
