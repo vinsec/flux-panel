@@ -10,10 +10,12 @@ import shutil,zipfile,threading
 ROOT=pathlib.Path('/repo');OUT=pathlib.Path('/evidence');OUT.mkdir(exist_ok=True)
 for name in ['agent.log','panel.log','gost.log','target.log','unmanaged-listener.log']:
     (OUT/name).unlink(missing_ok=True)
+GO_PANEL=os.getenv('FLUX_TEST_PANEL')=='go'
 checks=[];processes=[];db=None;completed=False;artifacts={}
 FROZEN=pathlib.Path("/tmp/verified-build");FROZEN.mkdir(exist_ok=True)
-AGENT=FROZEN/"flux-agent";JAR=FROZEN/"panel.jar"
+AGENT=FROZEN/"flux-agent";JAR=FROZEN/("panel-go" if GO_PANEL else "panel.jar")
 def check(name,condition=True):
+    if GO_PANEL and not name.startswith(('Go to Java','Java takeover','Java accepts','Java to Go')):name=name.replace('Java','Go').replace('Spring Boot','Go').replace('JAR','Go executable')
     assert condition,name
     checks.append(name);print('PASS',name,flush=True)
 def cmd(*args,**kwargs):
@@ -85,17 +87,21 @@ def namespaces():
     router('iptables','-A','FORWARD','-i','r0','-o','r1','-j','ACCEPT')
     check('isolated client/router/target namespaces; forwarding default DROP')
 def start_agent(n):
-    p=pathlib.Path('/tmp/flux-agent-config.json');p.write_text(json.dumps({'addr':'http://10.203.3.1:6365','secret':n['secret'],'statePath':'/tmp/flux-agent-state.json','apply':True,'allowInsecure':True,'intervalSeconds':1,'useSessions':True}))
+    p=pathlib.Path('/tmp/flux-agent-config.json');p.write_text(json.dumps({'addr':'http://10.203.3.1:6365','secret':n['secret'],'statePath':'/tmp/flux-agent-state.json','apply':True,'allowInsecure':True,'intervalSeconds':1,'useSessions':True,**({'dnsServers':['10.203.3.1:8053']} if os.getenv('FLUX_TEST_ADVANCED')=='1' else {})}))
     return start(['ip','netns','exec','router','sh','-c','mountpoint -q /sys/fs/bpf || mount -t bpf bpf /sys/fs/bpf; mkdir -p /run/flux-agent-bpf; mount -t tmpfs -o mode=0700 tmpfs /run/flux-agent-bpf; "$1" --prepare-local-shaping >/dev/null; exec setpriv --bounding-set=-all,+net_admin,+net_raw,+net_bind_service "$@"','sh',str(AGENT),'--config',str(p)],'agent.log')
 def usage_total(fid):return sql('SELECT in_flow+out_flow AS total FROM forward WHERE id=%s',(fid,))[0]['total']
 try:
-    for name,source,destination in [('agent',pathlib.Path('/build/flux-agent'),AGENT),('panel',ROOT/'springboot-backend/target/admin-0.0.1-SNAPSHOT.jar',JAR)]:
+    for name,source,destination in [('agent',pathlib.Path('/build/flux-agent'),AGENT),('panel',pathlib.Path('/build/flux-panel') if GO_PANEL else ROOT/'springboot-backend/target/admin-0.0.1-SNAPSHOT.jar',JAR)]:
         expected=hashlib.sha256(source.read_bytes()).hexdigest();shutil.copyfile(source,destination)
         actual=hashlib.sha256(destination.read_bytes()).hexdigest()
         assert actual==expected==hashlib.sha256(source.read_bytes()).hexdigest(),'artifact changed during snapshot: '+name
         artifacts[name]=actual
     AGENT.chmod(0o755)
-    with zipfile.ZipFile(JAR) as jar:assert jar.testzip() is None,'invalid JAR snapshot'
+    if GO_PANEL:
+        JAR.chmod(0o755)
+        assert JAR.read_bytes()[:4]==b'\x7fELF','invalid Go executable'
+    else:
+        with zipfile.ZipFile(JAR) as jar:assert jar.testzip() is None,'invalid JAR snapshot'
     check('validated immutable agent and JAR snapshots before starting services')
     def connect():
         global db
@@ -111,7 +117,7 @@ try:
         c.execute((ROOT/'springboot-backend/migrations/001-forward-engines.sql').read_text())
         while c.nextset():pass
     with db.cursor() as c:
-        for migration in ['002-engine-foundation.sql','003-engine-p1.sql','004-node-kernel-backend.sql','005-native-only.sql']:
+        for migration in ['002-engine-foundation.sql','003-engine-p1.sql','004-node-kernel-backend.sql','005-native-only.sql']+(['006-go-panel-runtime.sql'] if GO_PANEL else []):
             for _ in range(2):
                 c.execute((ROOT/'springboot-backend/migrations'/migration).read_text())
                 while c.nextset():pass
@@ -119,7 +125,10 @@ try:
     env=os.environ.copy();env.update(DB_HOST='mysql',DB_NAME='flux_test',DB_USER='root',DB_PASSWORD='isolated-test-db-only',JWT_SECRET='isolated-test-jwt-only',LOG_DIR='/tmp/panel-logs',ENGINE_AUTH_SESSION_MILLIS='60000')
     if os.getenv('FLUX_TEST_DB_HOST'):
         env['SPRING_DATASOURCE_URL']='jdbc:mysql://'+os.environ['FLUX_TEST_DB_HOST']+':'+os.getenv('FLUX_TEST_DB_PORT','3306')+'/flux_test?useSSL=false&serverTimezone=Asia/Shanghai'
-    log=open(OUT/'panel.log','w');panel=subprocess.Popen(['java','-Xmx192m','-XX:ActiveProcessorCount=1','-jar',str(JAR)],stdout=log,stderr=subprocess.STDOUT,env=env);processes.append(panel)
+    if GO_PANEL:
+        env.update(PANEL_LISTEN='0.0.0.0:6365',DB_HOST=os.getenv('FLUX_TEST_DB_HOST','mysql')+':'+os.getenv('FLUX_TEST_DB_PORT','3306'))
+    panel_command=[str(JAR)] if GO_PANEL else ['java','-Xmx192m','-XX:ActiveProcessorCount=1','-jar',str(JAR)]
+    log=open(OUT/'panel.log','w');panel=subprocess.Popen(panel_command,stdout=log,stderr=subprocess.STDOUT,env=env);processes.append(panel)
     wait(lambda:urllib.request.urlopen('http://127.0.0.1:6365/flow/test',timeout=1).status==200,90)
     check('real Spring Boot panel and MySQL started')
     if os.getenv('IPTABLES_BACKEND')=='legacy':cmd('update-alternatives','--set','iptables','/usr/sbin/iptables-legacy')
@@ -313,9 +322,9 @@ try:
     gf=forward(gt,'legacy-regression',18001);check('real legacy GOST adapter still forwards TCP/UDP',probe(18001)=='tcp_udp_ok')
     wait(lambda:usage_total(gf['id'])>0,15);check('legacy GOST traffic reporting still updates the original ledger')
     conflict=api('forward/create',{'name':'occupied-gost-port','tunnelId':t['id'],'remoteAddr':'10.203.2.2:19000','inPort':18001},expect=False)
-    check('iptables rejects a port occupied by GOST without shadowing it',conflict['code']!=0 and probe(18001)=='tcp_udp_ok')
+    check('kernel rejects a port occupied by GOST without shadowing it',conflict['code']!=0 and probe(18001)=='tcp_udp_ok')
     reverse_conflict=api('forward/create',{'name':'occupied-iptables-port','tunnelId':gt['id'],'remoteAddr':'10.203.2.2:19000','inPort':18002},expect=False)
-    check('GOST cannot take a port reserved by its co-located iptables peer',reverse_conflict['code']!=0 and probe(18002)=='tcp_udp_ok')
+    check('GOST cannot take a port reserved by its co-located kernel peer',reverse_conflict['code']!=0 and probe(18002)=='tcp_udp_ok')
     socket_owner=start(['ip','netns','exec','router','python3','-m','http.server','18010','--bind','0.0.0.0'],'unmanaged-listener.log');time.sleep(.3)
     occupied=api('forward/create',{'name':'unmanaged-listener','tunnelId':t['id'],'remoteAddr':'10.203.2.2:19000','inPort':18010},expect=False)
     check('agent rejects a listener occupied outside the panel',occupied['code']!=0 and probe(18002)=='tcp_udp_ok')
@@ -328,6 +337,121 @@ try:
     try:urllib.request.urlopen(req,timeout=3)
     except urllib.error.HTTPError as e:rejected=e.code==403
     check('engine identity mismatch rejected',rejected)
+    if GO_PANEL and os.getenv('FLUX_TEST_EXTENDED')=='1':
+        # A second real, unchanged GOST process exercises the retained relay
+        # lifecycle, not just direct port forwarding or synthetic RPC replies.
+        router('iptables','-A','FORWARD','-i','r1','-o','r2','-p','tcp','--dport','6365','-j','ACCEPT')
+        cmd('ip','route','add','10.203.2.0/24','via','10.203.3.2','dev','control')
+        api('node/create',{'name':'gost-relay-exit','engine':'gost','ip':'10.203.2.2','serverIp':'10.203.2.2','portSta':18300,'portEnd':18320})
+        gout=sql("SELECT * FROM node WHERE name='gost-relay-exit'")[0]
+        out_dir=pathlib.Path('/tmp/gost-relay-exit');out_dir.mkdir()
+        (out_dir/'config.json').write_text(json.dumps({'addr':'ws://10.203.3.1:6365','secret':gout['secret']}));(out_dir/'gost.json').write_text('{}')
+        remote_gost=start(['ip','netns','exec','target',str(gost_path)],'gost-relay.log',str(out_dir))
+        wait(lambda:sql('SELECT status FROM node WHERE id=%s',(gout['id'],))[0]['status']==1)
+        for protocol in ['tcp','tls','wss']:
+            relay=tunnel(g,'gost-relay-'+protocol,'gost',type=2,outNodeId=gout['id'],protocol=protocol)
+            rf=forward(relay,'gost-relay-rule-'+protocol,18006)
+            check('real GOST '+protocol+' relay forwards both TCP and UDP',probe(18006)=='tcp_udp_ok')
+            api('forward/update',{'id':rf['id'],'userId':1,'name':rf['name'],'tunnelId':relay['id'],'remoteAddr':'10.203.2.2:19001','inPort':18006,'strategy':'fifo'})
+            check('real GOST '+protocol+' relay target update remains operational',probe(18006)=='tcp_udp_ok')
+            api('forward/pause',{'id':rf['id']});check('real GOST '+protocol+' relay pauses entry and remote service',probe(18006,'blocked')=='tcp_udp_blocked')
+            api('forward/resume',{'id':rf['id']});check('real GOST '+protocol+' relay resumes entry and remote service',probe(18006)=='tcp_udp_ok')
+            api('forward/delete',{'id':rf['id']});api('tunnel/delete',{'id':relay['id']})
+        check('real GOST relay removal preserves other native forwards',probe(18002)=='tcp_udp_ok')
+        api('speed-limit/create',{'name':'gost-real-limiter','speed':8,'tunnelId':gt['id'],'tunnelName':gt['name']})
+        limiter=sql("SELECT * FROM speed_limit WHERE name='gost-real-limiter'")[0]
+        api('speed-limit/update',{'id':limiter['id'],'name':limiter['name'],'speed':16,'tunnelId':gt['id'],'tunnelName':gt['name']})
+        check('unchanged real GOST accepts limiter create/update wire contract',True)
+        api('speed-limit/delete',{'id':limiter['id']})
+    if GO_PANEL and os.getenv('FLUX_TEST_ADVANCED')=='1':
+        # Advanced Java factory features must traverse the real Go API too.
+        for selection in ['fifo','round','rand','hash']:
+            options={'targets':[{'endpoint':{'host':'10.203.2.2','port':19000},'weight':2},{'endpoint':{'host':'10.203.2.2','port':19001},'weight':1}], 'health':{'protocol':'tcp','intervalMillis':1000,'timeoutMillis':200,'rise':1,'fall':1}}
+            api('forward/create',{'name':'go-weighted-'+selection,'tunnelId':t['id'],'inPort':18007,'remoteAddr':'10.203.2.2:19000,10.203.2.2:19001','strategy':selection,'engineOptions':json.dumps(options)})
+            weighted=sql('SELECT * FROM forward WHERE name=%s',('go-weighted-'+selection,))[0]
+            wait(lambda:probe(18007)=='tcp_udp_ok',15)
+            check('real Go weighted multi-target and health policy '+selection)
+            api('forward/delete',{'id':weighted['id']})
+        routed={'egress':{'interface':'r1','sourceIPv4':'10.203.2.1'}}
+        api('forward/create',{'name':'go-egress','tunnelId':t['id'],'inPort':18007,'remoteAddr':'10.203.2.2:19000','engineOptions':json.dumps(routed)})
+        routed_rule=sql("SELECT * FROM forward WHERE name='go-egress'")[0]
+        wait(lambda:probe(18007)=='tcp_udp_ok',15)
+        check('real Go interface and explicit source routing')
+        api('forward/delete',{'id':routed_rule['id']})
+        # Private DNS server, explicitly configured in the frozen Agent's test config.
+        import socketserver,struct,ipaddress
+        def answer_dns(data):
+            end=12
+            while data[end]:end+=data[end]+1
+            end+=1;question=data[12:end+4];qtype=struct.unpack('!H',data[end:end+2])[0]
+            record=b''
+            if qtype==1:record=b'\xc0\x0c'+struct.pack('!HHIH',1,1,1,4)+ipaddress.ip_address('10.203.2.2').packed
+            return data[:2]+struct.pack('!5H',0x8180,1,1 if record else 0,0,0)+question+record
+        class PrivateDNS(socketserver.BaseRequestHandler):
+            def handle(self):
+                data,transport=self.request
+                transport.sendto(answer_dns(data),self.client_address)
+        dns_server=socketserver.ThreadingUDPServer(('10.203.3.1',8053),PrivateDNS);dns_server.daemon_threads=True
+        threading.Thread(target=dns_server.serve_forever,daemon=True).start()
+        cfg=json.loads(pathlib.Path('/tmp/flux-agent-config.json').read_text());cfg['dnsServers']=['10.203.3.1:8053'];pathlib.Path('/tmp/flux-agent-config.json').write_text(json.dumps(cfg))
+        agent.terminate();agent.wait(timeout=10);agent=start_agent(n)
+        wait(lambda:sql('SELECT status FROM node WHERE id=%s',(n['id'],))[0]['status']==1)
+        dns_options={'dnsPolicy':{'failClosed':True,'staleMillis':3000,'drainMillis':1000}}
+        api('forward/create',{'name':'go-private-dns','tunnelId':t['id'],'inPort':18007,'remoteAddr':'origin.test:19000','engineOptions':json.dumps(dns_options)})
+        dns_rule=sql("SELECT * FROM forward WHERE name='go-private-dns'")[0]
+        wait(lambda:probe(18007)=='tcp_udp_ok',15)
+        check('real Go hostname and bounded DNS policy use only private resolver')
+        api('forward/delete',{'id':dns_rule['id']})
+        for where in ['client','router','target']:cmd('ip','netns','exec',where,'sysctl','-w','net.ipv6.conf.all.disable_ipv6=0')
+        for where,interface,address in [('client','c0','fd25:1::2/64'),('router','r0','fd25:1::1/64'),('router','r1','fd25:2::1/64'),('target','t0','fd25:2::2/64')]:cmd('ip','-n',where,'-6','addr','add',address,'dev',interface,'nodad')
+        router('sysctl','-w','net.ipv6.conf.all.forwarding=1')
+        cmd('ip','-n','client','-6','route','add','default','via','fd25:1::1');cmd('ip','-n','target','-6','route','add','default','via','fd25:2::1')
+        echo6="""import socketserver,socket,threading
+class T(socketserver.BaseRequestHandler):
+ def handle(self):
+  while True:
+   b=self.request.recv(65536)
+   if not b:return
+   self.request.sendall(b)
+class U(socketserver.BaseRequestHandler):
+ def handle(self):self.request[1].sendto(self.request[0],self.client_address)
+class TS(socketserver.ThreadingTCPServer):address_family=socket.AF_INET6
+class US(socketserver.ThreadingUDPServer):address_family=socket.AF_INET6
+for klass,handler in [(TS,T),(US,U)]:
+ s=klass(('::',19002),handler);s.daemon_threads=True;threading.Thread(target=s.serve_forever,daemon=True).start()
+threading.Event().wait()
+"""
+        start(['ip','netns','exec','target','python3','-c',echo6],'echo6.log');time.sleep(.2)
+        ipv6={'listeners':[{'host':'::','port':18008,'protocol':p} for p in ['tcp','udp']]}
+        api('forward/create',{'name':'go-ipv6','tunnelId':t['id'],'inPort':18008,'remoteAddr':'[fd25:2::2]:19002','engineOptions':json.dumps(ipv6)})
+        ipv6_rule=sql("SELECT * FROM forward WHERE name='go-ipv6'")[0]
+        code="import socket\nfor kind in [socket.SOCK_STREAM,socket.SOCK_DGRAM]:\n s=socket.socket(socket.AF_INET6,kind);s.settimeout(2);s.connect(('fd25:1::1',18008));s.sendall(b'ipv6');assert s.recv(100)==b'ipv6';s.close()\nprint('ipv6-ok')"
+        check('real Go canonical IPv6 listeners and targets forward TCP and UDP',cmd('ip','netns','exec','client','python3','-c',code)=='ipv6-ok')
+        api('forward/delete',{'id':ipv6_rule['id']})
+        protocol_options={'protocolFilter':{'http':True,'tls':True,'socks':True,'unknown':'allow'}}
+        api('forward/create',{'name':'go-protocol-policy','tunnelId':t['id'],'inPort':18011,'remoteAddr':'10.203.2.2:19000','engineOptions':json.dumps(protocol_options)})
+        protocol_rule=sql("SELECT * FROM forward WHERE name='go-protocol-policy'")[0]
+        wait(lambda:probe(18011)=='tcp_udp_ok',15)
+        check('real Go protocol policy still permits UNKNOWN TCP/UDP')
+        blocked="""import socket,ssl
+inbound,outbound=ssl.MemoryBIO(),ssl.MemoryBIO();tls=ssl.create_default_context().wrap_bio(inbound,outbound,server_side=False,server_hostname='origin.test')
+try:tls.do_handshake()
+except ssl.SSLWantReadError:pass
+for payload in [b'GET / HTTP/1.1\\r\\nHost: origin.test\\r\\n\\r\\n',outbound.read(),b'\\x05\\x01\\x00']:
+ s=socket.create_connection(('10.203.1.1',18011),timeout=2);s.settimeout(.4);s.sendall(payload)
+ try:
+  assert not s.recv(65536),'blocked protocol passed'
+ except (socket.timeout,ConnectionResetError):pass
+ s.close()
+print('all-blocked')
+"""
+        check('real Go HTTP TLS SOCKS policy reaches native classifier',cmd('ip','netns','exec','client','python3','-c',blocked)=='all-blocked')
+        api('forward/delete',{'id':protocol_rule['id']})
+        # Keep one advanced, quota-backed rule through the later Java rollback.
+        preserved={'bandwidth':{'upBitsPerSecond':10000000,'downBitsPerSecond':10000000}}
+        api('forward/update',{'id':nf1['id'],'userId':normal,'name':nf1['name'],'tunnelId':t['id'],'inPort':18002,'remoteAddr':'10.203.2.2:19000','strategy':'fifo','engineOptions':json.dumps(preserved)})
+        check('advanced shaped definition remains active for cross-runtime rollback',probe(18002)=='tcp_udp_ok')
+
     if os.getenv('FLUX_TEST_SCALE')=='1':
         # Exercise the actual Java DB-driven reconciler, not only the Go batch
         # API. Together with the two live normal forwards this totals 10k.
@@ -355,6 +479,7 @@ try:
     # outbox. Give creation time to finish before exercising the expiry itself.
     scale_test=os.getenv('FLUX_TEST_SCALE')=='1'
     offline_keeper=forward(t,'offline-unlimited-keeper',18005) if scale_test else None
+    wait(lambda:sql('SELECT status FROM node WHERE id=%s',(n['id'],))[0]['status']==1,20)
     et=tunnel(n,'offline-expiration');deadline=int(time.time()*1000)+(30000 if scale_test else 5000)
     sql('INSERT INTO user_tunnel(user_id,tunnel_id,speed_id,num,flow,flow_reset_time,exp_time,status) VALUES(%s,%s,NULL,100,1000,0,%s,1)',(normal,et['id'],deadline))
     ef=forward(et,'offline-expiration',18004,normal,1);probe(18004)
@@ -363,18 +488,64 @@ try:
     check('local expiry blocks TCP/UDP while the panel is stopped',probe(18004,'blocked')=='tcp_udp_blocked')
     check('control outage preserves still-valid forwarding',probe(18005 if scale_test else 18002)=='tcp_udp_ok')
     if scale_test:check('expired offline credit closes ordinary forwards despite later permission expiry',probe(18002,'blocked')=='tcp_udp_blocked' and probe(18003,'blocked')=='tcp_udp_blocked')
-    log=open(OUT/'panel.log','a');panel=subprocess.Popen(['java','-Xmx192m','-XX:ActiveProcessorCount=1','-jar',str(JAR)],stdout=log,stderr=subprocess.STDOUT,env=env);processes.append(panel)
+    log=open(OUT/'panel.log','a');panel=subprocess.Popen(panel_command,stdout=log,stderr=subprocess.STDOUT,env=env);processes.append(panel)
     wait(lambda:urllib.request.urlopen('http://127.0.0.1:6365/flow/test',timeout=1).status==200,90)
     wait(lambda:(OUT/'agent.log').read_text().count('kernel agent connected')>connections,20)
     wait(lambda:sql('SELECT status FROM forward WHERE id=%s',(ef['id'],))[0]['status']==0,20)
     check('panel restart reconnects and converges the expired forwarding state')
     api('forward/delete',{'id':ef['id']})
     if offline_keeper:api('forward/delete',{'id':offline_keeper['id']})
+    if GO_PANEL and os.getenv('FLUX_TEST_ROLLBACK_JAR'):
+        java_jar=pathlib.Path(os.environ['FLUX_TEST_ROLLBACK_JAR'])
+        java_binary=os.environ['FLUX_TEST_JAVA']
+        artifacts['java_rollback']=hashlib.sha256(java_jar.read_bytes()).hexdigest()
+        replay_node=node('cross-runtime-replay')
+        replay_body={'epoch':'e'*32,'bootId':'replay-only','sequence':1,'usage':[],'recovery':{'lastError':'<nil> & >'}}
+        def replay_probe():
+            request=urllib.request.Request('http://127.0.0.1:6365/flow/engine/v2/traffic',data=json.dumps(replay_body).encode(),headers={'Authorization':'Bearer '+replay_node['secret'],'Content-Type':'application/json'})
+            return json.load(urllib.request.urlopen(request,timeout=15))
+        replay_ack=replay_probe()
+        before_rollback=sql('SELECT in_flow,out_flow FROM user WHERE id=%s',(normal,))[0]
+        panel.terminate();panel.wait(timeout=15)
+        log=open(OUT/'panel-rollback-java.log','w')
+        panel=subprocess.Popen([java_binary,'-Xmx192m','-XX:ActiveProcessorCount=1','-jar',str(java_jar)],stdout=log,stderr=subprocess.STDOUT,env=env);processes.append(panel)
+        wait(lambda:urllib.request.urlopen('http://127.0.0.1:6365/flow/test',timeout=1).status==200,90)
+        wait(lambda:probe(18002)=='tcp_udp_ok',45)
+        after_rollback=sql('SELECT in_flow,out_flow FROM user WHERE id=%s',(normal,))[0]
+        check('Go to Java rollback preserves latest legal ledger without restoring a DB snapshot',all(after_rollback[k]>=before_rollback[k] for k in before_rollback))
+        check('Java takeover resumes existing real native rules and credit renewal',probe(18003)=='tcp_udp_ok')
+        check('Java accepts Go durable replay hash with escaped recovery text',replay_probe()==replay_ack)
+        wait(lambda:sql('SELECT status FROM node WHERE id=%s',(g['id'],))[0]['status']==1,20)
+        rollback_gost=forward(gt,'rollback-gost-proof',18001)
+        check('Java takeover controls existing unchanged GOST binary',probe(18001)=='tcp_udp_ok')
+        api('forward/delete',{'id':rollback_gost['id']})
+        before_return=sql('SELECT in_flow,out_flow FROM user WHERE id=%s',(normal,))[0]
+        panel.terminate();panel.wait(timeout=15)
+        log=open(OUT/'panel.log','a');panel=subprocess.Popen(panel_command,stdout=log,stderr=subprocess.STDOUT,env=env);processes.append(panel)
+        wait(lambda:urllib.request.urlopen('http://127.0.0.1:6365/flow/test',timeout=1).status==200,60)
+        wait(lambda:probe(18002)=='tcp_udp_ok' and probe(18003)=='tcp_udp_ok',45)
+        after_return=sql('SELECT in_flow,out_flow FROM user WHERE id=%s',(normal,))[0]
+        check('Java to Go return preserves newest accounting and real forwarding',all(after_return[k]>=before_return[k] for k in before_return))
+    if GO_PANEL and int(os.getenv('FLUX_TEST_SOAK_SECONDS','0'))>0:
+        soak_seconds=int(os.environ['FLUX_TEST_SOAK_SECONDS']);assert 60<=soak_seconds<=1800
+        wait(lambda:sql('SELECT status FROM node WHERE id=%s',(g['id'],))[0]['status']==1,20)
+        keeper=forward(gt,'gost-soak',18001)
+        samples=[];started=time.monotonic();previous=0
+        while time.monotonic()-started<soak_seconds:
+            assert probe(18002)=='tcp_udp_ok' and probe(18001)=='tcp_udp_ok'
+            total=usage_total(nf1['id']);assert total>=previous;previous=total
+            status=pathlib.Path('/proc/'+str(panel.pid)+'/status').read_text()
+            values={line.split(':',1)[0]:line.split(':',1)[1].strip() for line in status.splitlines() if line.startswith(('VmRSS:','Threads:'))}
+            samples.append({'elapsed_seconds':round(time.monotonic()-started,3),'native_billed_bytes':total,**values})
+            time.sleep(3)
+        api('forward/delete',{'id':keeper['id']})
+        (OUT/'go-panel-soak.json').write_text(json.dumps({'seconds':soak_seconds,'samples':samples,'success':True,'external_targets':[]},indent=2))
+        check('long steady real Go/native/GOST forwarding and monotonic ledger',len(samples)>=soak_seconds//5)
     completed=True
     print('ALL CHECKS PASSED',len(checks),flush=True)
 except Exception:
     import traceback;traceback.print_exc()
-    for f in ['agent.log','agent2.log','panel.log','gost.log']:
+    for f in ['agent.log','agent2.log','panel.log','gost.log','gost-relay.log']:
         p=OUT/f
         if p.exists():print('LOG',f,p.read_text(errors='replace')[-7000:])
     raise
