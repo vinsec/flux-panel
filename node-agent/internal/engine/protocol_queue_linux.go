@@ -79,34 +79,49 @@ func startProtocolQueue(p *protocolEngine) (protocolQueueIO, error) {
 func (q *protocolSocket) start() { go q.loop() }
 func (q *protocolSocket) close() { _ = syscall.Close(q.fd) }
 func (q *protocolSocket) verdict(pkt queuedProtocolPacket, class byte, blocked, cache bool) error {
-	return q.send(protocolVerdictPacket(pkt, class, blocked, cache))
+	var b [52]byte
+	return q.send(encodeProtocolVerdict(b[:], pkt, class, blocked, cache))
 }
 func protocolVerdictPacket(pkt queuedProtocolPacket, class byte, blocked, cache bool) []byte {
+	return encodeProtocolVerdict(make([]byte, 52), pkt, class, blocked, cache)
+}
+func encodeProtocolVerdict(b []byte, pkt queuedProtocolPacket, class byte, blocked, cache bool) []byte {
+	size := 32
+	if cache {
+		size = 52
+	}
+	b = b[:size]
+	clear(b)
+	binary.NativeEndian.PutUint32(b, uint32(size))
+	binary.NativeEndian.PutUint16(b[4:], 0x301)
+	binary.NativeEndian.PutUint16(b[6:], 1)
+	binary.BigEndian.PutUint16(b[18:], protocolQueue)
+	binary.NativeEndian.PutUint16(b[20:], 12)
+	binary.NativeEndian.PutUint16(b[22:], 2)
 	verdict := uint32(1)
 	if blocked {
 		verdict = 0
 	}
-	v := make([]byte, 8)
-	binary.BigEndian.PutUint32(v, verdict)
-	binary.BigEndian.PutUint32(v[4:], pkt.id)
-	attrs := nativeAttribute(2, v)
+	binary.BigEndian.PutUint32(b[24:], verdict)
+	binary.BigEndian.PutUint32(b[28:], pkt.id)
 	if cache {
-		// CTA_MARK uses (old & ~mask) XOR value. Only send bits inside the
-		// mask; including the existing high token would toggle it off.
+		// CTA_MARK is masked XOR: never put the high forwarding token in value.
 		mark := uint32(0x10) | uint32(class)
 		if blocked {
 			mark |= 8
 		}
-		b := make([]byte, 4)
-		binary.BigEndian.PutUint32(b, mark)
-		ct := nativeAttribute(8, b)
-		b = make([]byte, 4)
-		binary.BigEndian.PutUint32(b, protocolMask)
-		ct = append(ct, nativeAttribute(21, b)...)
-		attrs = append(attrs, nativeAttribute(0x8000|11, ct)...)
+		binary.NativeEndian.PutUint16(b[32:], 20)
+		binary.NativeEndian.PutUint16(b[34:], 0x800b)
+		binary.NativeEndian.PutUint16(b[36:], 8)
+		binary.NativeEndian.PutUint16(b[38:], 8)
+		binary.BigEndian.PutUint32(b[40:], mark)
+		binary.NativeEndian.PutUint16(b[44:], 8)
+		binary.NativeEndian.PutUint16(b[46:], 21)
+		binary.BigEndian.PutUint32(b[48:], protocolMask)
 	}
-	return nfqMessage(0x301, 1, 0, attrs)
+	return b
 }
+
 func parseProtocolQueue(data []byte) (queuedProtocolPacket, error) {
 	p := queuedProtocolPacket{}
 	if len(data) < 4 || binary.BigEndian.Uint16(data[2:4]) != protocolQueue {
@@ -164,6 +179,7 @@ func parseProtocolQueue(data []byte) (queuedProtocolPacket, error) {
 }
 func (q *protocolSocket) loop() {
 	buf := make([]byte, 256*1024)
+	var messageBuf [32]syscall.NetlinkMessage
 	for {
 		n, _, flags, from, e := syscall.Recvmsg(q.fd, buf, nil, 0)
 		if e == syscall.EINTR {
@@ -185,7 +201,7 @@ func (q *protocolSocket) loop() {
 		if !ok || source.Pid != 0 || flags&syscall.MSG_TRUNC != 0 {
 			continue
 		}
-		msgs, e := protocolMessages(buf[:n])
+		msgs, e := protocolMessagesInto(buf[:n], messageBuf[:0])
 		if e != nil {
 			continue
 		}
@@ -211,7 +227,9 @@ func (q *protocolSocket) loop() {
 }
 
 func protocolMessages(b []byte) ([]syscall.NetlinkMessage, error) {
-	out := []syscall.NetlinkMessage{}
+	return protocolMessagesInto(b, nil)
+}
+func protocolMessagesInto(b []byte, out []syscall.NetlinkMessage) ([]syscall.NetlinkMessage, error) {
 	for len(b) > 0 {
 		if len(b) < 16 {
 			return nil, fmt.Errorf("short queue message")

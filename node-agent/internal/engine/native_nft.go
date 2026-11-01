@@ -22,13 +22,21 @@ const nativeTable = "FP_NATIVE"
 const nativeOwner = "flux-native:v1"
 const nativeOwned = "ct mark & 0xff000000 { 0xf1000000, 0xf2000000 }"
 
+type nativeCounterIdentity struct {
+	comment  string
+	record   counterRecord
+	baseline string
+}
+
 type NativeNFT struct {
-	parent       *IPTables
-	ready        bool
-	shape        string
-	controlShape string
-	bindings     string
-	rules        map[string]Spec
+	counterIdentities map[string]nativeCounterIdentity
+	counterOrder      []string
+	parent            *IPTables
+	ready             bool
+	shape             string
+	controlShape      string
+	bindings          string
+	rules             map[string]Spec
 }
 type nativeDocument struct {
 	NFT []map[string]json.RawMessage `json:"nftables"`
@@ -215,19 +223,55 @@ func (n *NativeNFT) counters() (map[string]counterRecord, error) {
 	if e != nil {
 		return nil, e
 	}
+	return n.decodeCounterObjects(objects)
+}
+
+// Cache only validated, immutable identity. Values always come from this dump;
+// missing/regressing counters still reach the manager's continuity checks.
+func (n *NativeNFT) decodeCounterObjects(objects []nativeCounter) (map[string]counterRecord, error) {
 	out := make(map[string]counterRecord, len(objects))
+	var updates map[string]nativeCounterIdentity
+	changed := len(objects) != len(n.counterIdentities)
 	for _, c := range objects {
-		r, e := decodeNativeCounter(c)
-		if e != nil {
-			return nil, e
-		}
-		if _, exists := out[c.Name]; exists {
+		if _, ok := out[c.Name]; ok {
 			return nil, fmt.Errorf("duplicate nft counter identity")
 		}
+		identity, hit := n.counterIdentities[c.Name]
+		if !hit || identity.comment != c.Comment {
+			r, e := decodeNativeCounter(c)
+			if e != nil {
+				return nil, e
+			}
+			parts := strings.Split(r.Comment, ":")
+			r.Bytes = 0
+			r.Packets = 0
+			identity = nativeCounterIdentity{c.Comment, r, counterBaseline(r.Set, parts[2], parts[3])}
+			changed = true
+			if updates == nil {
+				updates = map[string]nativeCounterIdentity{}
+			}
+			updates[c.Name] = identity
+		}
+		r := identity.record
+		r.Bytes = c.Bytes
+		r.Packets = c.Packets
 		out[c.Name] = r
+	}
+	if changed {
+		n.counterOrder = nativeNames(out)
+		next := make(map[string]nativeCounterIdentity, len(objects))
+		for name := range out {
+			if v, ok := updates[name]; ok {
+				next[name] = v
+			} else {
+				next[name] = n.counterIdentities[name]
+			}
+		}
+		n.counterIdentities = next
 	}
 	return out, nil
 }
+
 func (n *NativeNFT) snapshot() (map[string]uint64, []counterRecord, error) {
 	objects, e := n.counters()
 	if e != nil {
@@ -235,10 +279,9 @@ func (n *NativeNFT) snapshot() (map[string]uint64, []counterRecord, error) {
 	}
 	totals := map[string]uint64{}
 	records := []counterRecord{}
-	for _, name := range nativeNames(objects) {
+	for _, name := range n.counterOrder {
 		r := objects[name]
-		p := strings.Split(r.Comment, ":")
-		totals[counterBaseline(r.Set, counterID(r), p[3])] += r.Bytes
+		totals[n.counterIdentities[name].baseline] += r.Bytes
 		records = append(records, r)
 	}
 	return totals, records, nil

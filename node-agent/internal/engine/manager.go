@@ -14,21 +14,23 @@ import (
 )
 
 type Manager struct {
-	recovering    bool
-	jobsMu        sync.Mutex
-	jobsOnce      sync.Once
-	jobs          map[string]Job
-	queue         chan Batch
-	mu            sync.Mutex
-	Path          string
-	Kernel        Kernel
-	state         State
-	active        map[string]bool
-	blocked       bool
-	lastCounters  []counterRecord
-	Resolver      *Resolver
-	lastAddresses string
-	runtimeCursor string
+	rulesJSON      json.RawMessage
+	rulesJSONCount int
+	recovering     bool
+	jobsMu         sync.Mutex
+	jobsOnce       sync.Once
+	jobs           map[string]Job
+	queue          chan Batch
+	mu             sync.Mutex
+	Path           string
+	Kernel         Kernel
+	state          State
+	active         map[string]bool
+	blocked        bool
+	lastCounters   []counterRecord
+	Resolver       *Resolver
+	lastAddresses  string
+	runtimeCursor  string
 	// Fault is injected by tests only. It is never supplied in remote commands.
 	Fault func(string)
 }
@@ -193,6 +195,7 @@ func New(path string, k Kernel) (manager *Manager, err error) {
 	return m, nil
 }
 func (m *Manager) defaults() {
+	m.invalidateRuleEncoding()
 	s := &m.state
 	if s.CounterLast == nil {
 		s.CounterLast = map[string]uint64{}
@@ -248,6 +251,7 @@ func (m *Manager) defaults() {
 	}
 }
 func (m *Manager) validateState() error {
+	m.invalidateRuleEncoding()
 	if m.state.NextToken > 65536 {
 		return fmt.Errorf("invalid token cursor")
 	}
@@ -298,7 +302,11 @@ func (m *Manager) validateState() error {
 }
 func (m *Manager) save() error {
 	m.state.LastDurableAt = time.Now().UnixMilli()
-	return atomicJSON(m.Path, m.state)
+	data, e := m.checkpointData()
+	if e != nil {
+		return e
+	}
+	return atomicBytes(m.Path, data)
 }
 func (m *Manager) capture(s *State) error {
 	var c map[string]uint64
@@ -427,6 +435,7 @@ func (m *Manager) commit(after State, forget []Spec, reason string, gc []counter
 	}
 	m.fault("prepared")
 	rollback := func(cause error) error {
+		m.invalidateRuleEncoding()
 		m.state = before
 		e := m.Kernel.Apply(Render(before.Rules, nil))
 		if e == nil {
@@ -555,6 +564,7 @@ func (m *Manager) commit(after State, forget []Spec, reason string, gc []counter
 		}
 	}
 	m.fault("counters")
+	m.invalidateRuleEncoding()
 	m.state = after
 	if e := m.save(); e != nil {
 		return rollback(e)
@@ -1003,7 +1013,7 @@ func (m *Manager) Page(after string, limit int, generation *uint64) (Page, error
 			p.Next = p.Items[len(p.Items)-1].ID
 			break
 		}
-		p.Items = append(p.Items, m.state.Rules[id])
+		p.Items = append(p.Items, cloneSpec(m.state.Rules[id]))
 	}
 	return p, nil
 }

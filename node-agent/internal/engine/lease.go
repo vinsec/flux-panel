@@ -201,8 +201,10 @@ func (m *Manager) commitRenewal(after State, k interface{ RenewCredits(State, St
 		return e
 	}
 	m.fault("renewal-prepared")
+	m.invalidateRuleEncoding()
 	m.state = after
 	if e := m.save(); e != nil {
+		m.invalidateRuleEncoding()
 		m.state = before
 		return e
 	}

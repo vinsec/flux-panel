@@ -25,6 +25,18 @@ except OSError:assert {blocked!r}
 s.close()
 '''
   run(ns('client','python3','-c',code))
+ # Count queue entries for one serial opaque TCP flow, including handshake.
+ for obj in json.loads(router('nft','-j','list','table','inet','FP_PROTOCOL'))['nftables']:
+  rule=obj.get('rule',{})
+  if rule.get('chain')=='forward' and any('queue' in e for e in rule.get('expr',[])):
+   router('nft','replace','rule','inet','FP_PROTOCOL','forward','handle',str(rule['handle']),'ct','direction','original','meta','l4proto','tcp','counter','queue','num','41600')
+ def queued():
+  for o in json.loads(router('nft','-j','list','chain','inet','FP_PROTOCOL','forward'))['nftables']:
+   rule=o.get('rule',{})
+   if any('queue' in e for e in rule.get('expr',[])):
+    return sum(e.get('counter',{}).get('packets',0) for e in rule['expr'])
+ before=queued();exchange(b'cold-cache-check')
+ check('SYN and first data are queued, empty ACK and cached packets stay in kernel',queued()-before==2)
  for name,payload in [('HTTP',b'GET / HTTP/1.1\r\nHost: internal.test\r\n\r\n'),('HTTP2',b'PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n'),('TLS',b'\x16\x03\x03\x00\x04\x01\x00\x00\x00'),('SOCKS5',b'\x05\x01\x00'),('SOCKS4',b'\x04\x01\x01\xbb\x7f\x00\x00\x01\x00')]:
   exchange(payload,True);check(name+' detected and blocked')
  exchange(b'GET / '+b'x'*20000,True);check('large coalesced HTTP payload cannot bypass prefix recognition')

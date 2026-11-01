@@ -26,6 +26,41 @@ func atomicJSON(path string, v any) error {
 	}
 	return atomicBytes(path, b)
 }
+
+// Rules change through commit/defaults/runtime updates under Manager.mu.
+// Cache their JSON without changing the on-disk State schema, fsync boundary,
+// journal encoding, or the persist-before-report ordering.
+func (m *Manager) invalidateRuleEncoding() { m.rulesJSON = nil }
+func (m *Manager) checkpointData() ([]byte, error) {
+	if m.rulesJSON == nil || m.rulesJSONCount != len(m.state.Rules) {
+		data, e := json.Marshal(m.state.Rules)
+		if e != nil {
+			return nil, e
+		}
+		m.rulesJSON = data
+		m.rulesJSONCount = len(m.state.Rules)
+	}
+	type stateFields State
+	// rulesJSON was produced by json.Marshal on invalidation. Append these
+	// trusted bytes directly: RawMessage would revalidate/compact the whole
+	// static ruleset on every save, costing more CPU than ordinary encoding.
+	data, e := json.Marshal(struct {
+		*stateFields
+		Rules *struct{} `json:"rules,omitempty"`
+	}{stateFields: (*stateFields)(&m.state)})
+	if e != nil {
+		return nil, e
+	}
+	out := make([]byte, 0, len(data)+len(m.rulesJSON)+9)
+	out = append(out, data[:len(data)-1]...)
+	if len(data) > 2 {
+		out = append(out, ',')
+	}
+	out = append(out, `"rules":`...)
+	out = append(out, m.rulesJSON...)
+	out = append(out, '}')
+	return out, nil
+}
 func atomicBytes(path string, b []byte) error {
 	if e := os.MkdirAll(filepath.Dir(path), 0700); e != nil {
 		return e
@@ -76,6 +111,10 @@ func cloneState(s State) State {
 		spec.Protocols = slices.Clone(spec.Protocols)
 		if spec.AdvancedOptions != nil {
 			advanced := *spec.AdvancedOptions
+			if spec.ProtocolFilter != nil {
+				policy := *spec.ProtocolFilter
+				advanced.ProtocolFilter = &policy
+			}
 			if spec.Traffic != nil {
 				policy := *spec.Traffic
 				advanced.Traffic = &policy
@@ -184,6 +223,7 @@ func (m *Manager) recover() error {
 	t := j.Transaction
 	committed := m.state.CommitID != "" && m.state.CommitID == t.After.CommitID
 	if !committed {
+		m.invalidateRuleEncoding()
 		m.state = t.Before
 		if r, ok := m.Kernel.(interface{ RestoreCounters([]counterRecord) error }); ok {
 			if e = r.RestoreCounters(t.GC); e != nil {

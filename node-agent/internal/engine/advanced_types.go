@@ -154,6 +154,10 @@ func (s Spec) normalizeAdvanced() (Spec, error) {
 		s.AdvancedOptions = &AdvancedOptions{}
 	} else {
 		copy := *s.AdvancedOptions
+		if s.ProtocolFilter != nil {
+			policy := *s.ProtocolFilter
+			copy.ProtocolFilter = &policy
+		}
 		if s.Traffic != nil {
 			policy := *s.Traffic
 			copy.Traffic = &policy

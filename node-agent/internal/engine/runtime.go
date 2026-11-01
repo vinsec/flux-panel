@@ -18,6 +18,7 @@ func effectiveRuntime(s Spec) string {
 	return strings.Join(paths, ";")
 }
 func cloneSpec(s Spec) Spec {
+	s.Protocols = slices.Clone(s.Protocols)
 	if s.AdvancedOptions != nil {
 		o := *s.AdvancedOptions
 		if s.ProtocolFilter != nil {
@@ -157,6 +158,7 @@ func (m *Manager) RefreshRuntime(ctx context.Context) error {
 			pending[s.ID] = s
 		} else {
 			s.Runtime.Generation = current.Runtime.Generation
+			m.invalidateRuleEncoding()
 			m.state.Rules[s.ID] = s
 		}
 	}

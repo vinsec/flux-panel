@@ -200,15 +200,43 @@ func (p *protocolEngine) apply() error {
 		fmt.Fprintf(&b, "flush set inet %s filtered\nflush map inet %s udp_counts\n", protocolTable, protocolTable)
 	} else {
 		fmt.Fprintf(&b, "add table inet %s { comment %q; }\nadd set inet %s filtered { type mark; }\nadd map inet %s udp_counts { type mark : counter; }\n", protocolTable, protocolOwner, protocolTable, protocolTable)
-		for _, hook := range []string{"forward", "input", "output"} {
-			fmt.Fprintf(&b, "add chain inet %s %s { type filter hook %s priority -6; policy accept; }\n", protocolTable, hook, hook)
-			fmt.Fprintf(&b, "add rule inet %s %s ct mark & 0x18 == 0x10 return\n", protocolTable, hook)
-			fmt.Fprintf(&b, "add rule inet %s %s ct mark & 0xffffff00 != @filtered return\n", protocolTable, hook)
-			fmt.Fprintf(&b, "add rule inet %s %s ct mark & 0x18 == 0x18 drop\n", protocolTable, hook)
-			fmt.Fprintf(&b, "add rule inet %s %s ct direction original meta l4proto udp ct mark & 0xffffff00 @filtered counter name ct mark & 0xffffff00 map @udp_counts ct mark set ct mark | 0x11 return\n", protocolTable, hook)
-			fmt.Fprintf(&b, "add rule inet %s %s ct direction original meta l4proto tcp ct mark & 0xffffff00 @filtered queue num %d\n", protocolTable, hook, protocolQueue)
+	}
+	// Rebuild our small static chains on takeover too, upgrading v5.4's table
+	// without replacing counters or changing the checkpoint/wire schema.
+	for _, name := range []string{"empty4", "empty6"} {
+		present := false
+		if exists {
+			var d nativeDocument
+			_ = json.Unmarshal([]byte(saved), &d)
+			for _, o := range d.NFT {
+				var set struct{ Name string }
+				if v := o["set"]; v != nil {
+					_ = json.Unmarshal(v, &set)
+					present = present || set.Name == name
+				}
+			}
+		}
+		if !present {
+			b.WriteString(protocolEmptySet(name))
 		}
 	}
+	for _, hook := range []string{"forward", "input", "output"} {
+		if exists {
+			fmt.Fprintf(&b, "flush chain inet %s %s\n", protocolTable, hook)
+		} else {
+			fmt.Fprintf(&b, "add chain inet %s %s { type filter hook %s priority -6; policy accept; }\n", protocolTable, hook, hook)
+		}
+		fmt.Fprintf(&b, "add rule inet %s %s ct mark & 0x18 == 0x10 return\n", protocolTable, hook)
+		fmt.Fprintf(&b, "add rule inet %s %s ct mark & 0xffffff00 != @filtered return\n", protocolTable, hook)
+		fmt.Fprintf(&b, "add rule inet %s %s ct mark & 0x18 == 0x18 drop\n", protocolTable, hook)
+		fmt.Fprintf(&b, "add rule inet %s %s ct direction original meta l4proto udp counter name ct mark & 0xffffff00 map @udp_counts ct mark set ct mark | 0x11 return\n", protocolTable, hook)
+		// Keep SYN for sequence tracking (including SYN-data/TFO). Only a proven
+		// empty non-SYN can bypass userspace. Extensions use the conservative path.
+		fmt.Fprintf(&b, "add rule inet %s %s meta nfproto ipv4 tcp flags & syn == 0 ip hdrlength . tcp doff . meta length @empty4 return\n", protocolTable, hook)
+		fmt.Fprintf(&b, "add rule inet %s %s meta nfproto ipv6 ip6 nexthdr tcp tcp flags & syn == 0 tcp doff . meta length @empty6 return\n", protocolTable, hook)
+		fmt.Fprintf(&b, "add rule inet %s %s ct direction original meta l4proto tcp queue num %d\n", protocolTable, hook, protocolQueue)
+	}
+
 	if len(values) > 0 {
 		existing := map[string]bool{}
 		if exists {
@@ -547,4 +575,23 @@ func (p *protocolEngine) cleanup() error {
 	}
 	_, e = p.parent.run("nft", "", "delete", "table", "inet", protocolTable)
 	return e
+}
+
+// Exact header-length tuples, not an approximate small-packet threshold.
+func protocolEmptySet(name string) string {
+	values := []string{}
+	typ := "tcp doff . meta length"
+	if name == "empty4" {
+		typ = "ip hdrlength . tcp doff . meta length"
+		for ip := 5; ip <= 15; ip++ {
+			for tcp := 5; tcp <= 15; tcp++ {
+				values = append(values, fmt.Sprintf("%d . %d . %d", ip, tcp, 4*(ip+tcp)))
+			}
+		}
+	} else {
+		for tcp := 5; tcp <= 15; tcp++ {
+			values = append(values, fmt.Sprintf("%d . %d", tcp, 40+4*tcp))
+		}
+	}
+	return fmt.Sprintf("add set inet %s %s { typeof %s; elements = { %s }; }\n", protocolTable, name, typ, strings.Join(values, ", "))
 }
