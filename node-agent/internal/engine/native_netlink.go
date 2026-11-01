@@ -70,6 +70,9 @@ func nativeObjectComment(b []byte) (string, error) {
 	return comment, nil
 }
 func nativeCounterObject(payload []byte) (nativeCounter, error) {
+	return counterObjectForTable(payload, nativeTable)
+}
+func counterObjectForTable(payload []byte, expectedTable string) (nativeCounter, error) {
 	var c nativeCounter
 	if len(payload) < 4 || payload[0] != 1 || payload[1] != 0 {
 		return c, fmt.Errorf("unexpected nft object family/version")
@@ -127,7 +130,7 @@ func nativeCounterObject(payload []byte) (nativeCounter, error) {
 	if e != nil {
 		return c, e
 	}
-	if seen != uint16(1<<1|1<<2|1<<3|1<<4|1<<8) || table != nativeTable || kind != 1 {
+	if seen != uint16(1<<1|1<<2|1<<3|1<<4|1<<8) || table != expectedTable || kind != 1 {
 		return c, fmt.Errorf("unexpected nft counter scope")
 	}
 	return c, nil

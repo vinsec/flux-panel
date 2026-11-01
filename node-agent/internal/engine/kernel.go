@@ -18,6 +18,7 @@ type Kernel interface {
 	Apply(map[string]string) error
 }
 type IPTables struct {
+	DPI          *protocolEngine
 	Native       *NativeNFT
 	P1           *AdvancedKernel
 	Binary       string
@@ -227,6 +228,9 @@ func (k *IPTables) run(name, input string, args ...string) (string, error) {
 }
 
 func (k *IPTables) Initialize() error {
+	if b, e := k.run("nft", "", "-j", "list", "tables"); e == nil && strings.Contains(b, `"FP_PROTOCOL"`) {
+		k.protocolEngine()
+	}
 	if k.Native != nil {
 		if _, e := k.Native.preflight(); e != nil {
 			return e
@@ -293,7 +297,12 @@ func (k *IPTables) Snapshot() (map[string]uint64, error) {
 	return k.setCounters()
 }
 
-func (k *IPTables) Apply(tables map[string]string) error {
+func (k *IPTables) Apply(tables map[string]string) (failure error) {
+	defer func() {
+		if failure == nil && k.DPI != nil {
+			failure = k.DPI.apply()
+		}
+	}()
 	if k.Native != nil {
 		plan, e := decodePlan(tables)
 		if e != nil {

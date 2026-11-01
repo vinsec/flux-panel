@@ -51,7 +51,7 @@ func New(path string, k Kernel) (manager *Manager, err error) {
 	} else if !fresh {
 		return nil, e
 	}
-	if m.state.FormatVersion > 6 {
+	if m.state.FormatVersion > 7 {
 		return nil, fmt.Errorf("unsupported state format")
 	}
 	if concrete, ok := k.(*IPTables); ok {
@@ -244,7 +244,7 @@ func (m *Manager) defaults() {
 	}
 	s.FormatVersion = requiredStateFormat(s.Rules)
 	if s.KernelBackend == "nftables" {
-		s.FormatVersion = 6
+		s.FormatVersion = max(s.FormatVersion, 6)
 	}
 }
 func (m *Manager) validateState() error {

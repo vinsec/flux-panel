@@ -80,6 +80,10 @@ public class IptablesForwardingEngine implements ForwardingEngine {
     }
     public GostDto limiterChanged(Long node){
         if(!EngineCapabilities.supports(node,"shaping"))return error("node does not advertise shaping");
+        return queueDefinitionChange(node);
+    }
+    public GostDto protocolChanged(Long node){return queueDefinitionChange(node);}
+    private GostDto queueDefinitionChange(Long node){
         Runnable enqueue=()->{specs.invalidate(node);limiterQueue.add(node);};
         if(org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive())org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(new org.springframework.transaction.support.TransactionSynchronization(){public void afterCommit(){enqueue.run();}});else enqueue.run();
         GostDto result=new GostDto();result.setMsg("OK");return result;

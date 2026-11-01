@@ -64,5 +64,12 @@ func (a *AdvancedKernel) prepareRuntimeRules(rules map[string]Spec, addresses ma
 			rules[id] = s
 		}
 	}
+	need := a.parent.DPI != nil
+	for _, s := range rules {
+		need = need || s.protocolPolicy().Enabled()
+	}
+	if need {
+		rules = a.parent.protocolEngine().prepare(rules)
+	}
 	return rules
 }

@@ -13,9 +13,12 @@ import (
 var nativeDumpInterrupted = errors.New("nft counter dump interrupted")
 
 func (n *NativeNFT) readCounterObjects() ([]nativeCounter, error) {
+	return readCounterObjectsTable(nativeTable)
+}
+func readCounterObjectsTable(table string) ([]nativeCounter, error) {
 	deadline := time.Now().Add(4 * time.Second)
 	for attempt := 0; attempt < 3; attempt++ {
-		out, e := nativeCounterDump(deadline)
+		out, e := counterDumpForTable(deadline, table)
 		if e == nil || !errors.Is(e, nativeDumpInterrupted) && !errors.Is(e, syscall.ENOBUFS) {
 			return out, e
 		}
@@ -23,6 +26,9 @@ func (n *NativeNFT) readCounterObjects() ([]nativeCounter, error) {
 	return nil, nativeDumpInterrupted
 }
 func nativeCounterDump(deadline time.Time) ([]nativeCounter, error) {
+	return counterDumpForTable(deadline, nativeTable)
+}
+func counterDumpForTable(deadline time.Time, table string) ([]nativeCounter, error) {
 	fd, e := syscall.Socket(syscall.AF_NETLINK, syscall.SOCK_RAW|syscall.SOCK_CLOEXEC, 12)
 	if e != nil {
 		return nil, e
@@ -37,7 +43,7 @@ func nativeCounterDump(deadline time.Time) ([]nativeCounter, error) {
 	}
 	port := address.(*syscall.SockaddrNetlink).Pid
 	payload := []byte{1, 0, 0, 0}
-	payload = append(payload, nativeAttribute(1, append([]byte(nativeTable), 0))...)
+	payload = append(payload, nativeAttribute(1, append([]byte(table), 0))...)
 	payload = append(payload, nativeAttribute(3, []byte{0, 0, 0, 1})...)
 	request := make([]byte, 16+len(payload))
 	binary.NativeEndian.PutUint32(request, uint32(len(request)))
@@ -111,7 +117,7 @@ func nativeCounterDump(deadline time.Time) ([]nativeCounter, error) {
 					return out, nil
 				}
 			case nativeNewObject:
-				c, e := nativeCounterObject(data)
+				c, e := counterObjectForTable(data, table)
 				if e != nil {
 					return nil, e
 				}

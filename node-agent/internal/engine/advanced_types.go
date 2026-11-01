@@ -12,15 +12,16 @@ import (
 // Schema 3 keeps desired endpoints distinct from node-resolved runtime paths.
 // Runtime is supplied by the node, never accepted from a control request.
 type AdvancedOptions struct {
-	Listeners []Listener      `json:"listeners,omitempty"`
-	Targets   []Target        `json:"targets,omitempty"`
-	Selection string          `json:"selection,omitempty"`
-	DNS       DNSPolicy       `json:"dnsPolicy,omitempty"`
-	Health    HealthPolicy    `json:"health,omitempty"`
-	Egress    EgressPolicy    `json:"egress,omitempty"`
-	Bandwidth BandwidthPolicy `json:"bandwidth,omitempty"`
-	Traffic   *TrafficPolicy  `json:"traffic,omitempty"`
-	Runtime   ResolutionState `json:"runtime,omitempty"`
+	ProtocolFilter *ProtocolFilter `json:"protocolFilter,omitempty"`
+	Listeners      []Listener      `json:"listeners,omitempty"`
+	Targets        []Target        `json:"targets,omitempty"`
+	Selection      string          `json:"selection,omitempty"`
+	DNS            DNSPolicy       `json:"dnsPolicy,omitempty"`
+	Health         HealthPolicy    `json:"health,omitempty"`
+	Egress         EgressPolicy    `json:"egress,omitempty"`
+	Bandwidth      BandwidthPolicy `json:"bandwidth,omitempty"`
+	Traffic        *TrafficPolicy  `json:"traffic,omitempty"`
+	Runtime        ResolutionState `json:"runtime,omitempty"`
 }
 
 type Listener struct {
@@ -100,7 +101,9 @@ type TrafficPolicy struct {
 	ReturnPathConfirmed bool   `json:"returnPathConfirmed,omitempty"`
 }
 
-func (s Spec) Advanced() bool { return s.SchemaVersion == 3 || s.SchemaVersion == 4 }
+func (s Spec) Advanced() bool {
+	return s.SchemaVersion == 3 || s.SchemaVersion == 4 || s.SchemaVersion == 5
+}
 func (s Spec) trafficPolicy() TrafficPolicy {
 	if s.AdvancedOptions != nil && s.Traffic != nil {
 		return *s.Traffic
@@ -117,10 +120,14 @@ func (s Spec) preserveSource() bool {
 func requiredStateFormat(rules map[string]Spec) int {
 	version := 3
 	for _, s := range rules {
-		if s.SchemaVersion == 4 {
-			return 5
+		if s.SchemaVersion == 5 {
+			return 7
 		}
-		if s.Advanced() {
+		if s.SchemaVersion == 4 {
+			version = 5
+			continue
+		}
+		if s.Advanced() && version < 4 {
 			version = 4
 		}
 	}
@@ -138,6 +145,11 @@ var interfaceName = regexp.MustCompile(`^[a-zA-Z0-9_.:-]{1,15}$`)
 var groupID = regexp.MustCompile(`^[a-zA-Z0-9_:-]{1,64}$`)
 
 func (s Spec) normalizeAdvanced() (Spec, error) {
+	if s.AdvancedOptions != nil {
+		if e := validateProtocolPolicy(s); e != nil {
+			return s, e
+		}
+	}
 	if s.AdvancedOptions == nil {
 		s.AdvancedOptions = &AdvancedOptions{}
 	} else {
@@ -415,7 +427,7 @@ func desiredNetworkDigest(s Spec) string {
 	if !s.Advanced() {
 		return digest([]any{s.ListenIP, s.ListenPort, s.TargetIP, s.TargetPort})
 	}
-	return digest([]any{s.SchemaVersion, s.Listeners, s.Targets, s.Selection, s.Egress, s.Traffic})
+	return digest([]any{s.SchemaVersion, s.Listeners, s.Targets, s.Selection, s.Egress, s.Traffic, s.ProtocolFilter})
 }
 func allNumericTargets(s Spec) bool {
 	for _, t := range s.Targets {

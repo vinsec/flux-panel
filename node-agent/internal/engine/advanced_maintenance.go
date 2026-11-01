@@ -8,6 +8,27 @@ import (
 
 func (a *AdvancedKernel) backupExtras() (map[string][]byte, error) {
 	files := map[string][]byte{}
+	// Maintenance runs before Initialize, so discover the table directly rather
+	// than relying on an in-process classifier pointer.
+	tables, e := a.parent.run("nft", "", "-j", "list", "tables")
+	if e != nil {
+		return nil, e
+	}
+	if strings.Contains(tables, `"`+protocolTable+`"`) {
+		owned, e := a.parent.run("nft", "", "-j", "list", "table", "inet", protocolTable)
+		if e != nil {
+			return nil, e
+		}
+		if !protocolOwned(owned) {
+			return nil, fmt.Errorf("foreign protocol table")
+		}
+		saved, e := a.parent.run("nft", "", "list", "table", "inet", protocolTable)
+		if e != nil {
+			return nil, e
+		}
+		files["protocol-filter.rules"] = []byte(saved)
+	}
+
 	if a.parent.Native != nil {
 		text, e := a.parent.Native.run("", "list", "table", "inet", nativeTable)
 		if e != nil {
@@ -49,6 +70,11 @@ func (a *AdvancedKernel) backupExtras() (map[string][]byte, error) {
 	return files, nil
 }
 func (a *AdvancedKernel) cleanup() error {
+	if a.parent.DPI != nil {
+		if e := a.parent.DPI.cleanup(); e != nil {
+			return e
+		}
+	}
 	if _, e := os.Stat(a.StatePath + ".aux.json"); e == nil {
 		aux, e := a.auxiliary()
 		if e != nil {

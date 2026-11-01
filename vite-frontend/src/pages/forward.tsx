@@ -1219,6 +1219,7 @@ export default function ForwardPage() {
                 </span>
                 {forwardStates[forward.id]?.appliedRevision!=null&&<span> · r{forwardStates[forward.id].appliedRevision}</span>}
                 {forwardStates[forward.id]?.resolution?.generation>0&&<span> · 解析代次 {forwardStates[forward.id].resolution.generation}</span>}
+                {forwardStates[forward.id]?.protocolInspection&&<p className="text-xs text-default-500">协议识别：拦截 {forwardStates[forward.id].protocolInspection.statistics?.blocked||0} · UNKNOWN 放行 {forwardStates[forward.id].protocolInspection.statistics?.unknown||0}（当前进程周期）</p>}
               </div>}
 
             </div>

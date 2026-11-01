@@ -1,3 +1,4 @@
+import Network from '@/api/network';
 import { useState, useEffect, useRef } from "react";
 import { Card, CardBody, CardHeader } from "@heroui/card";
 import { Button } from "@heroui/button";
@@ -78,6 +79,7 @@ export default function NodePage() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [nodeToDelete, setNodeToDelete] = useState<Node | null>(null);
+  const protocolRequest = useRef(0);
   const [protocolDisabled, setProtocolDisabled] = useState(false);
   const [protocolDisabledReason, setProtocolDisabledReason] = useState('');
   const [form, setForm] = useState<NodeForm>({
@@ -434,6 +436,7 @@ export default function NodePage() {
 
   // 新增节点
   const handleAdd = () => {
+    protocolRequest.current++;
     setDialogTitle('新增节点');
     setIsEdit(false);
     setDialogVisible(true);
@@ -444,6 +447,7 @@ export default function NodePage() {
 
   // 编辑节点
   const handleEdit = (node: Node) => {
+    const request = ++protocolRequest.current;
     setDialogTitle('编辑节点');
     setIsEdit(true);
     setForm({
@@ -461,6 +465,7 @@ export default function NodePage() {
     const offline = node.connectionStatus !== 'online';
     setProtocolDisabled(offline);
     setProtocolDisabledReason(offline ? '节点未在线，等待节点上线后再设置' : '');
+    if(node.engine==='iptables'){setProtocolDisabled(true);Network.post('/engine/capabilities',{nodeId:node.id}).then(r=>{if(request!==protocolRequest.current)return;const ok=r.code===0&&r.data?.capabilities?.features?.protocolBlocking;setProtocolDisabled(offline||!ok);setProtocolDisabledReason(ok?'未知流量放行并标记；变更后现有 TCP 连接需要重连':'节点未声明协议识别能力，请先升级Agent')}).catch(()=>{if(request===protocolRequest.current)setProtocolDisabledReason('无法获取协议识别能力')});}
     setDialogVisible(true);
   };
 
@@ -934,7 +939,7 @@ export default function NodePage() {
                 {/* 屏蔽协议 */}
                 <div className="mt-1">
                   <div className="text-sm font-medium text-default-700">屏蔽协议</div>
-                  <div className="text-xs text-default-500 mb-2">开启开关以屏蔽对应协议</div>
+                  <div className="text-xs text-default-500 mb-2">开启开关以屏蔽对应协议{form.engine==='iptables'&&'；未知流量放行并标记，变更后现有 TCP 连接需要重连'}</div>
                   {protocolDisabled && (
                     <Alert
                       color="warning"
@@ -955,7 +960,7 @@ export default function NodePage() {
                         <Switch
                           size="sm"
                           isSelected={form.http === 1}
-                          isDisabled={protocolDisabled || form.engine === 'iptables'}
+                          isDisabled={protocolDisabled}
                           onValueChange={(v) => setForm(prev => ({ ...prev, http: v ? 1 : 0 }))}
                         />
                       </div>
@@ -973,7 +978,7 @@ export default function NodePage() {
                         <Switch
                           size="sm"
                           isSelected={form.tls === 1}
-                          isDisabled={protocolDisabled || form.engine === 'iptables'}
+                          isDisabled={protocolDisabled}
                           onValueChange={(v) => setForm(prev => ({ ...prev, tls: v ? 1 : 0 }))}
                         />
                       </div>
@@ -991,7 +996,7 @@ export default function NodePage() {
                         <Switch
                           size="sm"
                           isSelected={form.socks === 1}
-                          isDisabled={protocolDisabled || form.engine === 'iptables'}
+                          isDisabled={protocolDisabled}
                           onValueChange={(v) => setForm(prev => ({ ...prev, socks: v ? 1 : 0 }))}
                         />
                       </div>

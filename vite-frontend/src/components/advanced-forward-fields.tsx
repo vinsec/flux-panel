@@ -5,6 +5,7 @@ import { Switch } from '@heroui/switch';
 
 export interface EngineFeatures { [name: string]: boolean }
 export interface EngineOptions {
+  protocolFilter?: {http?:boolean;tls?:boolean;socks?:boolean;unknown:"allow"};
   listeners?: {host:string;port:number;protocol:string}[];
   targets?: {endpoint:{host:string;port:number};weight:number}[];
   selection?: string;
@@ -29,6 +30,7 @@ export function engineOptionsForSubmit(value:string|undefined,remote:string,port
   if(options.listeners){if(!port)throw new Error('自定义监听需要填写入口端口');if(!features.independentProtocols)throw new Error('当前节点不支持独立监听');if(!options.listeners.some(l=>l.port===port))throw new Error('至少一项监听必须使用入口端口');for(const l of options.listeners){parseForwardEndpoint(`${l.host.includes(':')?'['+l.host+']':l.host}:${l.port}`);if(l.host.includes(':')&&!features.ipv6)throw new Error('当前节点未提供 IPv6 能力');}}
   if(options.targets){let total=0;options.targets=endpoints.map((endpoint,i)=>{const weight=options.targets?.[i]?.weight||1;if(!Number.isInteger(weight)||weight<1||weight>32)throw new Error('权重必须为 1–32 的整数');total+=weight;return {endpoint,weight}});if(total>32)throw new Error('目标权重之和不能超过 32');}
   if(options.egress&&!features.interfaceRouting)throw new Error('当前节点不支持出口策略');if(options.bandwidth&&!features.shaping)throw new Error('当前节点不支持平滑限速');if(options.health&&!features.multiTarget)throw new Error('当前节点不支持健康检查');
+  if(options.protocolFilter&&(!features.protocolBlocking||options.protocolFilter.unknown!=="allow"))throw new Error("协议屏蔽需要节点能力，未知流量必须放行");
   if(options.traffic){for(const key of ['localOutput','localTargets'] as const)if(options.traffic[key]&&!features[key])throw new Error('当前节点不支持此本地流量模式');if(options.traffic.localTargets&&options.traffic.sourceMode==='preserve'&&(!options.listeners||options.listeners.some(l=>l.protocol==='udp'))&&!features.localUDPPreserveSource)throw new Error('当前节点不支持本机 UDP 源地址保留');if(options.traffic.sourceMode==='preserve'&&(!features.preserveSource||!options.traffic.returnPathConfirmed))throw new Error('保留源地址需要节点能力及回程路由确认');if((options.traffic.localOutput||options.traffic.localTargets)&&((options.bandwidth?.upBitsPerSecond||0)+(options.bandwidth?.downBitsPerSecond||0)>0)&&!features.localTrafficShaping)throw new Error('当前节点不支持本地平滑限速');}
   return Object.keys(options).length?JSON.stringify(options):undefined;
 }

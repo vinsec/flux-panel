@@ -241,6 +241,19 @@ func validateNativeRules(text string, owners map[string]map[string]bool) error {
 	if e := json.Unmarshal([]byte(text), &document); e != nil {
 		return e
 	}
+	// A protocol table is trusted only by its exact table-level owner marker.
+	for _, obj := range document.NFT {
+		if raw := obj["table"]; raw != nil {
+			var t struct{ Family, Name string }
+			_ = json.Unmarshal(raw, &t)
+			if t.Family == "inet" && t.Name == protocolTable {
+				if !protocolOwned(text) {
+					return fmt.Errorf("foreign protocol table")
+				}
+				owners["inet:"+protocolTable] = map[string]bool{"forward": true, "input": true, "output": true}
+			}
+		}
+	}
 	for _, obj := range document.NFT {
 		raw, ok := obj["rule"]
 		if !ok {

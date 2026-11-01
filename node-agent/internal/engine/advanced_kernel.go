@@ -812,6 +812,18 @@ func (s Spec) localPathProblem(addresses map[string][]string, routeLocal bool) s
 }
 
 func (a *AdvancedKernel) runtimeContractsChanged(rules map[string]Spec) bool {
+	if p := a.parent.DPI; p != nil {
+		p.mu.Lock()
+		ready := p.ready
+		p.mu.Unlock()
+		if !ready {
+			for id, s := range rules {
+				if s.Enabled && s.protocolPolicy().Enabled() && a.runtimeErrors[id] == "" {
+					return true
+				}
+			}
+		}
+	}
 	if a.aux != nil && a.aux.shapeReady {
 		iface, e := net.InterfaceByName(shapingDevice)
 		if e != nil || iface.Flags&net.FlagUp == 0 || iface.Index != a.aux.shapeIndex {

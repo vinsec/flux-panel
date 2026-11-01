@@ -20,6 +20,10 @@ func effectiveRuntime(s Spec) string {
 func cloneSpec(s Spec) Spec {
 	if s.AdvancedOptions != nil {
 		o := *s.AdvancedOptions
+		if s.ProtocolFilter != nil {
+			p := *s.ProtocolFilter
+			o.ProtocolFilter = &p
+		}
 		if s.Traffic != nil {
 			policy := *s.Traffic
 			o.Traffic = &policy
@@ -244,6 +248,11 @@ func (m *Manager) RuntimeStatus(id string) map[string]any {
 	}
 	if s.Advanced() {
 		result["resolution"] = s.Runtime
+	}
+	if s.protocolPolicy().Enabled() {
+		if k, ok := m.Kernel.(*IPTables); ok && k.DPI != nil {
+			result["protocolInspection"] = k.DPI.status(id)
+		}
 	}
 	return result
 }

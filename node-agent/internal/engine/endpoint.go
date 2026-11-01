@@ -86,6 +86,9 @@ func (e Endpoint) Canonical() (Endpoint, error) {
 func (e Endpoint) String() string { return net.JoinHostPort(e.Host, strconv.Itoa(e.Port)) }
 
 func (s Spec) Normalize() (Spec, error) {
+	if e := validateProtocolPolicy(s); e != nil {
+		return s, e
+	}
 	if s.Advanced() {
 		return s.normalizeAdvanced()
 	}
@@ -142,5 +145,5 @@ type Capabilities struct {
 }
 
 func CurrentCapabilities() Capabilities {
-	return Capabilities{ProtocolVersions: []int{1, 2, 3, 4}, AgentVersion: "iptables-v5.3", Features: map[string]bool{"ipv4": true, "ipv6": true, "dns": true, "multiTarget": true, "independentProtocols": true, "shaping": true, "interfaceRouting": true, "dynamicAddresses": true, "systemMetrics": true, "runtimeStatus": true, "headerAuth": true, "sessionAuth": true, "privilegedHelper": false, "structuredEndpoint": true, "batch": true, "journalRecovery": true, "usageAcknowledgement": true, "creditLease": true, "creditPush": true, "creditPolicy": true, "icmpv4": true, "pmtuv4": true, "icmpv6": true, "pmtuv6": true, "returnPathDiagnostics": true, "preparedLocalShaping": true, "trafficPolicy": true, "localOutput": true, "localTargets": true, "preserveSource": true, "localTrafficShaping": true, "localUDPPreserveSource": true, "ipv6LoopbackIngress": false, "crossFamily": false, "scopedIPv6": false}, MaxForwards: 10000, MaxBatch: 10000, CounterLayer: "network", Limits: map[string]int{"listenersPerForward": 16, "targetOriginsPerForward": 16, "targetWeightSum": 32, "retiringTargetsPerForward": 32, "resolvedPathsPerNode": 32768, "egressPoliciesPerNode": 63, "statusPage": 100, "minimumHTBGuaranteeBitsPerSecond": 8}}
+	return Capabilities{ProtocolVersions: []int{1, 2, 3, 4, 5}, AgentVersion: "iptables-v5.4", Features: map[string]bool{"protocolBlocking": true, "ipv4": true, "ipv6": true, "dns": true, "multiTarget": true, "independentProtocols": true, "shaping": true, "interfaceRouting": true, "dynamicAddresses": true, "systemMetrics": true, "runtimeStatus": true, "headerAuth": true, "sessionAuth": true, "privilegedHelper": false, "structuredEndpoint": true, "batch": true, "journalRecovery": true, "usageAcknowledgement": true, "creditLease": true, "creditPush": true, "creditPolicy": true, "icmpv4": true, "pmtuv4": true, "icmpv6": true, "pmtuv6": true, "returnPathDiagnostics": true, "preparedLocalShaping": true, "trafficPolicy": true, "localOutput": true, "localTargets": true, "preserveSource": true, "localTrafficShaping": true, "localUDPPreserveSource": true, "ipv6LoopbackIngress": false, "crossFamily": false, "scopedIPv6": false}, MaxForwards: 10000, MaxBatch: 10000, CounterLayer: "network", Limits: map[string]int{"listenersPerForward": 16, "targetOriginsPerForward": 16, "targetWeightSum": 32, "retiringTargetsPerForward": 32, "resolvedPathsPerNode": 32768, "egressPoliciesPerNode": 63, "statusPage": 100, "minimumHTBGuaranteeBitsPerSecond": 8}}
 }

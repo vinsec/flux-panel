@@ -533,6 +533,11 @@ func (n *NativeNFT) references() (map[string]bool, error) {
 }
 
 func (n *NativeNFT) cleanup() error {
+	if n.parent.DPI != nil {
+		if e := n.parent.DPI.cleanup(); e != nil {
+			return e
+		}
+	}
 	if e := n.gate(nil, false, false); e != nil {
 		return e
 	}

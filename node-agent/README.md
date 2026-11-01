@@ -1,17 +1,17 @@
-# 独立内核 Agent（v5.3）
+# 独立内核 Agent（v5.4）
 
 当前实现包含域名、双栈、多目标、出口路由、共享平滑限速、本地路径、源地址保留、
-缩权 helper，以及可选的[原生 nftables map 后端](../doc/forward-native-nft.md)。
+缩权 helper、可选的[原生 nftables map 后端](../doc/forward-native-nft.md)，以及[HTTP/TLS/SOCKS 有界识别与旧监听迁移](../doc/forward-protocol-blocking.md)。
 节点配置 `kernelBackend` 省略或为 `iptables` 时保持既有模式；显式为 `nftables`
 才选择新后端。模式切换须先用原配置维护结算/停流，不能直接覆盖活动节点配置。
-nft checkpoint 为 format 6；保留的 iptables 模式仍按功能写 3/4/5。
+未使用新协议策略时，nft checkpoint 为 format 6，保留的 iptables 模式按功能写 3/4/5；schema 5 协议策略在两种后端均要求 format 7。
 
 完整能力和验收边界以 [实施清单](../doc/forward-engine-roadmap.md) 与各批验证报告为准。
 以下 v3 章节保留历史基础方案，不能据其中的历史“未支持”描述判断当前版本。
 
-本模块不依赖或启动 GOST。管理通信使用面板的 WSS 协议，业务数据在 Linux 内核完成 IPv4 TCP/UDP DNAT/SNAT。
+本模块不依赖或启动 GOST。管理通信使用面板的 WSS 协议；默认业务数据由内核 DNAT/SNAT。启用协议屏蔽后，未判定 TCP 的有界前缀经独立识别器，判定后仍走内核；未知流量放行并标记，UDP 直接在内核归为 UNKNOWN。验证结果见 [v5.4 报告](../doc/forward-protocol-validation.md)。
 
-## 当前范围
+## v3 历史范围
 
 - 隧道和节点选择 `iptables`；旧记录迁移后默认为 `gost`。
 - 单目标数字 IPv4 地址、TCP/UDP 同端口，新增/更新/暂停/恢复/删除。

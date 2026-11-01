@@ -147,6 +147,9 @@ func (k *IPTables) inventory() (map[string]string, map[string]string, error) {
 	return tables, sets, nil
 }
 func (k *IPTables) removeOwned(tables map[string]string, sets map[string]string) error {
+	if e := k.protocolEngine().cleanup(); e != nil {
+		return e
+	}
 	if k.Native != nil {
 		return k.Native.cleanup()
 	}
@@ -244,7 +247,7 @@ func readMaintenanceState(path string) (State, error) {
 	if e = json.Unmarshal(b, &s); e != nil {
 		return s, e
 	}
-	if len(s.Epoch) != 32 || s.Sequence < 0 || s.Rules == nil || s.FormatVersion > 6 {
+	if len(s.Epoch) != 32 || s.Sequence < 0 || s.Rules == nil || s.FormatVersion > 7 {
 		return s, fmt.Errorf("invalid maintenance checkpoint")
 	}
 	return s, nil
@@ -547,7 +550,7 @@ func Maintain(path, configPath, action, backupDir string, k *IPTables, offline b
 		} else if action == "migrate" {
 			state.FormatVersion = requiredStateFormat(state.Rules)
 			if state.KernelBackend == "nftables" {
-				state.FormatVersion = 6
+				state.FormatVersion = max(state.FormatVersion, 6)
 			}
 			state.KernelID = ""
 			state.BootID = ""

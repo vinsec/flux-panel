@@ -82,6 +82,7 @@ public class NodeServiceImpl extends ServiceImpl<NodeMapper, Node> implements No
 
     @Resource
     private com.admin.common.engine.NodeReleaseService releases;
+    @Resource @Lazy private com.admin.common.engine.IptablesForwardingEngine protocolReconcile;
 
 
     // ========== 公共接口实现 ==========
@@ -134,7 +135,7 @@ public class NodeServiceImpl extends ServiceImpl<NodeMapper, Node> implements No
         try { requestedEngine=EngineRegistry.normalize(nodeUpdateDto.getEngine()); }
         catch(IllegalArgumentException e) { return R.err(e.getMessage()); }
         if(!requestedEngine.equals(EngineRegistry.normalize(node.getEngine()))) return R.err("节点引擎不可原地切换，请新建节点后迁移");
-        if("iptables".equals(requestedEngine) && ((nodeUpdateDto.getHttp()!=null && nodeUpdateDto.getHttp()!=0) || (nodeUpdateDto.getTls()!=null && nodeUpdateDto.getTls()!=0) || (nodeUpdateDto.getSocks()!=null && nodeUpdateDto.getSocks()!=0))) return R.err("iptables v1 不支持应用协议屏蔽");
+        if("iptables".equals(requestedEngine) && ((nodeUpdateDto.getHttp()!=null && nodeUpdateDto.getHttp()!=0) || (nodeUpdateDto.getTls()!=null && nodeUpdateDto.getTls()!=0) || (nodeUpdateDto.getSocks()!=null && nodeUpdateDto.getSocks()!=0))){try{com.admin.common.engine.EngineCapabilities.require(node.getId(),"protocolBlocking");}catch(Exception e){return R.err(e.getMessage());}}
 
         //1.1 如果节点在线 且传入更新的 http/tls/socks 任意一项与数据库不一致，则通过 WS 通知节点更新设置
         boolean online = node.getStatus() != null && node.getStatus() == 1;
@@ -146,7 +147,7 @@ public class NodeServiceImpl extends ServiceImpl<NodeMapper, Node> implements No
         boolean tlsChanged = newTls != null && !newTls.equals(node.getTls());
         boolean socksChanged = newSocks != null && !newSocks.equals(node.getSocks());
 
-        if (online && (httpChanged || tlsChanged || socksChanged)) {
+        if (online && !"iptables".equals(requestedEngine) && (httpChanged || tlsChanged || socksChanged)) {
             JSONObject req = new JSONObject();
             req.put("http", newHttp);
             req.put("tls", newTls);
@@ -162,6 +163,7 @@ public class NodeServiceImpl extends ServiceImpl<NodeMapper, Node> implements No
         // 2. 构建更新对象并执行更新
         Node updateNode = buildUpdateNode(nodeUpdateDto);
         boolean result = this.updateById(updateNode);
+        if(result&&"iptables".equals(requestedEngine)&&(httpChanged||tlsChanged||socksChanged)){protocolReconcile.protocolChanged(node.getId());}
 
         // 更新隧道入口ip
         List<Tunnel> inNodeId = tunnelService.list(new QueryWrapper<Tunnel>().eq("in_node_id", updateNode.getId()));

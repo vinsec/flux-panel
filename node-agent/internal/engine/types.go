@@ -30,6 +30,9 @@ type Spec struct {
 var serviceID = regexp.MustCompile(`^[0-9]+_[0-9]+_[0-9]+$`)
 
 func (s Spec) Validate() error {
+	if e := validateProtocolPolicy(s); e != nil {
+		return e
+	}
 	if !serviceID.MatchString(s.ID) || len(s.ID) > 100 || s.Revision < 1 {
 		return fmt.Errorf("invalid service id or revision")
 	}
