@@ -58,7 +58,7 @@ public class NodeReleaseService {
             JSONObject config = new JSONObject();
             config.put("addr", addr);
             config.put("secret", node.getSecret());
-            if ("iptables".equals(engine)) {
+            if ("kernel".equals(engine)) {
                 config.put("kernelBackend", KernelBackend.forNode(node));
                 config.put("apply", true);
                 config.put("helperSocket","/run/flux-agent/kernel.sock");

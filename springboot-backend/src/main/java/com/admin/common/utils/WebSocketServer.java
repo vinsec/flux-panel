@@ -87,7 +87,7 @@ public class WebSocketServer extends TextWebSocketHandler {
                     // 先发送确认消息
                     sendToUser(session, "{\"type\":\"call\"}", nodeSecret);
                 }else if (decryptedPayload.contains("requestId")) {
-                    if(!"1".equals(type)||!String.valueOf(session.getAttributes().get("nodeVersion")).startsWith("iptables"))log.info("收到消息: {}", com.admin.common.engine.LogRedaction.safeText(decryptedPayload));
+                    if(!"1".equals(type)||!com.admin.common.engine.EngineRegistry.isKernelVersion(String.valueOf(session.getAttributes().get("nodeVersion"))))log.info("收到消息: {}", com.admin.common.engine.LogRedaction.safeText(decryptedPayload));
                     // 处理命令响应消息
                     try {
                         JSONObject responseJson = JSONObject.parseObject(decryptedPayload);

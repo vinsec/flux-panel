@@ -60,7 +60,7 @@ type protocolEngine struct {
 	udpError  string
 	bodies    int
 	held      int
-	parent    *IPTables
+	parent    *NativeKernel
 	rules     atomic.Pointer[map[uint32]protocolRule]
 	mu        sync.Mutex
 	io        protocolQueueIO
@@ -73,7 +73,7 @@ type protocolEngine struct {
 	lastGC    time.Time
 }
 
-func (k *IPTables) protocolEngine() *protocolEngine {
+func (k *NativeKernel) protocolEngine() *protocolEngine {
 	if k.DPI == nil {
 		k.DPI = &protocolEngine{parent: k, flows: map[protocolKey]*protocolFlow{}, stats: map[string]*protocolStats{}, epoch: identity(), shape: "uninitialized"}
 		r := map[uint32]protocolRule{}

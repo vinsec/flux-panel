@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-BACKEND="${1:-nft}"
-[[ "$BACKEND" == nft || "$BACKEND" == legacy ]] || { echo 'usage: run-local.sh [nft|legacy]' >&2; exit 2; }
+BACKEND="${1:-native}"
+[[ "$BACKEND" == native ]] || { echo 'usage: run-local.sh [native]' >&2; exit 2; }
 ENDPOINT="$(docker context inspect --format '{{(index .Endpoints "docker").Host}}')"
 [[ "$ENDPOINT" == unix://* && "${DOCKER_HOST:-unix://}" == unix://* ]] || { echo 'Only a local Docker daemon is allowed for this verifier.' >&2; exit 2; }
-RUN_ID="flux-iptables-test-${BACKEND}-$$"
+RUN_ID="flux-native-test-$$"
 WORK="${FLUX_TEST_WORK:-$ROOT/node-agent/.test-work/$BACKEND}"
 mkdir -p "$WORK/build" "$WORK/evidence"
 if [[ -n "${FLUX_TEST_GOST:-}" ]]; then
@@ -40,7 +40,7 @@ wait_container() {
 }
 if [[ "${FLUX_TEST_SKIP_BUILD:-0}" != 1 ]]; then
 docker create --name "$RUN_ID-build" -v "$ROOT/springboot-backend:/src" -v flux-iptables-m2:/root/.m2 -w /src \
-  maven:3.9.9-eclipse-temurin-21 mvn -q -DskipTests package >/dev/null
+  maven:3.9.9-eclipse-temurin-21 mvn -o -q -DskipTests package >/dev/null
 python3 "$ROOT/node-agent/tests/start-container.py" "$RUN_ID-build"
 BUILD_STATUS="$(wait_container "$RUN_ID-build")"
 docker logs "$RUN_ID-build"
@@ -54,7 +54,7 @@ docker create --name "$RUN_ID-mysql" --network "$RUN_ID" --network-alias mysql \
   "${FLUX_TEST_MYSQL_IMAGE:-mysql:8.2}" --innodb-buffer-pool-size=32M --innodb-log-file-size=8M --key-buffer-size=8M --performance-schema=OFF --max-connections=20 >"$WORK/evidence/mysql-container.txt"
 python3 "$ROOT/node-agent/tests/start-container.py" "$RUN_ID-mysql"
 docker create --name "$RUN_ID-runner" --cap-add NET_ADMIN --cap-add SYS_ADMIN --security-opt seccomp=unconfined --security-opt apparmor=unconfined --network "$RUN_ID" --memory=640m --cpus=1 \
-  -e IPTABLES_BACKEND="$BACKEND" -e FLUX_TEST_SCALE="${FLUX_TEST_SCALE:-0}" -v "$ROOT:/repo:ro" -v "$WORK/build:/build:ro" -v "$WORK/evidence:/evidence" \
+  -e IPTABLES_BACKEND=nft -e FLUX_TEST_SCALE="${FLUX_TEST_SCALE:-0}" -v "$ROOT:/repo:ro" -v "$WORK/build:/build:ro" -v "$WORK/evidence:/evidence" \
   "$IMAGE" python3 /repo/node-agent/tests/integration.py >"$WORK/evidence/runner-container.txt"
 python3 "$ROOT/node-agent/tests/start-container.py" "$RUN_ID-runner"
 STATUS="$(wait_container "$RUN_ID-runner")"

@@ -198,11 +198,11 @@ func (x *Auxiliary) restoreObject() (string, error) {
 func (x *Auxiliary) auditLocalTracking() error {
 	// Early tc tracking cannot coexist safely with a later raw NOTRACK or a
 	// non-default CT zone. Refuse instead of silently changing foreign policy.
-	for _, bin := range []string{x.parent.parent.Binary, strings.Replace(x.parent.parent.Binary, "iptables", "ip6tables", 1)} {
+	for _, bin := range []string{"iptables-nft", "iptables-legacy", "ip6tables-nft", "ip6tables-legacy"} {
 		b, e := x.parent.parent.run(bin+"-save", "", "-t", "raw")
 		if e != nil {
-			return e
-		}
+			continue
+		} // Optional read-only audit of an installed external firewall.
 		if strings.Contains(b, "-j NOTRACK") || strings.Contains(b, "--notrack") || strings.Contains(b, "--zone") {
 			return fmt.Errorf("local shaping requires default conntrack zone without raw NOTRACK")
 		}

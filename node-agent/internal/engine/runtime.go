@@ -73,7 +73,7 @@ func (m *Manager) RefreshRuntime(ctx context.Context) error {
 			}
 		}
 		if due {
-			if k, ok := m.Kernel.(*IPTables); ok && k.P1 != nil {
+			if k, ok := m.Kernel.(*NativeKernel); ok && k.P1 != nil {
 				s = cloneSpec(s)
 				if applied, exists := k.P1.last[id]; exists {
 					s.Runtime.EgressGroup = applied.Runtime.EgressGroup
@@ -252,7 +252,7 @@ func (m *Manager) RuntimeStatus(id string) map[string]any {
 		result["resolution"] = s.Runtime
 	}
 	if s.protocolPolicy().Enabled() {
-		if k, ok := m.Kernel.(*IPTables); ok && k.DPI != nil {
+		if k, ok := m.Kernel.(*NativeKernel); ok && k.DPI != nil {
 			result["protocolInspection"] = k.DPI.status(id)
 		}
 	}

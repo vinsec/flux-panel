@@ -28,12 +28,13 @@ public class EngineTrafficController {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
         var identity=credentials.bearer(authorization);
         Node n = identity==null?null:identity.node();
-        if (n == null || !"iptables".equals(n.getEngine()))
+        if (n == null || !"kernel".equals(n.getEngine()))
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
         if (credits.strict(n.getId()))
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "strict credit nodes require v2 reporting");
         try {
+            com.admin.common.engine.KernelBackend.forNode(n);
             traffic.ingest(n, report);
             return "ok";
         } catch (IllegalArgumentException e) {
@@ -48,7 +49,7 @@ public class EngineTrafficController {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
         var identity=credentials.bearer(authorization);
         Node n = identity==null?null:identity.node();
-        if (n == null || !"iptables".equals(n.getEngine()))
+        if (n == null || !"kernel".equals(n.getEngine()))
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
         try {
             return credits.exchange(n, report);
@@ -64,7 +65,7 @@ public class EngineTrafficController {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
         var identity=credentials.bearer(authorization);
         Node n = identity==null?null:identity.node();
-        if (n == null || !"iptables".equals(n.getEngine()))
+        if (n == null || !"kernel".equals(n.getEngine()))
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
         try {
             return credits.maintenance(n, report);

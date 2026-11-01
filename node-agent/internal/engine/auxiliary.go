@@ -92,7 +92,7 @@ func (a *AdvancedKernel) validateAux(s Spec) error {
 			}
 		}
 	}
-	for _, binary := range []string{a.parent.Binary, strings.Replace(a.parent.Binary, "iptables", "ip6tables", 1)} {
+	for _, binary := range []string{"iptables-nft", "iptables-legacy", "ip6tables-nft", "ip6tables-legacy"} {
 		saved, e := a.parent.run(binary+"-save", "", "-t", "mangle")
 		if e == nil {
 			if e = validateMarkBits(saved, mask); e != nil {

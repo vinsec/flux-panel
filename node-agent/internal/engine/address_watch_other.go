@@ -4,4 +4,4 @@ package engine
 
 import "context"
 
-func (k *IPTables) StartAddressWatcher(context.Context) error { return nil }
+func (k *NativeKernel) StartAddressWatcher(context.Context) error { return nil }

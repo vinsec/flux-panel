@@ -59,6 +59,7 @@ public class WebSocketInterceptor extends HttpSessionHandshakeInterceptor {
             try { requestedEngine=EngineRegistry.normalize(serverHttpRequest.getServletRequest().getParameter("engine")); }
             catch(IllegalArgumentException e) { return false; }
             if(!requestedEngine.equals(EngineRegistry.normalize(node.getEngine()))) {response.setStatusCode(org.springframework.http.HttpStatus.FORBIDDEN);return false;}
+            if("kernel".equals(requestedEngine)){try{com.admin.common.engine.KernelBackend.forNode(node);}catch(IllegalArgumentException e){response.setStatusCode(org.springframework.http.HttpStatus.CONFLICT);return false;}}
             attributes.put("id", node.getId());
             attributes.put("nodeSecret", node.getSecret());
             attributes.put("credentialExpiresAt",identity.expiresAt());

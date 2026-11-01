@@ -32,7 +32,7 @@ try:
  wrong=pathlib.Path('/tmp/wrong-backend.json');wrong.write_text(json.dumps(dict(cfg,kernelBackend='iptables')))
  stop(a)
  result=subprocess.run(ns('router',str(BUILD/'flux-agent'),'--config',str(wrong),'--maintenance','backup','--backup-dir','/tmp/wrong-backup'),capture_output=True,text=True)
- check('wrong-backend maintenance refuses before touching live rules',result.returncode!=0 and 'existing kernel backend' in result.stderr and probe())
+ check('wrong-backend maintenance refuses before touching live rules',result.returncode!=0 and 'retired' in result.stderr and probe())
  a=agent()
  # Confirmed TCP and UDP connections must not bypass a map update.
  code="""import socket,pathlib,time

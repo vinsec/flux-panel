@@ -11,17 +11,19 @@ import javax.annotation.Resource;
 public class EngineRegistry {
     @Resource private NodeMapper nodes;
     @Resource private GostForwardingEngine gost;
-    @Resource private IptablesForwardingEngine iptables;
+    @Resource private KernelForwardingEngine kernel;
     private static EngineRegistry instance;
     @PostConstruct public void init() { instance=this; }
     public static String normalize(String engine) {
         if (engine==null || engine.isBlank()) return "gost";
-        if (!engine.equals("gost") && !engine.equals("iptables")) throw new IllegalArgumentException("unsupported forwarding engine");
+        if (engine.equals("iptables")) return "kernel"; // Old native Agent wire alias, not an xtables backend.
+        if (!engine.equals("gost") && !engine.equals("kernel")) throw new IllegalArgumentException("unsupported forwarding engine");
         return engine;
     }
-    public static boolean isIptables(Long id) {
+    public static boolean isKernelVersion(String version) {return version.startsWith("kernel-") || version.startsWith("iptables-");}
+    public static boolean isKernel(Long id) {
         Node n=instance.nodes.selectById(id);
-        return n!=null && "iptables".equals(normalize(n.getEngine()));
+        return n!=null && "kernel".equals(normalize(n.getEngine()));
     }
-    public static ForwardingEngine forNode(Long id) { return isIptables(id) ? instance.iptables : instance.gost; }
+    public static ForwardingEngine forNode(Long id) { return isKernel(id) ? instance.kernel : instance.gost; }
 }

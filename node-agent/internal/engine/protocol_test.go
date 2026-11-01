@@ -75,7 +75,7 @@ func protocolTCP(seq uint32, body []byte) []byte {
 }
 func TestProtocolReassemblyAndLargeGSO(t *testing.T) {
 	for _, large := range []bool{false, true} {
-		p := (&IPTables{}).protocolEngine()
+		p := (&NativeKernel{}).protocolEngine()
 		q := &recordingProtocolQueue{}
 		p.io = q
 		rules := map[uint32]protocolRule{0xf1000100: {ID: "x", Policy: ProtocolFilter{HTTP: true, Unknown: "allow"}}}
@@ -98,7 +98,7 @@ func TestProtocolReassemblyAndLargeGSO(t *testing.T) {
 	}
 }
 func TestProtocolTimeoutAndFlowCapacity(t *testing.T) {
-	p := (&IPTables{}).protocolEngine()
+	p := (&NativeKernel{}).protocolEngine()
 	q := &recordingProtocolQueue{}
 	p.io = q
 	rules := map[uint32]protocolRule{0xf1000100: {ID: "x", Policy: ProtocolFilter{HTTP: true, Unknown: "allow"}}}
@@ -143,7 +143,7 @@ func BenchmarkProtocolInitialDecision(b *testing.B) {
 		{"splitHTTP", []byte("GET / HTTP/1.1\r\n\r\n"), true},
 	} {
 		b.Run(row.name, func(b *testing.B) {
-			p := (&IPTables{}).protocolEngine()
+			p := (&NativeKernel{}).protocolEngine()
 			p.io = &recordingProtocolQueue{}
 			rules := map[uint32]protocolRule{0xf1000100: {ID: "x", Policy: ProtocolFilter{HTTP: true, TLS: true, SOCKS: true, Unknown: "allow"}}}
 			p.rules.Store(&rules)

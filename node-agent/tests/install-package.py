@@ -8,7 +8,7 @@ try:
  package=pathlib.Path('/package');pin=hashlib.sha256((package/'SHA256SUMS').read_bytes()).hexdigest();arch='arm64' if os.uname().machine=='aarch64' else 'amd64';prefix=pathlib.Path('/tmp/package-root');config=pathlib.Path('/tmp/package-config.json');ledger=prefix/'var/lib/flux-agent/state.json';binary=prefix/'usr/local/bin/flux-agent'
  config.write_text(json.dumps({'addr':'http://10.205.4.1:8000','secret':SECRET,'statePath':str(ledger),'apply':True,'allowInsecure':True,'intervalSeconds':1,'kernelBackend':KERNEL_BACKEND}))
  def install(action='install',extra=(),success=True,service=False):
-  args=ns('router','bash',str(package/'install.sh'),'--engine','iptables','--bundle',str(package),'--manifest-sha256',pin,'--config',str(config),'--prefix',str(prefix),'--action',action)
+  args=ns('router','bash',str(package/'install.sh'),'--engine','kernel','--bundle',str(package),'--manifest-sha256',pin,'--config',str(config),'--prefix',str(prefix),'--action',action)
   if not service:args+=['--no-service']
   args+=list(extra);env=os.environ.copy();env['PATH']='/tmp/fake-systemctl:'+env['PATH'];p=subprocess.run(args,capture_output=True,text=True,env=env,timeout=60)
   if success:assert p.returncode==0,(p.stdout,p.stderr)
@@ -20,15 +20,16 @@ try:
  serial=PANEL.serial;a=spawn(ns('router',str(binary),'--config',str(prefix/'etc/flux-agent/config.json')),'installed-agent.log');wait(lambda:PANEL.serial>serial);apply(spec());check('installed artifact actually forwards TCP and UDP',probe());stop(a)
  install('uninstall');check('uninstall keeps durable state and backup while removing owned dataplane',not binary.exists() and ledger.exists() and 'keep-unrelated' in router('iptables-save'))
  baseline=pathlib.Path(os.getenv('FLUX_INSTALL_BASELINE',str(BUILD/'agent-v2')))
+ if os.getenv('FLUX_INSTALL_BASELINE'):assert baseline.exists(),'explicit native baseline missing'
  if baseline.exists():
   # Prepare a genuine previous executable/checkpoint before the new installer.
   prefix=pathlib.Path('/tmp/package-upgrade');ledger=prefix/'var/lib/flux-agent/state.json';binary=prefix/'usr/local/bin/flux-agent';binary.parent.mkdir(parents=True);(prefix/'etc/flux-agent').mkdir(parents=True)
-  config=pathlib.Path('/tmp/package-upgrade-config.json');config.write_text(json.dumps({'addr':'http://10.205.4.1:8000','secret':SECRET,'statePath':str(ledger),'apply':True,'allowInsecure':True,'intervalSeconds':1}));shutil.copyfile(config,prefix/'etc/flux-agent/config.json');shutil.copyfile(baseline,binary);binary.chmod(0o755)
+  config=pathlib.Path('/tmp/package-upgrade-config.json');config.write_text(json.dumps({'addr':'http://10.205.4.1:8000','secret':SECRET,'statePath':str(ledger),'apply':True,'allowInsecure':True,'intervalSeconds':1,'kernelBackend':'nftables'}));shutil.copyfile(config,prefix/'etc/flux-agent/config.json');shutil.copyfile(baseline,binary);binary.chmod(0o755)
   serial=PANEL.serial;a=spawn(ns('router',str(binary),'--config',str(config)),'previous-agent.log');wait(lambda:PANEL.serial>serial);apply(spec());assert probe();wait(lambda:json.loads(ledger.read_text()).get('totals',{}).get('1_1_0',{}).get('up',0)>0);old=json.loads(ledger.read_text());stop(a)
   fake=pathlib.Path('/tmp/fake-systemctl');fake.mkdir();command=fake/'systemctl';command.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> /evidence/systemctl.calls\n[ "$1" != start ]\n');command.chmod(0o755)
   failed=install(service=True,success=False);check('service activation failure triggers a verified version rollback',failed.returncode!=0 and hashlib.sha256(binary.read_bytes()).hexdigest()==hashlib.sha256(baseline.read_bytes()).hexdigest())
   current=json.loads(ledger.read_text());check('installer rollback preserves epoch, newer totals and paused business',current['epoch']==old['epoch'] and current['totals']['1_1_0']['up']>=old['totals']['1_1_0']['up'] and all(not s['enabled'] for s in current['rules'].values()) and probe(blocked=True))
-  install();check('retry upgrades the old checkpoint to v3 without resetting accounting',json.loads(ledger.read_text())['formatVersion']==3 and hashlib.sha256(binary.read_bytes()).hexdigest()==expected)
+  install();check('retry upgrades the native checkpoint without resetting accounting',json.loads(ledger.read_text())['formatVersion']==6 and hashlib.sha256(binary.read_bytes()).hexdigest()==expected)
   install('uninstall')
  check('sandbox never invoked the real system service manager',not pathlib.Path('/run/systemd/system').exists())
  DONE=True

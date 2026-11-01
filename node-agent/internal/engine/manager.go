@@ -36,6 +36,11 @@ type Manager struct {
 }
 
 func New(path string, k Kernel) (manager *Manager, err error) {
+	if _, ok := k.(*NativeKernel); ok {
+		if e := ValidateCheckpointBackend(path); e != nil {
+			return nil, e
+		}
+	}
 	defer func() {
 		if err != nil {
 			if q, ok := k.(interface{ Quiesce() error }); ok {
@@ -56,30 +61,11 @@ func New(path string, k Kernel) (manager *Manager, err error) {
 	if m.state.FormatVersion > 7 {
 		return nil, fmt.Errorf("unsupported state format")
 	}
-	if concrete, ok := k.(*IPTables); ok {
-		backend := "iptables"
-		if concrete.Native != nil {
-			backend = "nftables"
+	if _, ok := k.(*NativeKernel); ok {
+		if !fresh && m.state.KernelBackend != "nftables" {
+			return nil, fmt.Errorf("iptables state is retired; settle it using the previous release before explicit migration")
 		}
-		prior := m.state.KernelBackend
-		if prior == "" {
-			prior = "iptables"
-		}
-		if !fresh && prior != backend {
-			if _, e := os.Stat(path + ".journal"); e == nil {
-				return nil, fmt.Errorf("recover the existing backend's transaction before switching")
-			}
-			settled := m.state.KernelID == "" && len(m.state.Last) == 0
-			for _, s := range m.state.Rules {
-				if s.Enabled && !s.Deleted {
-					settled = false
-				}
-			}
-			if !settled {
-				return nil, fmt.Errorf("backend switch requires settled maintenance with all forwarding paused")
-			}
-		}
-		m.state.KernelBackend = backend
+		m.state.KernelBackend = "nftables"
 	}
 	if !fresh && (len(m.state.Epoch) != 32 || m.state.Sequence < 0) {
 		return nil, fmt.Errorf("invalid persistent accounting identity")

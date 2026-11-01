@@ -43,7 +43,8 @@ public class NodeCredentials {
         if(authorization==null||!authorization.startsWith("Bearer "))throw new IllegalArgumentException("bootstrap authentication required");
         String value=authorization.substring(7);if(value.length()>128)throw new IllegalArgumentException("invalid bootstrap credential");
         Node node=nodes.selectOne(new QueryWrapper<Node>().eq("secret",value));
-        if(node==null||!"iptables".equals(node.getEngine()))throw new IllegalArgumentException("invalid bootstrap credential");
+        if(node==null||!"kernel".equals(node.getEngine()))throw new IllegalArgumentException("invalid bootstrap credential");
+        KernelBackend.forNode(node);
         long now=System.currentTimeMillis(),expires=now+Math.max(60000,Math.min(3600000,lifetime));String access=token();
         jdbc.update("INSERT INTO engine_session(token_hash,node_id,created_at,expires_at) VALUES(?,?,?,?)",hash(access),node.getId(),now,expires);
         JSONObject result=new JSONObject();result.put("accessToken",access);result.put("expiresAt",expires);result.put("validForMillis",expires-now);result.put("nodeId",node.getId());return result;

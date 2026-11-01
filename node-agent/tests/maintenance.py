@@ -17,7 +17,7 @@ try:
   blocked=subprocess.run(ns('router',str(BUILD/'flux-agent'),'--config',str(CONFIG)),capture_output=True,text=True,timeout=8)
   check('unfinished '+phase+' cannot silently start an Agent',blocked.returncode!=0 and 'pending maintenance' in blocked.stderr)
   maintain('migrate',backup)
-  data=state();check('maintenance retry resumes '+phase+' with durable accounting and paused data',data['formatVersion']==3 and not data['rules']['1_1_0']['enabled'] and probe(blocked=True))
+  data=state();check('maintenance retry resumes '+phase+' with durable accounting and paused data',data['formatVersion']==6 and not data['rules']['1_1_0']['enabled'] and probe(blocked=True))
   manifest=json.loads((backup/'manifest.json').read_text())
   for name,want in manifest['files'].items():assert hashlib.sha256((backup/name).read_bytes()).hexdigest()==want
   check('backup checksum and protected config at '+phase,(backup/'config.json').stat().st_mode&0o777==0o600)
@@ -28,16 +28,10 @@ try:
  # acknowledges paused desired state; the fake panel deliberately does that.
  a=agent();PANEL.rpc('SetForwardState',{'id':'1_1_0','revision':state()['rules']['1_1_0']['revision']+1,'enabled':True});stop(a);backup=OUT/'offline';maintain('migrate',backup,['--offline']);check('offline upgrade retains a closed guard',state()['maintenancePending'] and probe(blocked=True));a=agent();wait(lambda:not state().get('maintenancePending',False));check('offline upgrade only completes after panel maintenance acknowledgement',probe(blocked=True));stop(a)
  maintain('uninstall',OUT/'uninstall');check('uninstall removes only owned chains and preserves unrelated policy','-A FP_' not in router('iptables-save') and 'keep-unrelated' in router('iptables-save'))
- # Upgrade real historical implementations; no reconstruction of v1 rules in
- # the verifier is used to manufacture a passing migration result.
- for version in ['v1','v2']:
-  old=BUILD/('agent-'+version)
-  if not old.exists():continue
-  oldstate=pathlib.Path('/tmp/legacy-'+version+'.json');oldconfig=pathlib.Path('/tmp/legacy-'+version+'-config.json');oldconfig.write_text(json.dumps({'addr':'http://10.205.4.1:8000','secret':SECRET,'statePath':str(oldstate),'apply':True,'allowInsecure':True,'intervalSeconds':1}));serial=PANEL.serial
-  oldprocess=spawn(ns('router',str(old),'--config',str(oldconfig)),'legacy-'+version+'.log');wait(lambda:PANEL.serial>serial);apply(spec());assert probe();wait(lambda:json.loads(oldstate.read_text()).get('totals',{}).get('1_1_0',{}).get('up',0)>0);prior=json.loads(oldstate.read_text());stop(oldprocess)
-  maintain('migrate',OUT/('from-'+version),config=oldconfig);current=json.loads(oldstate.read_text());check('real '+version+' migration keeps epoch, monotonic totals and pause',current['epoch']==prior['epoch'] and current['totals']['1_1_0']['up']>=prior['totals']['1_1_0']['up'] and not current['rules']['1_1_0']['enabled'] and probe(blocked=True))
-  # Return to an empty owned dataplane for the next historical executable.
-  maintain('uninstall',OUT/('retire-'+version),config=oldconfig)
+ # Retired checkpoints are not silently adopted by the native-only executable.
+ oldstate=pathlib.Path('/tmp/retired-state.json');oldstate.write_text(json.dumps({'kernelBackend':'iptables','epoch':'a'*32,'rules':{},'totals':{}}));oldconfig=pathlib.Path('/tmp/retired-config.json');oldconfig.write_text(json.dumps({'addr':'http://10.205.4.1:8000','secret':SECRET,'statePath':str(oldstate),'apply':True,'allowInsecure':True}))
+ before=oldstate.read_bytes();result=subprocess.run(ns('router',str(BUILD/'flux-agent'),'--config',str(oldconfig)),capture_output=True,text=True,timeout=5)
+ check('retired checkpoint is rejected without changing its ledger',result.returncode!=0 and 'retired' in result.stderr and oldstate.read_bytes()==before)
  DONE=True
 except Exception:
  traceback.print_exc()

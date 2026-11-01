@@ -10,7 +10,7 @@ import (
 	"syscall"
 )
 
-func (k *IPTables) StartAddressWatcher(ctx context.Context) error {
+func (k *NativeKernel) StartAddressWatcher(ctx context.Context) error {
 	if k.P1 == nil {
 		return nil
 	}

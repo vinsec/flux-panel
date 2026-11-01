@@ -10,33 +10,30 @@ import org.springframework.test.util.ReflectionTestUtils;
 class KernelBackendTest {
     private Node node(String backend) {
         Node n = new Node();
-        n.setEngine("iptables");
+        n.setEngine("kernel");
         n.setKernelBackend(backend);
         n.setSecret("isolated-node-key");
         return n;
     }
 
-    @Test
-    void newDefaultsDoNotReinterpretLegacyNodes() {
-        assertEquals("nftables", KernelBackend.forCreate("iptables", null));
-        assertEquals("iptables", KernelBackend.forNode(node(null)));
-        assertEquals("iptables", KernelBackend.forCreate("iptables", "iptables"));
-        assertThrows(IllegalArgumentException.class, () -> KernelBackend.forCreate("iptables", "nft"));
-        assertThrows(IllegalArgumentException.class, () -> KernelBackend.forCreate("gost", "nftables"));
-        assertDoesNotThrow(() -> KernelBackend.validateUpdate(node("nftables"), null));
-        assertDoesNotThrow(() -> KernelBackend.validateUpdate(node("iptables"), "iptables"));
-        assertThrows(IllegalArgumentException.class, () -> KernelBackend.validateUpdate(node("nftables"), "iptables"));
+    @Test void defaultsAndAliasesNeverReactivateTheRetiredBackend() {
+        assertEquals("kernel",EngineRegistry.normalize("iptables"));
+        assertEquals("nftables",KernelBackend.forCreate("kernel",null));
+        assertEquals("nftables",KernelBackend.forCreate("iptables",null));
+        for(String old:new String[]{"iptables","kernel","nft"})
+            assertThrows(IllegalArgumentException.class,()->KernelBackend.forCreate("kernel",old));
+        assertThrows(IllegalArgumentException.class,()->KernelBackend.forCreate("gost","nftables"));
+        assertDoesNotThrow(()->KernelBackend.validateUpdate(node("nftables"),null));
+        assertThrows(IllegalArgumentException.class,()->KernelBackend.validateUpdate(node("iptables"),null));
+        assertThrows(IllegalArgumentException.class,()->KernelBackend.forNode(node(null)));
+        assertTrue(EngineCreditService.reservationVersion("kernel-v6.0"));
+        assertTrue(EngineCreditService.reservationVersion("iptables-v5.5"));
     }
-
-    @Test
-    void wrongRuntimeBackendCannotApplyRules() {
-        JSONObject legacy = JSONObject.parseObject("{}");
-        JSONObject nativeInfo = JSONObject.parseObject("{\"kernelBackend\":\"nftables\"}");
-        assertDoesNotThrow(() -> KernelBackend.verifyAgent(node(null), legacy));
-        assertDoesNotThrow(() -> KernelBackend.verifyAgent(node("nftables"), nativeInfo));
-        assertThrows(IllegalArgumentException.class, () -> KernelBackend.verifyAgent(node("nftables"), legacy));
-        assertThrows(IllegalArgumentException.class, () -> KernelBackend.verifyAgent(node("iptables"), nativeInfo));
-        assertThrows(IllegalStateException.class, () -> KernelBackend.verifyAgent(node("nftables"), null));
+    @Test void nativeCapabilityIsMandatory() {
+        assertDoesNotThrow(()->KernelBackend.verifyAgent(node("nftables"),JSONObject.parseObject("{\"kernelBackend\":\"nftables\"}")));
+        assertThrows(IllegalArgumentException.class,()->KernelBackend.verifyAgent(node("nftables"),new JSONObject()));
+        assertThrows(IllegalArgumentException.class,()->KernelBackend.verifyAgent(node("iptables"),new JSONObject()));
+        assertThrows(IllegalStateException.class,()->KernelBackend.verifyAgent(node("nftables"),null));
     }
 
     @Test
@@ -46,7 +43,7 @@ class KernelBackendTest {
         var revisions = org.mockito.Mockito.mock(EngineRevision.class);
         var credits = org.mockito.Mockito.mock(EngineCreditService.class);
         var jdbc = org.mockito.Mockito.mock(org.springframework.jdbc.core.JdbcTemplate.class);
-        var engine = new IptablesForwardingEngine();
+        var engine = new KernelForwardingEngine();
         ReflectionTestUtils.setField(engine, "nodes", nodes);
         ReflectionTestUtils.setField(engine, "revisions", revisions);
         ReflectionTestUtils.setField(engine, "credits", credits);
@@ -58,7 +55,7 @@ class KernelBackendTest {
                 return action.get();
             }
         });
-        var tunnel = new com.admin.entity.Tunnel(); tunnel.setEngine("iptables");
+        var tunnel = new com.admin.entity.Tunnel(); tunnel.setEngine("kernel");
         var spec = new ForwardSpec("1_1_0",18000,null,"10.203.2.2:19000",1,tunnel,"fifo",null);
         for (String desired : new String[] {"nftables", "iptables"}) {
             org.mockito.Mockito.when(nodes.selectById(id)).thenReturn(node(desired));
@@ -66,10 +63,10 @@ class KernelBackendTest {
             info.put("kernelBackend", desired.equals("nftables") ? "iptables" : "nftables");
             EngineCapabilities.register(id, "backend-test", info);
             try {
-                assertTrue(engine.apply(id, spec, false).getMsg().contains("后端"));
-                assertTrue(engine.setEnabled(id, "1_1_0", true).getMsg().contains("后端"));
-                assertTrue(engine.setEnabled(id, "1_1_0", false).getMsg().contains("后端"));
-                assertTrue(engine.delete(id, "1_1_0").getMsg().contains("后端"));
+                assertTrue(engine.apply(id, spec, false).getMsg().matches(".*(?:后端|旧 iptables).*"));
+                assertTrue(engine.setEnabled(id, "1_1_0", true).getMsg().matches(".*(?:后端|旧 iptables).*"));
+                assertTrue(engine.setEnabled(id, "1_1_0", false).getMsg().matches(".*(?:后端|旧 iptables).*"));
+                assertTrue(engine.delete(id, "1_1_0").getMsg().matches(".*(?:后端|旧 iptables).*"));
                 assertThrows(IllegalArgumentException.class, () -> batch.reconcile(id));
                 org.mockito.Mockito.verifyNoInteractions(revisions, credits, jdbc);
             } finally { EngineCapabilities.remove(id, "backend-test"); }
@@ -82,7 +79,7 @@ class KernelBackendTest {
         ReflectionTestUtils.setField(releases, "base", "https://example.invalid/releases/frozen");
         ReflectionTestUtils.setField(releases, "manifest", "a".repeat(64));
         ReflectionTestUtils.setField(releases, "installer", "b".repeat(64));
-        for (String backend : new String[] {"iptables", "nftables"}) {
+        for (String backend : new String[] {"nftables"}) {
             var result = releases.command(node(backend), "panel.invalid");
             assertEquals(0, result.getCode());
             String script = (String) result.getData();
@@ -92,6 +89,7 @@ class KernelBackendTest {
             assertTrue(config.getBooleanValue("apply"));
             assertTrue(config.getBooleanValue("useSessions"));
         }
+        assertNotEquals(0,releases.command(node("iptables"),"panel.invalid").getCode());
         Node gost = node(null); gost.setEngine("gost");
         String script = (String) releases.command(gost, "panel.invalid").getData();
         assertFalse(script.contains("kernelBackend"));

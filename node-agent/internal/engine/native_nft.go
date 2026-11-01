@@ -31,7 +31,7 @@ type nativeCounterIdentity struct {
 type NativeNFT struct {
 	counterIdentities map[string]nativeCounterIdentity
 	counterOrder      []string
-	parent            *IPTables
+	parent            *NativeKernel
 	ready             bool
 	shape             string
 	controlShape      string
@@ -46,8 +46,8 @@ type nativeCounter struct {
 	Bytes, Packets uint64
 }
 
-func (k *IPTables) EnableNative(path string) {
-	k.EnableAdvanced(path)
+func (k *NativeKernel) EnableNative(path string) {
+	k.enableRuntime(path)
 	k.Native = &NativeNFT{parent: k, rules: map[string]Spec{}}
 }
 func (n *NativeNFT) run(input string, args ...string) (string, error) {

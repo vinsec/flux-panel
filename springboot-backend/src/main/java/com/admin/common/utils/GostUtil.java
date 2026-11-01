@@ -7,15 +7,15 @@ import com.admin.common.engine.*;
 /** Backward-compatible facade: every lifecycle path selects a forwarding engine. */
 public class GostUtil {
     public static GostDto AddLimiters(Long node_id, Long name, String speed) {
-        if(EngineRegistry.isIptables(node_id)) return ((IptablesForwardingEngine)EngineRegistry.forNode(node_id)).limiterChanged(node_id);
+        if(EngineRegistry.isKernel(node_id)) return ((KernelForwardingEngine)EngineRegistry.forNode(node_id)).limiterChanged(node_id);
         return LegacyGostCommands.AddLimiters(node_id,name,speed);
     }
     public static GostDto UpdateLimiters(Long node_id, Long name, String speed) {
-        if(EngineRegistry.isIptables(node_id)) return ((IptablesForwardingEngine)EngineRegistry.forNode(node_id)).limiterChanged(node_id);
+        if(EngineRegistry.isKernel(node_id)) return ((KernelForwardingEngine)EngineRegistry.forNode(node_id)).limiterChanged(node_id);
         return LegacyGostCommands.UpdateLimiters(node_id,name,speed);
     }
     public static GostDto DeleteLimiters(Long node_id, Long name) {
-        if(EngineRegistry.isIptables(node_id)) return ((IptablesForwardingEngine)EngineRegistry.forNode(node_id)).limiterChanged(node_id);
+        if(EngineRegistry.isKernel(node_id)) return ((KernelForwardingEngine)EngineRegistry.forNode(node_id)).limiterChanged(node_id);
         return LegacyGostCommands.DeleteLimiters(node_id,name);
     }
     public static GostDto AddService(Long node_id, String name, Integer in_port, Integer limiter, String remoteAddr, Integer fow_type, Tunnel tunnel, String strategy, String interfaceName) {
@@ -29,15 +29,15 @@ public class GostUtil {
         return EngineRegistry.forNode(node_id).delete(node_id,name);
     }
     public static GostDto AddRemoteService(Long node_id, String name, Integer out_port, String remoteAddr,  String protocol, String strategy, String interfaceName) {
-        if(EngineRegistry.isIptables(node_id)) return IptablesForwardingEngine.error("iptables v1 does not support AddRemoteService");
+        if(EngineRegistry.isKernel(node_id)) return KernelForwardingEngine.error("iptables v1 does not support AddRemoteService");
         return LegacyGostCommands.AddRemoteService(node_id,name,out_port,remoteAddr,protocol,strategy,interfaceName);
     }
     public static GostDto UpdateRemoteService(Long node_id, String name, Integer out_port, String remoteAddr,String protocol, String strategy, String interfaceName) {
-        if(EngineRegistry.isIptables(node_id)) return IptablesForwardingEngine.error("iptables v1 does not support UpdateRemoteService");
+        if(EngineRegistry.isKernel(node_id)) return KernelForwardingEngine.error("iptables v1 does not support UpdateRemoteService");
         return LegacyGostCommands.UpdateRemoteService(node_id,name,out_port,remoteAddr,protocol,strategy,interfaceName);
     }
     public static GostDto DeleteRemoteService(Long node_id, String name) {
-        if(EngineRegistry.isIptables(node_id)) return IptablesForwardingEngine.error("iptables v1 does not support DeleteRemoteService");
+        if(EngineRegistry.isKernel(node_id)) return KernelForwardingEngine.error("iptables v1 does not support DeleteRemoteService");
         return LegacyGostCommands.DeleteRemoteService(node_id,name);
     }
     public static GostDto PauseService(Long node_id, String name) {
@@ -47,23 +47,23 @@ public class GostUtil {
         return EngineRegistry.forNode(node_id).setEnabled(node_id,name,true);
     }
     public static GostDto PauseRemoteService(Long node_id, String name) {
-        if(EngineRegistry.isIptables(node_id)) return IptablesForwardingEngine.error("iptables v1 does not support PauseRemoteService");
+        if(EngineRegistry.isKernel(node_id)) return KernelForwardingEngine.error("iptables v1 does not support PauseRemoteService");
         return LegacyGostCommands.PauseRemoteService(node_id,name);
     }
     public static GostDto ResumeRemoteService(Long node_id, String name) {
-        if(EngineRegistry.isIptables(node_id)) return IptablesForwardingEngine.error("iptables v1 does not support ResumeRemoteService");
+        if(EngineRegistry.isKernel(node_id)) return KernelForwardingEngine.error("iptables v1 does not support ResumeRemoteService");
         return LegacyGostCommands.ResumeRemoteService(node_id,name);
     }
     public static GostDto AddChains(Long node_id, String name, String remoteAddr, String protocol, String interfaceName) {
-        if(EngineRegistry.isIptables(node_id)) return IptablesForwardingEngine.error("iptables v1 does not support AddChains");
+        if(EngineRegistry.isKernel(node_id)) return KernelForwardingEngine.error("iptables v1 does not support AddChains");
         return LegacyGostCommands.AddChains(node_id,name,remoteAddr,protocol,interfaceName);
     }
     public static GostDto UpdateChains(Long node_id, String name, String remoteAddr, String protocol, String interfaceName) {
-        if(EngineRegistry.isIptables(node_id)) return IptablesForwardingEngine.error("iptables v1 does not support UpdateChains");
+        if(EngineRegistry.isKernel(node_id)) return KernelForwardingEngine.error("iptables v1 does not support UpdateChains");
         return LegacyGostCommands.UpdateChains(node_id,name,remoteAddr,protocol,interfaceName);
     }
     public static GostDto DeleteChains(Long node_id, String name) {
-        if(EngineRegistry.isIptables(node_id)) return IptablesForwardingEngine.error("iptables v1 does not support DeleteChains");
+        if(EngineRegistry.isKernel(node_id)) return KernelForwardingEngine.error("iptables v1 does not support DeleteChains");
         return LegacyGostCommands.DeleteChains(node_id,name);
     }
 }

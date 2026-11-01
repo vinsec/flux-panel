@@ -48,7 +48,7 @@ def migration(name):
         cursor.execute((ROOT/'springboot-backend/migrations'/name).read_text())
         while cursor.nextset(): pass
 
-def create(name, engine='iptables', **extra):
+def create(name, engine='kernel', **extra):
     data={'name':name,'engine':engine,'ip':'10.203.1.1','serverIp':'10.203.2.1','portSta':18000,'portEnd':18100,**extra}
     api('node/create',data)
     return sql('SELECT * FROM node WHERE name=%s',(name,))[0]
@@ -72,10 +72,16 @@ try:
         migration(name)
     for engine in ['gost','iptables']:
         sql("INSERT INTO node(name,engine,secret,ip,server_ip,port_sta,port_end,created_time,status) VALUES(%s,%s,'isolated-old-key','10.0.0.1','10.0.0.1',18000,18100,0,0)",('old-'+engine,engine))
+    sql('UPDATE user SET in_flow=12345,out_flow=6789 WHERE id=1')
     before=sql('SELECT id,in_flow,out_flow FROM user ORDER BY id')
     migration('004-node-kernel-backend.sql'); migration('004-node-kernel-backend.sql')
-    check('repeatable migration keeps both old node engines and their iptables backend',
-        all(n['kernel_backend']=='iptables' and n['name']=='old-'+n['engine'] for n in sql('SELECT * FROM node')))
+    sql("INSERT INTO node(name,engine,kernel_backend,secret,ip,server_ip,port_sta,port_end,created_time,status) VALUES('old-native','iptables','nftables','isolated-native-old-key','10.0.0.2','10.0.0.2',18000,18100,0,0)")
+    migration('005-native-only.sql'); migration('005-native-only.sql')
+    check('existing native node keeps backend and identity',sql("SELECT engine,kernel_backend FROM node WHERE name='old-native'")[0]=={'engine':'kernel','kernel_backend':'nftables'})
+    migration('005-native-only-rollback.sql'); migration('005-native-only-rollback.sql')
+    check('explicit code rollback keeps accounting and original backend identity',before==sql('SELECT id,in_flow,out_flow FROM user ORDER BY id') and sql("SELECT engine,kernel_backend FROM node WHERE name='old-native'")[0]=={'engine':'iptables','kernel_backend':'nftables'})
+    migration('005-native-only.sql')
+    check('repeatable migration renames kernel engine without relabeling old backend',sql("SELECT engine,kernel_backend FROM node WHERE name='old-iptables'")[0]=={'engine':'kernel','kernel_backend':'iptables'} and sql("SELECT engine FROM node WHERE name='old-gost'")[0]['engine']=='gost')
     check('migration leaves existing user accounting unchanged',before==sql('SELECT id,in_flow,out_flow FROM user ORDER BY id'))
     env=os.environ.copy();env.update(DB_HOST='mysql',DB_NAME='flux_test',DB_USER='root',DB_PASSWORD='isolated-test-db-only',
         JWT_SECRET='isolated-test-jwt-only',LOG_DIR='/tmp/panel-logs')
@@ -85,17 +91,19 @@ try:
         '--node.release.installer-sha256='+'b'*64],stdout=open(OUT/'panel.log','w'),stderr=subprocess.STDOUT,env=env)
     wait(lambda:urllib.request.urlopen('http://127.0.0.1:6365/flow/test',timeout=1).status==200)
     check('real Spring panel starts with the new migration and dependencies')
-    native=create('native-default'); legacy=create('explicit-iptables',kernelBackend='iptables'); gost=create('new-gost','gost')
-    check('kernel create defaults to native nftables; explicit iptables and GOST survive',
-        native['kernel_backend']=='nftables' and legacy['kernel_backend']=='iptables' and gost['engine']=='gost')
-    for engine,backend in [('iptables','nft'),('gost','nftables')]:
+    native=create('native-default'); legacy=create('native-alias','iptables'); gost=create('new-gost','gost')
+    check('kernel create is native-only; historical engine alias normalizes to kernel; GOST survives',
+        native['kernel_backend']=='nftables' and legacy['kernel_backend']=='nftables' and legacy['engine']=='kernel' and gost['engine']=='gost')
+    for engine,backend in [('kernel','iptables'),('iptables','iptables'),('kernel','nft'),('gost','nftables')]:
         result=api('node/create',{'name':'invalid','engine':engine,'kernelBackend':backend,'ip':'10.0.0.1','serverIp':'10.0.0.1','portSta':18000,'portEnd':18100},expect=False)
         check('reject invalid backend combination '+engine+'/'+backend,result['code']!=0)
     check('backend cannot change in place',update(native,kernelBackend='iptables')['code']!=0)
     check('engine cannot change in place',update(native,engine='gost')['code']!=0)
     check('old clients can edit without resetting a native backend',update(native,name='native-edited')['code']==0 and sql('SELECT kernel_backend FROM node WHERE id=%s',(native['id'],))[0]['kernel_backend']=='nftables')
+    check('editing through historical engine alias persists canonical kernel value',update(native,engine='iptables')['code']==0 and sql('SELECT engine FROM node WHERE id=%s',(native['id'],))[0]['engine']=='kernel')
     old=sql("SELECT * FROM node WHERE name='old-iptables'")[0]
-    check('old kernel node edits preserve iptables',update(old)['code']==0 and sql('SELECT kernel_backend FROM node WHERE id=%s',(old['id'],))[0]['kernel_backend']=='iptables')
+    check('retired node cannot be edited into a native node',update(old)['code']!=0 and sql('SELECT kernel_backend FROM node WHERE id=%s',(old['id'],))[0]['kernel_backend']=='iptables')
+    check('retired node installer is blocked',api('node/install',{'id':old['id']},expect=False)['code']!=0)
     listed=api('node/list')['data']
     check('admin node API exposes backend without node secrets',all(n.get('secret') is None for n in listed) and {n['id']:n['kernelBackend'] for n in listed}[native['id']]=='nftables')
     sql("UPDATE vite_config SET value='panel.invalid' WHERE name='ip'")
@@ -112,11 +120,11 @@ try:
         # Seed online eligibility for this CRUD-only fixture; no data-plane claim.
         sql('UPDATE node SET status=1 WHERE id=%s',(n['id'],))
         # A spurious tunnel backend field is ignored: only the entrance node owns it.
-        api('tunnel/create',{'name':'inherits-'+n['kernel_backend'],'engine':'iptables','inNodeId':n['id'],'type':1,'flow':1,'trafficRatio':1,
+        api('tunnel/create',{'name':'inherits-'+str(n['id']),'engine':'kernel','inNodeId':n['id'],'type':1,'flow':1,'trafficRatio':1,
             'protocol':'tls','tcpListenAddr':'0.0.0.0','udpListenAddr':'0.0.0.0','kernelBackend':'iptables' if n==native else 'nftables'})
     rows=sql("SELECT t.name,t.engine,n.kernel_backend FROM tunnel t JOIN node n ON n.id=t.in_node_id ORDER BY t.id")
     check('tunnels inherit their own entrance node backend despite submitted override',
-        len(rows)==2 and all(t['name']=='inherits-'+t['kernel_backend'] and t['engine']=='iptables' for t in rows))
+        len(rows)==2 and all(t['kernel_backend']=='nftables' and t['engine']=='kernel' for t in rows))
     check('GOST installer remains GOST without kernel fields','kernelBackend' not in api('node/install',{'id':gost['id']})['data'])
     success=True
 finally:

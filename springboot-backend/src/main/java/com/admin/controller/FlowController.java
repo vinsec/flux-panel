@@ -103,7 +103,7 @@ public class FlowController extends BaseController {
     @LogAnnotation
     public String config(@RequestBody String rawData, String secret) {
         Node node = nodeService.getOne(new QueryWrapper<Node>().eq("secret", secret));
-        if (node == null || "iptables".equals(node.getEngine())) return SUCCESS_RESPONSE;
+        if (node == null || "kernel".equals(node.getEngine())) return SUCCESS_RESPONSE;
 
         try {
             // 尝试解密数据
@@ -406,7 +406,7 @@ public class FlowController extends BaseController {
     }
 
     private boolean isValidNode(String secret) {
-        int nodeCount = nodeService.count(new QueryWrapper<Node>().eq("secret", secret).ne("engine", "iptables"));
+        int nodeCount = nodeService.count(new QueryWrapper<Node>().eq("secret", secret).ne("engine", "kernel"));
         return nodeCount > 0;
     }
 

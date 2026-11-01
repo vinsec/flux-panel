@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -39,26 +38,6 @@ var ownedNames = regexp.MustCompile(`^(FP_MARK|FP_PRE|FP_POST|FP_FWD|FP_CUP|FP_C
 var declaration = regexp.MustCompile(`(?m)^:([^ ]+) `)
 var counterPrefix = regexp.MustCompile(`^\[([0-9]+):([0-9]+)\] `)
 
-func legacyCounters(text string) map[string]uint64 {
-	out := map[string]uint64{}
-	for _, line := range strings.Split(text, "\n") {
-		m := counterPrefix.FindStringSubmatch(line)
-		if m == nil {
-			continue
-		}
-		f := strings.Fields(line)
-		for i, v := range f {
-			if v == "--comment" && i+1 < len(f) {
-				name := strings.Trim(f[i+1], "\"")
-				p := strings.Split(name, ":")
-				if len(p) == 5 && p[0] == "flux" && p[1] == "v1" && serviceID.MatchString(p[2]) {
-					out[name], _ = strconv.ParseUint(m[2], 10, 64)
-				}
-			}
-		}
-	}
-	return out
-}
 func accumulate(s *State, c map[string]uint64) {
 	if s.Totals == nil {
 		s.Totals = map[string]Usage{}
@@ -95,141 +74,18 @@ func accumulate(s *State, c map[string]uint64) {
 		s.Last[name] = value
 	}
 }
-func (k *IPTables) inventory() (map[string]string, map[string]string, error) {
-	if k.Native != nil {
-		if e := k.Native.ensure(); e != nil {
-			return nil, nil, e
-		}
-		text, e := k.Native.run("", "list", "table", "inet", nativeTable)
-		return map[string]string{"native-nft": text}, map[string]string{}, e
-	}
-	tables := map[string]string{}
-	sets := map[string]string{}
-	for _, table := range []string{"filter", "mangle", "nat"} {
-		saved, e := k.run(k.Binary+"-save", "", "-c", "-t", table)
-		if e != nil {
-			return nil, nil, e
-		}
-		tables[table] = saved
-	}
-	names, e := k.run("ipset", "", "list", "-name")
-	if e != nil {
+func (k *NativeKernel) inventory() (map[string]string, map[string]string, error) {
+	if e := k.Native.ensure(); e != nil {
 		return nil, nil, e
 	}
-	for _, d := range setDefinitions {
-		for _, name := range strings.Fields(names) {
-			if name == d.Name {
-				saved, e := k.readSet(name)
-				if e != nil {
-					return nil, nil, e
-				}
-				if !strings.Contains(saved, "flux-owner:v") {
-					return nil, nil, fmt.Errorf("refusing to back up a foreign set %s", name)
-				}
-				sets[name] = saved
-			}
-		}
-	}
-	if k.P1 != nil {
-		for _, name := range strings.Fields(names) {
-			if strings.HasPrefix(name, "FP4_") || strings.HasPrefix(name, "FP6_") {
-				saved, e := k.readSet(name)
-				if e != nil {
-					return nil, nil, e
-				}
-				if !strings.Contains(saved, advancedOwner) {
-					return nil, nil, fmt.Errorf("foreign advanced set")
-				}
-				sets[name] = saved
-			}
-		}
-	}
-	return tables, sets, nil
+	text, e := k.Native.run("", "list", "table", "inet", nativeTable)
+	return map[string]string{"native-nft": text}, map[string]string{}, e
 }
-func (k *IPTables) removeOwned(tables map[string]string, sets map[string]string) error {
+func (k *NativeKernel) removeOwned(_ map[string]string, _ map[string]string) error {
 	if e := k.protocolEngine().cleanup(); e != nil {
 		return e
 	}
-	if k.Native != nil {
-		return k.Native.cleanup()
-	}
-	base := map[string]string{}
-	for name, saved := range sets {
-		if !strings.HasPrefix(name, "FP4_") && !strings.HasPrefix(name, "FP6_") {
-			base[name] = saved
-		}
-	}
-	if e := k.removeBaseOwned(tables, base); e != nil {
-		return e
-	}
-	if k.P1 != nil {
-		return k.P1.cleanup()
-	}
-	return nil
-}
-func (k *IPTables) removeBaseOwned(tables map[string]string, sets map[string]string) error {
-	// Inspect every reference before deleting anything. A foreign jump into an
-	// owned chain is a conflict, never permission to edit that foreign rule.
-	plans := map[string]string{}
-	for table, saved := range tables {
-		names := map[string]bool{}
-		for _, m := range declaration.FindAllStringSubmatch(saved, -1) {
-			if !ownedNames.MatchString(m[1]) {
-				continue
-			}
-			if !strings.Contains(saved, "-A "+m[1]+" -m comment --comment flux-owner:v") && !strings.Contains(saved, "-A "+m[1]+" -m comment --comment \"flux-owner:v") {
-				return fmt.Errorf("chain %s lacks ownership", m[1])
-			}
-			names[m[1]] = true
-		}
-		var body strings.Builder
-		fmt.Fprintf(&body, "*%s\n", table)
-		for _, name := range sortedNames(names) {
-			fmt.Fprintf(&body, ":%s - [0:0]\n", name)
-		}
-		for _, line := range strings.Split(saved, "\n") {
-			line = counterPrefix.ReplaceAllString(line, "")
-			f := strings.Fields(line)
-			if len(f) < 4 || f[0] != "-A" || names[f[1]] {
-				continue
-			}
-			for i, v := range f {
-				if (v == "-j" || v == "-g") && i+1 < len(f) && names[f[i+1]] {
-					if !strings.Contains(line, "flux-hook:v") {
-						return fmt.Errorf("foreign reference to %s", f[i+1])
-					}
-					fmt.Fprintln(&body, strings.Replace(line, "-A ", "-D ", 1))
-					break
-				}
-			}
-		}
-		for _, name := range sortedNames(names) {
-			fmt.Fprintf(&body, "-X %s\n", name)
-		}
-		body.WriteString("COMMIT\n")
-		plans[table] = body.String()
-	}
-	for _, table := range []string{"mangle", "nat", "filter"} {
-		if _, e := k.run(k.Binary+"-restore", plans[table], "--test", "--noflush", "--wait", "2"); e != nil {
-			return e
-		}
-	}
-	if _, e := k.run("conntrack", "", "-D", "-f", "ipv4", "--mark", mark); e != nil && !strings.Contains(e.Error(), "0 flow entries") {
-		return e
-	}
-	for _, table := range []string{"mangle", "nat", "filter"} {
-		if _, e := k.run(k.Binary+"-restore", plans[table], "--noflush", "--wait", "2"); e != nil {
-			return e
-		}
-	}
-	for name := range sets {
-		if _, e := k.run("ipset", "", "destroy", name); e != nil {
-			return e
-		}
-	}
-	k.shape = ""
-	k.controlShape = ""
-	return nil
+	return k.Native.cleanup()
 }
 func sortedNames(m map[string]bool) []string {
 	r := map[string]Spec{}
@@ -278,6 +134,9 @@ func verifyBackup(dir string) (MaintenanceManifest, State, error) {
 		}
 	}
 	s, e = readMaintenanceState(filepath.Join(dir, "state.json"))
+	if e == nil && s.KernelBackend != "nftables" {
+		return manifest, s, fmt.Errorf("iptables backup is retired; use the previous release to settle and migrate")
+	}
 	if e == nil && s.Epoch != manifest.Epoch {
 		e = fmt.Errorf("backup epoch mismatch")
 	}
@@ -288,7 +147,7 @@ func digestBytes(b []byte) string { return fmt.Sprintf("%x", sha256.Sum256(b)) }
 // Maintain is intentionally disruptive and leaves desired forwards paused.
 // Calls are made by the offline installer after stopping this namespace's Agent.
 // settle must durably acknowledge usage AND pause the panel's desired state.
-func Maintain(path, configPath, action, backupDir string, k *IPTables, offline bool, settle func(Report) (Acknowledgement, error)) (MaintenanceResult, error) {
+func Maintain(path, configPath, action, backupDir string, k *NativeKernel, offline bool, settle func(Report) (Acknowledgement, error)) (MaintenanceResult, error) {
 	result := MaintenanceResult{Backup: backupDir, Action: action, Paused: true}
 	if action != "backup" && action != "migrate" && action != "rollback" && action != "uninstall" && action != "settle" {
 		return result, fmt.Errorf("unknown maintenance action")
@@ -300,16 +159,8 @@ func Maintain(path, configPath, action, backupDir string, k *IPTables, offline b
 	if e != nil {
 		return result, e
 	}
-	backend := "iptables"
-	if k.Native != nil {
-		backend = "nftables"
-	}
-	priorBackend := state.KernelBackend
-	if priorBackend == "" {
-		priorBackend = "iptables"
-	}
-	if backend != priorBackend {
-		return result, fmt.Errorf("maintenance must use the checkpoint's existing kernel backend; settle it before switching")
+	if state.KernelBackend != "nftables" {
+		return result, fmt.Errorf("maintenance must use the checkpoint's existing kernel backend; iptables is retired, use the previous release to settle it")
 	}
 	originalFormat := state.FormatVersion
 	var source State
@@ -329,17 +180,6 @@ func Maintain(path, configPath, action, backupDir string, k *IPTables, offline b
 	}
 	if k.Native != nil {
 		if e = k.ClaimEpoch(state.Epoch); e != nil {
-			return result, e
-		}
-	}
-	if _, ok := sets[metaSet]; ok {
-		if e = k.ClaimEpoch(state.Epoch); e != nil {
-			return result, e
-		}
-	}
-	if k.P1 != nil && k.Native == nil {
-		k.P1.epoch = state.Epoch
-		if e = k.P1.initializeFromState(); e != nil {
 			return result, e
 		}
 	}
@@ -395,14 +235,9 @@ func Maintain(path, configPath, action, backupDir string, k *IPTables, offline b
 	if e != nil {
 		return result, e
 	}
-	counters := map[string]uint64{}
-	if strings.Contains(tables["filter"], "flux:v1:") {
-		counters = legacyCounters(tables["filter"])
-	} else if _, ok := sets[upSet]; ok {
-		counters, e = k.Snapshot()
-		if e != nil {
-			return result, e
-		}
+	counters, e := k.Snapshot()
+	if e != nil {
+		return result, e
 	}
 	if _, err := os.Stat(path + ".counter-loss"); err == nil {
 		for name, last := range state.Last {
@@ -489,9 +324,6 @@ func Maintain(path, configPath, action, backupDir string, k *IPTables, offline b
 		}
 		for table, saved := range tables {
 			files[table+".rules"] = []byte(saved)
-		}
-		for name, saved := range sets {
-			files[name+".ipset"] = []byte(saved)
 		}
 		for name, b := range files {
 			if e = atomicBytes(filepath.Join(backupDir, name), b); e != nil {

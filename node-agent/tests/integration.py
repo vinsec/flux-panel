@@ -43,12 +43,12 @@ def api(path,data=None,uid=1,role=0,expect=True):
     with urllib.request.urlopen(req,timeout=30) as r:out=json.load(r)
     if expect:assert out['code']==0,(path,out)
     return out
-def node(name,engine='iptables'):
+def node(name,engine='kernel'):
     data={'name':name,'ip':'10.203.1.1','serverIp':'10.203.2.1','portSta':18000,'portEnd':18100}
-    if engine!='gost':data.update(engine=engine,kernelBackend='iptables')
+    if engine!='gost':data.update(engine=engine,kernelBackend='nftables')
     api('node/create',data)
     return sql('SELECT * FROM node WHERE name=%s',(name,))[0]
-def tunnel(n,name,engine='iptables',**overrides):
+def tunnel(n,name,engine='kernel',**overrides):
     d={'name':name,'engine':engine,'inNodeId':n['id'],'type':1,'flow':1,'trafficRatio':1,'protocol':'tls','tcpListenAddr':'0.0.0.0','udpListenAddr':'0.0.0.0'};d.update(overrides)
     if engine=='gost':d.pop('engine',None)
     api('tunnel/create',d);return sql('SELECT * FROM tunnel WHERE name=%s',(name,))[0]
@@ -58,6 +58,10 @@ def forward(t,name,port=18000,uid=1,role=0,target='10.203.2.2:19000'):
 def probe(port=18000,action='probe'):
     return cmd('ip','netns','exec','client','python3','/repo/node-agent/tests/traffic_client.py',str(port),action)
 def router(*args):return cmd('ip','netns','exec','router',*args)
+def native_bindings():
+    return [v for item in json.loads(router('nft','-j','list','table','inet','FP_NATIVE'))['nftables'] for kind in ['map'] if kind in item for v in item[kind].get('elem',[]) if item[kind]['name'].startswith('bind')]
+def native_bytes(ident,direction):
+    return sum(item['counter']['bytes'] for item in json.loads(router('nft','-j','list','table','inet','FP_NATIVE'))['nftables'] if 'counter' in item and item['counter'].get('comment','').split('|')[-1]=='flux:v2:'+ident+':'+direction)
 def counted_bytes(text,comment):
     import shlex
     total=0
@@ -73,10 +77,12 @@ def namespaces():
         for n,i,addr in [(na,a,ia),(nb,b,ib)]:cmd('ip','-n',n,'addr','add',addr,'dev',i);cmd('ip','-n',n,'link','set',i,'up')
     cmd('ip','link','add','control','type','veth','peer','name','r2');cmd('ip','link','set','r2','netns','router');cmd('ip','addr','add','10.203.3.1/24','dev','control');cmd('ip','link','set','control','up');cmd('ip','-n','router','addr','add','10.203.3.2/24','dev','r2');cmd('ip','-n','router','link','set','r2','up')
     cmd('ip','-n','client','route','add','default','via','10.203.1.1');cmd('ip','-n','target','route','add','default','via','10.203.2.1')
-    router('sh','-c','mount -o remount,rw /proc/sys && sysctl -w net.ipv4.ip_forward=1')
+    router('sh','-c','(mount -o remount,rw /proc/sys || true); sysctl -w net.ipv4.ip_forward=1')
     router('iptables','-P','FORWARD','DROP')
     router('iptables','-N','UNRELATED_TEST');router('iptables','-A','UNRELATED_TEST','-m','comment','--comment','must-survive','-j','RETURN')
     router('iptables','-A','FORWARD','-m','conntrack','--ctstate','ESTABLISHED,RELATED','-j','ACCEPT')
+    # Native ACCEPT cannot override the host's independent default DROP. Explicit lab-only allow.
+    router('iptables','-A','FORWARD','-i','r0','-o','r1','-j','ACCEPT')
     check('isolated client/router/target namespaces; forwarding default DROP')
 def start_agent(n):
     p=pathlib.Path('/tmp/flux-agent-config.json');p.write_text(json.dumps({'addr':'http://10.203.3.1:6365','secret':n['secret'],'statePath':'/tmp/flux-agent-state.json','apply':True,'allowInsecure':True,'intervalSeconds':1,'useSessions':True}))
@@ -93,7 +99,7 @@ try:
     check('validated immutable agent and JAR snapshots before starting services')
     def connect():
         global db
-        db=pymysql.connect(host='mysql',user='root',password='isolated-test-db-only',database='flux_test',autocommit=True,cursorclass=pymysql.cursors.DictCursor,client_flag=pymysql.constants.CLIENT.MULTI_STATEMENTS)
+        db=pymysql.connect(host=os.getenv('FLUX_TEST_DB_HOST','mysql'),port=int(os.getenv('FLUX_TEST_DB_PORT','3306')),user='root',password='isolated-test-db-only',database='flux_test',autocommit=True,cursorclass=pymysql.cursors.DictCursor,client_flag=pymysql.constants.CLIENT.MULTI_STATEMENTS)
         return True
     wait(connect,60)
     with db.cursor() as c:
@@ -105,12 +111,14 @@ try:
         c.execute((ROOT/'springboot-backend/migrations/001-forward-engines.sql').read_text())
         while c.nextset():pass
     with db.cursor() as c:
-        for migration in ['002-engine-foundation.sql','003-engine-p1.sql','004-node-kernel-backend.sql']:
+        for migration in ['002-engine-foundation.sql','003-engine-p1.sql','004-node-kernel-backend.sql','005-native-only.sql']:
             for _ in range(2):
                 c.execute((ROOT/'springboot-backend/migrations'/migration).read_text())
                 while c.nextset():pass
     check('database migration is repeatable; legacy rows default to gost',sql("SELECT engine FROM node WHERE name='legacy-schema'")[0]['engine']=='gost')
     env=os.environ.copy();env.update(DB_HOST='mysql',DB_NAME='flux_test',DB_USER='root',DB_PASSWORD='isolated-test-db-only',JWT_SECRET='isolated-test-jwt-only',LOG_DIR='/tmp/panel-logs',ENGINE_AUTH_SESSION_MILLIS='60000')
+    if os.getenv('FLUX_TEST_DB_HOST'):
+        env['SPRING_DATASOURCE_URL']='jdbc:mysql://'+os.environ['FLUX_TEST_DB_HOST']+':'+os.getenv('FLUX_TEST_DB_PORT','3306')+'/flux_test?useSSL=false&serverTimezone=Asia/Shanghai'
     log=open(OUT/'panel.log','w');panel=subprocess.Popen(['java','-Xmx192m','-XX:ActiveProcessorCount=1','-jar',str(JAR)],stdout=log,stderr=subprocess.STDOUT,env=env);processes.append(panel)
     wait(lambda:urllib.request.urlopen('http://127.0.0.1:6365/flow/test',timeout=1).status==200,90)
     check('real Spring Boot panel and MySQL started')
@@ -145,12 +153,12 @@ try:
     check('pause blocks existing TCP and UDP despite external ESTABLISHED ACCEPT')
     check('pause blocks new TCP and UDP',probe(action='blocked')=='tcp_udp_blocked')
     api('forward/resume',{'id':f['id']});check('resume restores TCP/UDP',probe()=='tcp_udp_ok')
-    before_pause=router('ipset','save','FPV2_UP')
+    before_pause=native_bytes(key,'up')
     peer=forward(t,'same-target-peer',18005)
     api('forward/pause',{'id':f['id']})
     check('per-forward hash policy isolates two forwards to the same target',probe(action='blocked')=='tcp_udp_blocked' and probe(18005)=='tcp_udp_ok')
     api('forward/resume',{'id':f['id']});probe()
-    check('counter entries retain cumulative bytes across pause and resume',counted_bytes(before_pause,f'flux:v2:{key}:up')>0 and counted_bytes(router('ipset','save','FPV2_UP'),f'flux:v2:{key}:up')>=counted_bytes(before_pause,f'flux:v2:{key}:up'))
+    check('counter entries retain cumulative bytes across pause and resume',before_pause>0 and native_bytes(key,'up')>=before_pause)
     api('forward/delete',{'id':peer['id']})
     agent.terminate();agent.wait(timeout=5);wait(lambda:sql('SELECT status FROM node WHERE id=%s',(n['id'],))[0]['status']==0)
     agent=start_agent(n);wait(lambda:sql('SELECT status FROM node WHERE id=%s',(n['id'],))[0]['status']==1)
@@ -159,8 +167,8 @@ try:
     check('target change succeeds with targeted conntrack cleanup',probe()=='tcp_udp_ok')
     bad=api('forward/create',{'name':'unsupported','tunnelId':t['id'],'remoteAddr':'[fe80::1%eth0]:443','inPort':18009},expect=False)
     check('scoped link-local target is rejected without disturbing existing forward',bad['code']!=0 and probe()=='tcp_udp_ok')
-    api('forward/delete',{'id':f['id']});check('delete blocks traffic and removes dispatch and binding entries',probe(action='blocked')=='tcp_udp_blocked' and '-j DNAT' not in router('iptables-save','-t','nat') and f'flux:v2:{key}:binding' not in router('ipset','save','FPV2_BIND'))
-    check('deletion removes empty NAT trie chains but retains final accounting',':FP_N' not in router('iptables-save','-t','nat') and f'flux:v2:{key}:up' in router('ipset','save','FPV2_UP'))
+    api('forward/delete',{'id':f['id']});check('delete blocks traffic and removes dispatch and binding entries',probe(action='blocked')=='tcp_udp_blocked' and not native_bindings())
+    check('deletion empties native binding maps and retains final accounting',not native_bindings() and native_bytes(key,'up')>0)
     check('unrelated firewall chain and default DROP preserved','must-survive' in router('iptables-save') and '-P FORWARD DROP' in router('iptables','-S','FORWARD'))
     # P2 options travel through the real Java factory, capability negotiation,
     # DB reconciliation and typed agent wire contract.
@@ -183,7 +191,7 @@ try:
     # Hold this service's revision row so deletion stops after taking the
     # physical-host barrier. A limiter reconcile must not snapshot its old DB
     # row and resurrect it with a freshly allocated revision after deletion.
-    blocker=pymysql.connect(host='mysql',user='root',password='isolated-test-db-only',database='flux_test',autocommit=False)
+    blocker=pymysql.connect(host=os.getenv('FLUX_TEST_DB_HOST','mysql'),port=int(os.getenv('FLUX_TEST_DB_PORT','3306')),user='root',password='isolated-test-db-only',database='flux_test',autocommit=False)
     with blocker.cursor() as cursor:cursor.execute('SELECT revision FROM engine_revision WHERE node_id=%s AND service_id=%s FOR UPDATE',(n['id'],p2key))
     deleted=[];delete_errors=[]
     def concurrent_delete():
@@ -230,9 +238,9 @@ try:
     check('Java diagnostics reject non-Boolean probe',api('forward/diagnose',{'forwardId':adv['id'],'probe':'true'},expect=False)['code']!=0)
     assert sql('SELECT COUNT(*) n FROM engine_session WHERE node_id=%s',(n['id'],))[0]['n']>0
     check('new agent registers with opaque short-lived bearer session stored only by hash')
-    serial=(OUT/'agent.log').read_text().count('iptables agent connected')
+    serial=(OUT/'agent.log').read_text().count('kernel agent connected')
     api('engine/revoke-sessions',{'nodeId':n['id']})
-    wait(lambda:(OUT/'agent.log').read_text().count('iptables agent connected')>serial,15)
+    wait(lambda:(OUT/'agent.log').read_text().count('kernel agent connected')>serial,15)
     check('session revocation disconnects and bootstrap reauthentication restores forwarding',probe(18009)=='tcp_udp_ok')
     forbidden=api('engine/set-bandwidth-group',{'nodeId':n['id'],'scope':'user','ownerId':1,'upBitsPerSecond':1000.5,'downBitsPerSecond':0},expect=False)
     check('bandwidth API rejects fractional bit rate instead of silently truncating',forbidden['code']!=0)
@@ -261,9 +269,10 @@ try:
         cmd('ip','link','add',left,'type','veth','peer','name',right);cmd('ip','link','set',left,'netns',ln);cmd('ip','link','set',right,'netns',rn)
         for ns_name,interface,address in [(ln,left,la),(rn,right,ra)]:cmd('ip','-n',ns_name,'addr','add',address,'dev',interface);cmd('ip','-n',ns_name,'link','set',interface,'up')
     cmd('ip','link','add','control2','type','veth','peer','name','r22');cmd('ip','link','set','r22','netns','router2');cmd('ip','addr','add','10.203.7.1/24','dev','control2');cmd('ip','link','set','control2','up');cmd('ip','-n','router2','addr','add','10.203.7.2/24','dev','r22');cmd('ip','-n','router2','link','set','r22','up')
-    cmd('ip','-n','client2','route','add','default','via','10.203.6.1');cmd('ip','netns','exec','router2','sh','-c','mount -o remount,rw /proc/sys && sysctl -w net.ipv4.ip_forward=1')
+    cmd('ip','-n','client2','route','add','default','via','10.203.6.1');cmd('ip','netns','exec','router2','sh','-c','(mount -o remount,rw /proc/sys || true); sysctl -w net.ipv4.ip_forward=1')
     cmd('ip','netns','exec','router2','iptables','-P','FORWARD','DROP')
-    api('node/create',{'name':'second-lease-node','engine':'iptables','kernelBackend':'iptables','ip':'10.203.6.1','serverIp':'10.203.5.1','portSta':18200,'portEnd':18220})
+    cmd('ip','netns','exec','router2','iptables','-A','FORWARD','-i','r20','-o','r21','-j','ACCEPT')
+    api('node/create',{'name':'second-lease-node','engine':'kernel','kernelBackend':'nftables','ip':'10.203.6.1','serverIp':'10.203.5.1','portSta':18200,'portEnd':18220})
     n2=sql("SELECT * FROM node WHERE name='second-lease-node'")[0]
     cfg2=pathlib.Path('/tmp/agent2-config.json');cfg2.write_text(json.dumps({'addr':'http://10.203.7.1:6365','secret':n2['secret'],'statePath':'/tmp/agent2-state.json','apply':True,'allowInsecure':True,'intervalSeconds':1,'useSessions':True}))
     agent2=start(['ip','netns','exec','router2',str(AGENT),'--config',str(cfg2)],'agent2.log');wait(lambda:sql('SELECT status FROM node WHERE id=%s',(n2['id'],))[0]['status']==1)
@@ -313,7 +322,7 @@ try:
     api('forward/pause',{'id':gf['id']});check('legacy pause uses existing GOST command',probe(18001,'blocked')=='tcp_udp_blocked')
     api('forward/resume',{'id':gf['id']});check('legacy resume remains functional',probe(18001)=='tcp_udp_ok');api('forward/delete',{'id':gf['id']})
     # Wrong engine identity must fail without starting a second rules manager.
-    wrong_url='http://127.0.0.1:6365/system-info?type=1&engine=iptables&secret='+g['secret']
+    wrong_url='http://127.0.0.1:6365/system-info?type=1&engine=kernel&secret='+g['secret']
     req=urllib.request.Request(wrong_url,headers={'Upgrade':'websocket','Connection':'Upgrade','Sec-WebSocket-Key':base64.b64encode(os.urandom(16)).decode(),'Sec-WebSocket-Version':'13'})
     rejected=False
     try:urllib.request.urlopen(req,timeout=3)
@@ -349,14 +358,14 @@ try:
     et=tunnel(n,'offline-expiration');deadline=int(time.time()*1000)+(30000 if scale_test else 5000)
     sql('INSERT INTO user_tunnel(user_id,tunnel_id,speed_id,num,flow,flow_reset_time,exp_time,status) VALUES(%s,%s,NULL,100,1000,0,%s,1)',(normal,et['id'],deadline))
     ef=forward(et,'offline-expiration',18004,normal,1);probe(18004)
-    connections=(OUT/'agent.log').read_text().count('iptables agent connected')
+    connections=(OUT/'agent.log').read_text().count('kernel agent connected')
     panel.kill();panel.wait(timeout=5);time.sleep(31 if scale_test else max(0,(deadline-int(time.time()*1000))/1000)+1)
     check('local expiry blocks TCP/UDP while the panel is stopped',probe(18004,'blocked')=='tcp_udp_blocked')
     check('control outage preserves still-valid forwarding',probe(18005 if scale_test else 18002)=='tcp_udp_ok')
     if scale_test:check('expired offline credit closes ordinary forwards despite later permission expiry',probe(18002,'blocked')=='tcp_udp_blocked' and probe(18003,'blocked')=='tcp_udp_blocked')
     log=open(OUT/'panel.log','a');panel=subprocess.Popen(['java','-Xmx192m','-XX:ActiveProcessorCount=1','-jar',str(JAR)],stdout=log,stderr=subprocess.STDOUT,env=env);processes.append(panel)
     wait(lambda:urllib.request.urlopen('http://127.0.0.1:6365/flow/test',timeout=1).status==200,90)
-    wait(lambda:(OUT/'agent.log').read_text().count('iptables agent connected')>connections,20)
+    wait(lambda:(OUT/'agent.log').read_text().count('kernel agent connected')>connections,20)
     wait(lambda:sql('SELECT status FROM forward WHERE id=%s',(ef['id'],))[0]['status']==0,20)
     check('panel restart reconnects and converges the expired forwarding state')
     api('forward/delete',{'id':ef['id']})
@@ -379,7 +388,7 @@ finally:
     checkpoint=pathlib.Path('/tmp/flux-agent-state.json')
     if checkpoint.exists():shutil.copyfile(checkpoint,OUT/'agent-state.json')
     if not completed:
-        for name,args in [('failed-filter.txt',['iptables-save','-t','filter']),('failed-sets.txt',['ipset','save']),('failed-conntrack.txt',['conntrack','-L'])]:
+        for name,args in [('failed-filter.txt',['iptables-save','-t','filter']),('failed-native.json',['nft','-j','list','ruleset']),('failed-conntrack.txt',['conntrack','-L'])]:
             try:(OUT/name).write_text(cmd('ip','netns','exec','router',*args))
             except Exception:pass
     (OUT/'result.json').write_text(json.dumps({'artifact_sha256':artifacts,'virtual_link_bytes':link_bytes,'external_forward_test_targets':[],'success':completed,'backend':os.getenv('IPTABLES_BACKEND','nft'),'passed':checks,'count':len(checks)},ensure_ascii=False,indent=2))

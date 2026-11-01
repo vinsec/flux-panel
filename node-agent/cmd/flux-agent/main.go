@@ -61,8 +61,7 @@ func main() {
 			log.Fatal(e)
 		}
 		out := engine.Render(map[string]engine.Spec{s.ID: s}, nil)
-		out["icmp_ipv4"], _ = engine.ControlPlan("ipv4", map[string]engine.Spec{s.ID: s})
-		out["icmp_ipv6_prerequisite"], _ = engine.ControlPlan("ipv6", map[string]engine.Spec{s.ID: s})
+
 		b, _ = json.MarshalIndent(out, "", "  ")
 		fmt.Println(string(b))
 		return
@@ -77,21 +76,16 @@ func main() {
 			log.Fatal(e)
 		}
 	}
-	if c.Iptables == "" {
-		c.Iptables = "iptables"
+	if c.Iptables != "" {
+		log.Fatal("iptables configuration is retired; only native nftables is supported")
 	}
-	if c.KernelBackend != "" && c.KernelBackend != "iptables" && c.KernelBackend != "nftables" {
-		log.Fatal("unsupported kernelBackend")
+	if c.KernelBackend != "" && c.KernelBackend != "nftables" {
+		log.Fatal("iptables/unknown backend is retired; only native nftables is supported")
 	}
-	if c.Iptables != "iptables" && c.Iptables != "iptables-nft" && c.Iptables != "iptables-legacy" {
-		log.Fatal("unsupported iptables binary")
-	}
+	c.KernelBackend = "nftables"
 	if *preflight {
-		k := engine.IPTables{Binary: c.Iptables}
-		k.EnableAdvanced(c.StatePath)
-		if c.KernelBackend == "nftables" {
-			k.EnableNative(c.StatePath)
-		}
+		k := engine.NativeKernel{}
+		k.EnableNative(c.StatePath)
 		report, e := k.Preflight()
 		b, _ := json.MarshalIndent(report, "", "  ")
 		fmt.Println(string(b))
@@ -179,7 +173,7 @@ func main() {
 			oldBackend = "iptables"
 		}
 		if newBackend == "" {
-			newBackend = "iptables"
+			newBackend = "nftables"
 		}
 		if oldBackend != newBackend {
 			log.Fatal("kernel backend differs; complete explicit settled migration before installation")
@@ -238,22 +232,16 @@ func main() {
 	if _, _, e = c.URLs(); e != nil {
 		log.Fatal(e)
 	}
-	if c.Iptables == "" {
-		c.Iptables = "iptables"
-	}
-	if c.Iptables != "iptables" && c.Iptables != "iptables-nft" && c.Iptables != "iptables-legacy" {
-		log.Fatal("unsupported iptables binary")
+	if e = engine.ValidateCheckpointBackend(c.StatePath); e != nil {
+		log.Fatal(e)
 	}
 	namespace, e := engine.AcquireNamespaceLock()
 	if e != nil {
 		log.Fatal(e)
 	}
 	defer namespace.Close()
-	k := engine.IPTables{Binary: c.Iptables}
-	k.EnableAdvanced(c.StatePath)
-	if c.KernelBackend == "nftables" {
-		k.EnableNative(c.StatePath)
-	}
+	k := engine.NativeKernel{}
+	k.EnableNative(c.StatePath)
 	if *testFault != "" {
 		if !c.AllowInsecure {
 			log.Fatal("fault injection is disabled outside isolated tests")

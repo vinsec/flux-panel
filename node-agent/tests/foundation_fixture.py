@@ -7,7 +7,7 @@ import base64,hashlib,http.server,json,os,pathlib,queue,signal,socket,struct,sub
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 OUT=pathlib.Path(os.environ.get('FLUX_TEST_EVIDENCE','/evidence'));OUT.mkdir(exist_ok=True);BUILD=pathlib.Path('/build');SECRET='isolated-foundation-only';KEY=hashlib.sha256(SECRET.encode()).digest();CHECKS=[];PROCS=[];DONE=False
 STATE=pathlib.Path('/tmp/foundation-state.json');CONFIG=pathlib.Path('/tmp/foundation-config.json')
-KERNEL_BACKEND=os.getenv('FLUX_KERNEL_BACKEND','iptables')
+KERNEL_BACKEND=os.getenv('FLUX_KERNEL_BACKEND','nftables')
 def write_config(cfg):
  cfg=dict(cfg)
  if KERNEL_BACKEND=='nftables':cfg['kernelBackend']='nftables'

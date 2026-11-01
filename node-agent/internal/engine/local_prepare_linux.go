@@ -65,7 +65,7 @@ func PrepareLocalShaping() (result map[string]any, failure error) {
 	if recordError != nil && !os.IsNotExist(recordError) {
 		return nil, recordError
 	}
-	k := &IPTables{Binary: "iptables"}
+	k := &NativeKernel{}
 	alias := "flux-bpf-prepare:" + localObjectKey()
 	if text, e := k.run("ip", "", "-j", "link", "show", "dev", localPrepareDevice); e == nil {
 		var links []map[string]any

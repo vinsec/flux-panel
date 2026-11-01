@@ -3,8 +3,7 @@
   "secret": "replace-with-node-secret",
   "apply": true,
   "statePath": "/var/lib/flux-agent/state.json",
-  "iptables": "iptables",
-  "kernelBackend": "iptables",
+  "kernelBackend": "nftables",
   "intervalSeconds": 5,
   "allowInsecure": false
 }

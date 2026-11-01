@@ -68,7 +68,7 @@ public final class Endpoint {
             }
         }
         if (host.matches("[0-9.]+")) {
-            if (!IptablesForwardingEngine.ipv4(host))
+            if (!KernelForwardingEngine.ipv4(host))
                 throw new IllegalArgumentException("ambiguous or invalid IPv4");
             return new Endpoint("ip", host, n, "ipv4");
         }

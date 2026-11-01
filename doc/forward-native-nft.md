@@ -1,5 +1,6 @@
 # 原生 nftables map 后端（v5.3）
 
+> 历史版本说明：当前内核已收敛为原生 nftables，入口、依赖及迁移以 [native-only.md](native-only.md) 为准。
 本后端仍使用 `iptables` 这个面板引擎类型及原 ForwardSpec、中央 credit、
 累计账本和 helper 协议。节点配置新增 `"kernelBackend":"nftables"`；省略或
 `"iptables"` 保留既有 iptables-nft/legacy 路径。`iptables-nft` 命令本身不代表

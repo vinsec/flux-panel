@@ -105,7 +105,7 @@ public class ForwardServiceImpl extends ServiceImpl<ForwardMapper, Forward> impl
 
         // 5. 创建并保存Forward对象
         Forward forward = createForwardEntity(forwardDto, currentUser, portAllocation);
-        if(!"iptables".equals(tunnel.getEngine())&&forward.getEngineOptions()!=null)return R.err("高级引擎选项仅用于 iptables 节点");
+        if(!"kernel".equals(tunnel.getEngine())&&forward.getEngineOptions()!=null)return R.err("高级引擎选项仅用于 iptables 节点");
         portPolicy.validate(tunnel,forward,null);
         if (!this.save(forward)) {
             return R.err("端口转发创建失败");
@@ -235,7 +235,7 @@ public class ForwardServiceImpl extends ServiceImpl<ForwardMapper, Forward> impl
 
         // 6. 更新Forward对象
         Forward updatedForward = updateForwardEntity(forwardUpdateDto, existForward, tunnel);
-        if(!"iptables".equals(tunnel.getEngine())&&updatedForward.getEngineOptions()!=null)return R.err("高级引擎选项仅用于 iptables 节点");
+        if(!"kernel".equals(tunnel.getEngine())&&updatedForward.getEngineOptions()!=null)return R.err("高级引擎选项仅用于 iptables 节点");
         portPolicy.validate(tunnel,updatedForward,existForward.getId());
 
         // 7. 获取所需的节点信息
@@ -483,7 +483,7 @@ public class ForwardServiceImpl extends ServiceImpl<ForwardMapper, Forward> impl
         }
 
 
-        if("iptables".equals(inNode.getEngine())) {
+        if("kernel".equals(inNode.getEngine())) {
             UserTunnel permission=getUserTunnel(forward.getUserId(),tunnel.getId().intValue());User owner=userService.getById(forward.getUserId());if(owner!=null&&owner.getRoleId()==0)permission=null;
             String service=buildServiceName(forward.getId(),forward.getUserId(),permission);JSONObject query=new JSONObject();query.put("id",service);query.put("probe",probe);
             if(clientIP!=null&&!clientIP.isBlank()||ingressInterface!=null&&!ingressInterface.isBlank()){com.admin.common.engine.EngineCapabilities.require(inNode.getId(),"returnPathDiagnostics");}
@@ -1386,7 +1386,7 @@ public class ForwardServiceImpl extends ServiceImpl<ForwardMapper, Forward> impl
         Set<Long> peerIds=new HashSet<>();peerIds.add(nodeId);
         Node owner=nodeService.getById(nodeId);
         if(owner!=null) for(Node peer:nodeService.list()) {
-            if(Objects.equals(owner.getServerIp(),peer.getServerIp()) && ("iptables".equals(owner.getEngine()) || "iptables".equals(peer.getEngine()))) peerIds.add(peer.getId());
+            if(Objects.equals(owner.getServerIp(),peer.getServerIp()) && ("kernel".equals(owner.getEngine()) || "kernel".equals(peer.getEngine()))) peerIds.add(peer.getId());
         }
 
         // 1. 收集该节点作为入口时占用的端口

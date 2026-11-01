@@ -3,7 +3,7 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
-	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -11,135 +11,22 @@ import (
 type PreflightResult struct {
 	Kernel     string   `json:"kernel"`
 	Backend    string   `json:"backend"`
-	IPSet      string   `json:"ipset"`
 	Forwarding bool     `json:"forwarding"`
 	MarkMask   string   `json:"markMask"`
 	Probes     []string `json:"probes"`
 }
 
-func (k *IPTables) Preflight() (PreflightResult, error) {
-	if k.Native != nil {
-		return k.Native.preflight()
-	}
-	result := PreflightResult{MarkMask: markMask}
-	var e error
-	if result.Kernel, e = k.run("uname", "", "-r"); e != nil {
-		return result, e
-	}
-	if result.Backend, e = k.run(k.Binary, "", "--version"); e != nil {
-		return result, e
-	}
-	if result.IPSet, e = k.run("ipset", "", "--version"); e != nil {
-		return result, e
-	}
-	text, e := k.run("cat", "", "/proc/sys/net/ipv4/ip_forward")
-	if e != nil {
-		return result, e
-	}
-	result.Forwarding = text == "1"
-	if !result.Forwarding {
-		return result, fmt.Errorf("IPv4 forwarding must already be enabled in this network namespace")
-	}
-	ownedTables := map[string]map[string]bool{}
-	for _, table := range []string{"filter", "mangle", "nat"} {
-		saved, e := k.run(k.Binary+"-save", "", "-t", table)
-		if e != nil {
-			return result, e
-		}
-		ownedTables[table] = markOwners(saved)
-		ownedTables["ip:"+table] = ownedTables[table]
-		if e = validateExternalMarks(saved); e != nil {
-			return result, e
-		}
-	}
-	if k.P1 != nil {
-		binary := strings.Replace(k.Binary, "iptables", "ip6tables", 1)
-		for _, table := range []string{"filter", "mangle", "nat"} {
-			if saved, err := k.run(binary+"-save", "", "-t", table); err == nil {
-				ownedTables["ip6:"+table] = markOwners(saved)
-				if err = validateExternalMarks(saved); err != nil {
-					return result, err
-				}
-			}
-		}
-	}
-	other := "iptables-legacy"
-	if strings.Contains(result.Backend, "legacy") {
-		other = "iptables-nft"
-	}
-	if _, e := exec.LookPath(other + "-save"); e == nil {
-		if saved, e := k.run(other+"-save", ""); e == nil && strings.Contains(saved, "flux-owner:") {
-			return result, fmt.Errorf("another iptables backend already owns Flux rules")
-		}
-	}
-	if _, e = exec.LookPath("nft"); e != nil {
-		return result, fmt.Errorf("nft is required to audit native flow-offload and mark conflicts")
-	}
-	native, e := k.run("nft", "", "-j", "list", "ruleset")
-	if e != nil {
-		return result, e
-	}
-	if e = validateNativeRules(native, ownedTables); e != nil {
-		return result, e
-	}
-	prefix := "FPCHK_" + identity()[:12]
-	created := []string{}
-	defer func() {
-		for i := len(created) - 1; i >= 0; i-- {
-			_, _ = k.run("ipset", "", "destroy", created[i])
-		}
-	}()
-	create := func(name, typ string, args ...string) error {
-		all := append([]string{"create", name, typ}, args...)
-		_, e := k.run("ipset", "", all...)
-		if e == nil {
-			created = append(created, name)
-		}
-		return e
-	}
-	b, c, swap := prefix+"b", prefix+"c", prefix+"s"
-	if e = create(b, "hash:ip,port", "family", "inet", "skbinfo", "comment"); e != nil {
-		return result, e
-	}
-	if e = create(swap, "hash:ip,port", "family", "inet", "skbinfo", "comment"); e != nil {
-		return result, e
-	}
-	if e = create(c, "hash:ip,mark", "family", "inet", "markmask", markMask, "counters", "timeout", "60", "comment"); e != nil {
-		return result, e
-	}
-	if _, e = k.run("ipset", "", "add", b, "192.0.2.1,tcp:9", "skbmark", "0xf1000100/"+markMask); e != nil {
-		return result, e
-	}
-	if _, e = k.run("ipset", "", "add", c, "192.0.2.1,0xf1000100", "bytes", fmt.Sprint(creditCeiling-100), "timeout", "1"); e != nil {
-		return result, e
-	}
-	if _, e = k.run("ipset", "", "-exist", "add", c, "192.0.2.1,0xf1000100", "timeout", "1", "comment", "ttl-renewal-probe"); e != nil {
-		return result, e
-	}
-	renewed, e := k.readSet(c)
-	if e != nil {
-		return result, e
-	}
-	if parseSet(renewed)["192.0.2.1,0xf1000100"].Bytes != creditCeiling-100 {
-		return result, fmt.Errorf("kernel cannot safely renew timeout without resetting counters")
-	}
-	plan := fmt.Sprintf("*mangle\n:%s - [0:0]\n-A %s -m set --match-set %s dst,dst -j SET --map-set %s dst,dst --map-mark\nCOMMIT\n", prefix, prefix, b, b)
-	if _, e = k.run(k.Binary+"-restore", plan, "--test", "--noflush", "--wait", "2"); e != nil {
-		return result, e
-	}
-	plan = fmt.Sprintf("*filter\n:%s - [0:0]\n-A %s -m conntrack --ctstate RELATED -p icmp -j RETURN\n-A %s -m set --match-set %s dst,dst --bytes-lt %d -j RETURN\nCOMMIT\n", prefix, prefix, prefix, c, creditCeiling)
-	if _, e = k.run(k.Binary+"-restore", plan, "--test", "--noflush", "--wait", "2"); e != nil {
-		return result, e
-	}
-	if _, e = k.run("ipset", "", "swap", b, swap); e != nil {
-		return result, e
-	}
-	result.Probes = []string{"hash:ip,port skbinfo/map-mark", "hash:ip,mark counters/timeout/bytes-lt", "RELATED ICMP", "counter-preserving TTL renewal", "atomic ipset swap", "backend exclusivity", "native nft flow-offload/mark audit"}
-	return result, nil
-}
+func (k *NativeKernel) Preflight() (PreflightResult, error) { return k.Native.preflight() }
 
 // Index ownership in one pass. Re-scanning a large ruleset for every rule
 // makes a warm 10k-rule restart quadratic even though packet dispatch is O(1).
+var reservedMark = regexp.MustCompile(`(?i)0xf[12][0-9a-f]{6}`)
+
+const owner = "flux-owner:v3"
+const previousOwner = "flux-owner:v2"
+const gateComment = "flux-transaction:v3"
+const advancedGate = "flux-advanced-transaction:v4"
+
 func markOwners(saved string) map[string]bool {
 	declared := map[string]bool{}
 	for _, m := range declaration.FindAllStringSubmatch(saved, -1) {

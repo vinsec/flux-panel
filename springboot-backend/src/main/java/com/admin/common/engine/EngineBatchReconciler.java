@@ -66,7 +66,7 @@ public class EngineBatchReconciler {
                     && jdbc.queryForObject(
                                     "SELECT COUNT(*) FROM forward f JOIN tunnel t ON"
                                         + " t.id=f.tunnel_id JOIN user u ON u.id=f.user_id WHERE"
-                                        + " t.in_node_id=? AND t.engine='iptables' AND"
+                                        + " t.in_node_id=? AND t.engine='kernel' AND"
                                         + " u.role_id<>0",
                                     Integer.class,
                                     node)
@@ -106,7 +106,7 @@ public class EngineBatchReconciler {
                                 + " JOIN tunnel t ON t.id=f.tunnel_id JOIN user u ON u.id=f.user_id"
                                 + " LEFT JOIN user_tunnel ut ON ut.user_id=f.user_id AND"
                                 + " ut.tunnel_id=f.tunnel_id WHERE t.in_node_id=? AND"
-                                + " t.engine='iptables' ORDER BY f.id",
+                                + " t.engine='kernel' ORDER BY f.id",
                             node);
             for (var r : rows) {
                 boolean admin = n(r, "role_id") == 0;
@@ -119,10 +119,10 @@ public class EngineBatchReconciler {
                                 + (admin ? 0 : n(r, "permission_id"));
                 if (desired.containsKey(id)) continue;
                 if(n(r,"type")!=1)throw new IllegalArgumentException("only direct forwarding is supported");
-                com.admin.entity.Tunnel tunnel=new com.admin.entity.Tunnel();tunnel.setType((int)n(r,"type"));tunnel.setEngine("iptables");tunnel.setTcpListenAddr(r.get("tcp_listen_addr").toString());tunnel.setUdpListenAddr(r.get("udp_listen_addr").toString());
+                com.admin.entity.Tunnel tunnel=new com.admin.entity.Tunnel();tunnel.setType((int)n(r,"type"));tunnel.setEngine("kernel");tunnel.setTcpListenAddr(r.get("tcp_listen_addr").toString());tunnel.setUdpListenAddr(r.get("udp_listen_addr").toString());
                 ForwardSpec business=new ForwardSpec(id,(int)n(r,"in_port"),admin||r.get("speed_id")==null?null:(int)n(r,"speed_id"),r.get("remote_addr").toString(),1,tunnel,r.get("strategy")==null?"fifo":r.get("strategy").toString(),(String)r.get("interface_name"));business.setEngineOptions((String)r.get("engine_options"));
                 JSONObject advanced=specs.advancedForReconcile(node,business);Endpoint target=null;String listen=tunnel.getTcpListenAddr();
-                if(advanced==null){IptablesForwardingEngine.validate(business);target=Endpoint.parse(business.getTarget());}
+                if(advanced==null){KernelForwardingEngine.validate(business);target=Endpoint.parse(business.getTarget());}
                 long expires =
                         admin ? 0 : Math.min(expiry(r, "user_exp"), expiry(r, "permission_exp"));
                 boolean enabled =

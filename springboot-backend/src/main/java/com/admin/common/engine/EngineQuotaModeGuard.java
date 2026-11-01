@@ -23,7 +23,7 @@ public class EngineQuotaModeGuard {
         Node target = nodes.selectById(node);
         if (target == null) throw new IllegalArgumentException("node not found");
         boolean incoming =
-                "iptables".equals(target.getEngine())
+                "kernel".equals(target.getEngine())
                         && (EngineCapabilities.supports(node, "creditPolicy")
                                 || !jdbc.queryForList(
                                                 "SELECT node_id FROM engine_node_policy WHERE"
@@ -40,7 +40,7 @@ public class EngineQuotaModeGuard {
                         forward);
         for (var peer : peers) {
             boolean strict =
-                    "iptables".equals(peer.get("engine"))
+                    "kernel".equals(peer.get("engine"))
                             && ((Number) peer.get("strict_credit")).intValue() == 1;
             if (incoming && ((Number) peer.get("in_node_id")).longValue() == node) continue;
             if (incoming && !strict || !incoming && strict)

@@ -117,10 +117,11 @@ public class EngineCreditService {
     }
 
     static boolean reservationVersion(Object version) {
-        return version != null && version.toString().matches("iptables-v[345](?:[.-].*)?");
+        return version != null && version.toString().matches("(?:iptables-v[345]|kernel-v6)(?:[.-].*)?");
     }
 
     private JSONObject exchangeInternal(Node node, JSONObject report, boolean maintenance) {
+        KernelBackend.forNode(node);
         String epoch = report.getString("epoch"), boot = report.getString("bootId");
         long sequence = EngineTrafficService.exact(report.get("sequence"));
         JSONArray usage = report.getJSONArray("usage"),
@@ -305,7 +306,7 @@ public class EngineCreditService {
                 Map<String, Object> f = rows.get(0);
                 if (n(f, "user_id") != uid
                         || n(f, "in_node_id") != node.getId()
-                        || !"iptables".equals(f.get("engine"))
+                        || !"kernel".equals(f.get("engine"))
                         || n(permission, "user_id") != uid
                         || n(permission, "tunnel_id") != n(f, "tunnel_id")
                         || n(owner, "role_id") == 0) continue;
@@ -343,7 +344,7 @@ public class EngineCreditService {
                         peers.stream()
                                 .anyMatch(
                                         peer ->
-                                                !"iptables".equals(peer.get("engine"))
+                                                !"kernel".equals(peer.get("engine"))
                                                         || !reservationVersion(peer.get("version"))
                                                         || n(peer, "strict_credit") != 1);
                 if (mixed) continue;
@@ -511,7 +512,7 @@ public class EngineCreditService {
         JSONObject ack = exchangeInternal(node, report, true);
         jdbc.update(
                 "UPDATE forward f JOIN tunnel t ON t.id=f.tunnel_id SET f.status=0 WHERE"
-                        + " t.in_node_id=? AND t.engine='iptables'",
+                        + " t.in_node_id=? AND t.engine='kernel'",
                 node.getId());
         ack.put("maintenanceAccepted", true);
         return ack;

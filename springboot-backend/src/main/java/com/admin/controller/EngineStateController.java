@@ -14,12 +14,12 @@ import java.util.*;
 public class EngineStateController {
     @Resource private JdbcTemplate jdbc;
     @Resource private NodeCredentials credentials;
-    @Resource private IptablesForwardingEngine engine;
+    @Resource private KernelForwardingEngine engine;
     @PostMapping("/tunnel-capabilities")
     public R tunnelCapabilities(@RequestBody JSONObject input){
         long tunnel=input.getLongValue("tunnelId"),user=JwtUtil.getUserIdFromToken();var rows=jdbc.queryForList("SELECT in_node_id,engine,tcp_listen_addr,udp_listen_addr FROM tunnel WHERE id=?",tunnel);if(rows.isEmpty())return R.err("隧道不存在");
         if(JwtUtil.getRoleIdFromToken()!=0&&jdbc.queryForObject("SELECT COUNT(*) FROM user_tunnel WHERE user_id=? AND tunnel_id=? AND status=1 AND exp_time>?",Integer.class,user,tunnel,System.currentTimeMillis())==0)return R.err("无隧道权限");
-        var row=rows.get(0);JSONObject info=new JSONObject();info.put("engine",row.get("engine"));info.put("tcpListenAddr",row.get("tcp_listen_addr"));info.put("udpListenAddr",row.get("udp_listen_addr"));if("iptables".equals(row.get("engine")))info.put("node",EngineCapabilities.negotiate(((Number)row.get("in_node_id")).longValue()));return R.ok(info);
+        var row=rows.get(0);JSONObject info=new JSONObject();info.put("engine",row.get("engine"));info.put("tcpListenAddr",row.get("tcp_listen_addr"));info.put("udpListenAddr",row.get("udp_listen_addr"));if("kernel".equals(row.get("engine")))info.put("node",EngineCapabilities.negotiate(((Number)row.get("in_node_id")).longValue()));return R.ok(info);
     }
     @PostMapping("/forward-states")
     public R states(@RequestBody JSONObject input){
@@ -27,7 +27,7 @@ public class EngineStateController {
         Set<Long> requested=new LinkedHashSet<>();for(Object id:ids)requested.add(Long.parseLong(id.toString()));
         String placeholders=String.join(",",Collections.nCopies(requested.size(),"?"));var rows=jdbc.queryForList("SELECT f.id,f.user_id,t.in_node_id,t.engine,u.role_id,ut.id permission_id FROM forward f JOIN tunnel t ON t.id=f.tunnel_id JOIN user u ON u.id=f.user_id LEFT JOIN user_tunnel ut ON ut.user_id=f.user_id AND ut.tunnel_id=f.tunnel_id WHERE f.id IN ("+placeholders+")",requested.toArray());
         long user=JwtUtil.getUserIdFromToken();boolean admin=JwtUtil.getRoleIdFromToken()==0;Map<Long,Map<String,Long>> groups=new HashMap<>();JSONArray output=new JSONArray();
-        for(var row:rows){long owner=((Number)row.get("user_id")).longValue();if(!admin&&owner!=user)return R.err("转发不存在或无权限");long id=((Number)row.get("id")).longValue(),node=((Number)row.get("in_node_id")).longValue();if(!"iptables".equals(row.get("engine")))continue;long permission=((Number)row.get("role_id")).intValue()==0?0:row.get("permission_id")==null?-1:((Number)row.get("permission_id")).longValue();if(permission<0)continue;groups.computeIfAbsent(node,n->new LinkedHashMap<>()).put(id+"_"+owner+"_"+permission,id);}
+        for(var row:rows){long owner=((Number)row.get("user_id")).longValue();if(!admin&&owner!=user)return R.err("转发不存在或无权限");long id=((Number)row.get("id")).longValue(),node=((Number)row.get("in_node_id")).longValue();if(!"kernel".equals(row.get("engine")))continue;long permission=((Number)row.get("role_id")).intValue()==0?0:row.get("permission_id")==null?-1:((Number)row.get("permission_id")).longValue();if(permission<0)continue;groups.computeIfAbsent(node,n->new LinkedHashMap<>()).put(id+"_"+owner+"_"+permission,id);}
         for(var group:groups.entrySet()){List<String> names=new ArrayList<>(group.getValue().keySet());for(int offset=0;offset<names.size();offset+=100){List<String> page=names.subList(offset,Math.min(offset+100,names.size()));JSONObject query=new JSONObject();query.put("ids",page);var reply=WebSocketServer.send_msg(group.getKey(),query,"GetForwardStatuses");JSONObject data="OK".equals(reply.getMsg())?(JSONObject)JSONObject.toJSON(reply.getData()):null;for(String name:page){JSONObject value=new JSONObject();value.put("id",group.getValue().get(name));value.put("state",data==null?Map.of("status","unavailable"):data.get(name));output.add(value);}}}
         return R.ok(output);
     }

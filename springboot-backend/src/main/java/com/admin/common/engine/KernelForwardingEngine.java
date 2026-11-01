@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 import javax.annotation.Resource;
 
 @Component
-public class IptablesForwardingEngine implements ForwardingEngine {
+public class KernelForwardingEngine implements ForwardingEngine {
     @Resource private EngineRevision revisions;
     @Resource private UserMapper users;
     @Resource private UserTunnelMapper userTunnels;
@@ -38,15 +38,15 @@ public class IptablesForwardingEngine implements ForwardingEngine {
 
     public static void validate(ForwardSpec s) {
         if (s.getTunnelType() != 1)
-            throw new IllegalArgumentException("iptables v1 only supports direct port forwarding");
+            throw new IllegalArgumentException("kernel schema1 only supports direct port forwarding");
         if (s.getLimiter() != null && s.getLimiter() != 0)
-            throw new IllegalArgumentException("iptables v1 does not support bandwidth shaping");
+            throw new IllegalArgumentException("kernel schema1 does not support bandwidth shaping");
         if (s.getInterfaceName() != null && !s.getInterfaceName().isBlank())
-            throw new IllegalArgumentException("iptables v1 does not support interface routing");
+            throw new IllegalArgumentException("kernel schema1 does not support interface routing");
         if (s.getStrategy() != null
                 && !s.getStrategy().isBlank()
                 && !s.getStrategy().equals("fifo"))
-            throw new IllegalArgumentException("iptables v1 only supports one target");
+            throw new IllegalArgumentException("kernel schema1 only supports one target");
         Endpoint target = Endpoint.parse(s.getTarget());
         if (!"ip".equals(target.getKind()) || !"ipv4".equals(target.getFamily()))
             throw new IllegalArgumentException(
@@ -54,14 +54,14 @@ public class IptablesForwardingEngine implements ForwardingEngine {
         String ip = s.getTunnel().getTcpListenAddr();
         if (!ipv4(ip) || !ip.equals(s.getTunnel().getUdpListenAddr()))
             throw new IllegalArgumentException(
-                    "iptables v1 requires identical IPv4 TCP/UDP listen addresses");
-        if (!"iptables".equals(EngineRegistry.normalize(s.getTunnel().getEngine())))
+                    "kernel schema1 requires identical IPv4 TCP/UDP listen addresses");
+        if (!"kernel".equals(EngineRegistry.normalize(s.getTunnel().getEngine())))
             throw new IllegalArgumentException("node and tunnel engine mismatch");
     }
 
     public GostDto apply(Long node, ForwardSpec s, boolean update) {
         try {
-            if(s.getTunnelType()!=1||!"iptables".equals(EngineRegistry.normalize(s.getTunnel().getEngine())))throw new IllegalArgumentException("iptables supports direct forwarding on a matching node");
+            if(s.getTunnelType()!=1||!"kernel".equals(EngineRegistry.normalize(s.getTunnel().getEngine())))throw new IllegalArgumentException("kernel supports direct forwarding on a matching node");
             EngineCapabilities.negotiate(node);
             KernelBackend.verifyAgent(nodes.selectById(node), EngineCapabilities.info(node));
             quotaModes.verify(node,s.getName());

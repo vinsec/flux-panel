@@ -147,7 +147,7 @@ public class EngineTrafficService {
             String[] parts = id.split("_");
             for (var r : metadata.getOrDefault(Long.parseLong(parts[0]), List.of())) {
                 if (number(r, "in_node_id") != node.getId()
-                        || !"iptables".equals(r.get("engine"))
+                        || !"kernel".equals(r.get("engine"))
                         || !parts[1].equals(r.get("user_id").toString())) continue;
                 boolean admin = number(r, "role_id") == 0;
                 if (admin

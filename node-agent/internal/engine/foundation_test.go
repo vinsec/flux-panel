@@ -39,12 +39,6 @@ func BenchmarkUnchangedControlPolicy(b *testing.B) {
 		rules[fmt.Sprint(i)] = Spec{Token: i}
 		allowed[i] = true
 	}
-	b.Run("previous-format-and-hash", func(b *testing.B) {
-		b.ReportAllocs()
-		for i := 0; i < b.N; i++ {
-			_ = digest(renderControl(rules, allowed))
-		}
-	})
 	b.Run("token-bitmap", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
@@ -390,7 +384,7 @@ func TestAcknowledgedCounterGCAndSafeTokenReuse(t *testing.T) {
 		t.Fatal(e)
 	}
 	s = m.Rules()[s.ID]
-	key := targetKey(s)
+	key := fmt.Sprintf("%s,0x%x", s.TargetIP, flowMark(s))
 	k.records = []counterRecord{{upSet, key, "flux:v2:" + s.ID + ":up", 123, 2}, {downSet, key, "flux:v2:" + s.ID + ":down", 456, 3}}
 	if e = m.Change(s.ID, 2, false, true); e != nil {
 		t.Fatal(e)

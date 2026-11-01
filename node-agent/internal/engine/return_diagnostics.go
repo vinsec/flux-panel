@@ -129,7 +129,7 @@ func (m *Manager) ReturnPathDiagnostics(ctx context.Context, id string, probe bo
 	s, exists := m.state.Rules[id]
 	s = cloneSpec(s)
 	mark := flowMark(s)
-	if k, ok := m.Kernel.(*IPTables); ok && k.P1 != nil {
+	if k, ok := m.Kernel.(*NativeKernel); ok && k.P1 != nil {
 		if applied, ok := k.P1.last[id]; ok && applied.Runtime.EgressGroup > 0 {
 			mark |= 0x80 | uint32(applied.Runtime.EgressGroup)
 		}

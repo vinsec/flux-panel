@@ -58,7 +58,6 @@ interface Node {
 
 interface NodeForm {
   engine: string;
-  kernelBackend: string;
   id: number | null;
   name: string;
   ipString: string;
@@ -89,8 +88,7 @@ export default function NodePage() {
     name: '',
     ipString: '',
     serverIp: '',
-    engine: 'iptables',
-    kernelBackend: 'nftables',
+    engine: 'kernel',
     portSta: 1000,
     portEnd: 65535,
     http: 0,
@@ -215,7 +213,7 @@ export default function NodePage() {
             
             // v1 sends a liveness frame, not system-resource measurements.
             // Keep resource indicators unavailable rather than showing fake 0%.
-            if(node.engine==='iptables'){
+            if(node.engine==='kernel'){
               if(!systemInfo.sampledAt)return {...node,connectionStatus:'online',systemInfo:null};
               const interfaces=systemInfo.network||{};const physical=Object.entries(interfaces).filter(([name])=>name!=='lo'&&!name.startsWith('fp4shape')).map(([,value])=>value as any);
               const number=(v:any):number|null=>typeof v==='number'&&Number.isFinite(v)?v:null;
@@ -459,7 +457,6 @@ export default function NodePage() {
       ipString: node.ip ? node.ip.split(',').map(ip => ip.trim()).join('\n') : '',
       serverIp: node.serverIp || '',
       engine: node.engine || 'gost',
-      kernelBackend: node.kernelBackend || 'iptables',
       portSta: node.portSta,
       portEnd: node.portEnd,
       http: typeof node.http === 'number' ? node.http : 1,
@@ -469,7 +466,7 @@ export default function NodePage() {
     const offline = node.connectionStatus !== 'online';
     setProtocolDisabled(offline);
     setProtocolDisabledReason(offline ? '节点未在线，等待节点上线后再设置' : '');
-    if(node.engine==='iptables'){setProtocolDisabled(true);Network.post('/engine/capabilities',{nodeId:node.id}).then(r=>{if(request!==protocolRequest.current)return;const ok=r.code===0&&r.data?.capabilities?.features?.protocolBlocking;setProtocolDisabled(offline||!ok);setProtocolDisabledReason(ok?'未知流量放行并标记；变更后现有 TCP 连接需要重连':'节点未声明协议识别能力，请先升级Agent')}).catch(()=>{if(request===protocolRequest.current)setProtocolDisabledReason('无法获取协议识别能力')});}
+    if(node.engine==='kernel'){setProtocolDisabled(true);Network.post('/engine/capabilities',{nodeId:node.id}).then(r=>{if(request!==protocolRequest.current)return;const ok=r.code===0&&r.data?.capabilities?.features?.protocolBlocking;setProtocolDisabled(offline||!ok);setProtocolDisabledReason(ok?'未知流量放行并标记；变更后现有 TCP 连接需要重连':'节点未声明协议识别能力，请先升级Agent')}).catch(()=>{if(request===protocolRequest.current)setProtocolDisabledReason('无法获取协议识别能力')});}
     setDialogVisible(true);
   };
 
@@ -556,7 +553,6 @@ export default function NodePage() {
         
       const submitData = {
         ...form,
-        kernelBackend: form.engine === 'iptables' ? form.kernelBackend : undefined,
         ip: ipString
       };
       delete (submitData as any).ipString;
@@ -567,7 +563,6 @@ export default function NodePage() {
         ip: ipString,
         serverIp: form.serverIp,
         engine: form.engine,
-        kernelBackend: form.engine === 'iptables' ? form.kernelBackend : undefined,
         portSta: form.portSta,
         portEnd: form.portEnd,
         http: form.http,
@@ -614,9 +609,8 @@ export default function NodePage() {
       name: '',
       ipString: '',
       serverIp: '',
-      engine: 'iptables',
-      kernelBackend: 'nftables',
-      portSta: 1000,
+      engine: 'kernel',
+        portSta: 1000,
       portEnd: 65535,
       http: 0,
       tls: 0,
@@ -680,7 +674,7 @@ export default function NodePage() {
                   <div className="flex justify-between items-start w-full">
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-foreground truncate text-sm">{node.name}</h3>
-                      <p className="text-xs text-default-500 truncate">{node.serverIp} · {node.engine === "iptables" ? `内核 / ${node.kernelBackend || "iptables"}` : "GOST"}</p>
+                      <p className="text-xs text-default-500 truncate">{node.serverIp} · {node.engine === "kernel" ? (node.kernelBackend === "nftables" ? "内核 / 原生 nftables" : "内核 / 旧 iptables 节点需迁移") : "GOST"}</p>
                     </div>
                     <div className="flex items-center gap-1.5 ml-2">
                       <Chip 
@@ -733,9 +727,9 @@ export default function NodePage() {
                     </div>
                   </div>
 
-                  {node.engine==='iptables'&&<Button size="sm" variant="flat" className="mb-2" onPress={()=>setEngineToolsNode(node)}>带宽组 / 升级向导</Button>}
+                  {node.engine==='kernel'&&<Button size="sm" variant="flat" className="mb-2" onPress={()=>setEngineToolsNode(node)}>带宽组 / 升级向导</Button>}
                   {/* 系统监控 */}
-                  {node.engine==='iptables'&&<p className="text-xs text-default-500 mb-2">{node.systemInfo?'系统网卡指标与转发计费分别统计。':'等待真实指标；旧心跳不作为资源使用率。'}</p>}
+                  {node.engine==='kernel'&&<p className="text-xs text-default-500 mb-2">{node.systemInfo?'系统网卡指标与转发计费分别统计。':'等待真实指标；旧心跳不作为资源使用率。'}</p>}
                   <div className="space-y-3 mb-4">
                     <div className="grid grid-cols-2 gap-3">
                       <div>
@@ -880,17 +874,9 @@ export default function NodePage() {
                   onSelectionChange={(keys) => setForm(prev => ({...prev, engine: Array.from(keys)[0] as string, http: 0, tls: 0, socks: 0}))}
                   description="节点创建后引擎固定；切换引擎请新建节点迁移。">
                   <SelectItem key="gost">GOST</SelectItem>
-                  <SelectItem key="iptables">内核转发</SelectItem>
+                  <SelectItem key="kernel">内核转发</SelectItem>
                 </Select>
-                {form.engine === 'iptables' && (
-                  <Select label="内核后端" selectedKeys={[form.kernelBackend]} isDisabled={isEdit}
-                    disallowEmptySelection
-                    onSelectionChange={(keys) => setForm(prev => ({...prev, kernelBackend: Array.from(keys)[0] as string}))}
-                    description="隧道继承入口节点的后端；创建后固定，切换请新建节点迁移。">
-                    <SelectItem key="nftables">原生 nftables（默认）</SelectItem>
-                    <SelectItem key="iptables">iptables（兼容模式）</SelectItem>
-                  </Select>
-                )}
+                {form.engine === 'kernel' && <p className="text-xs text-default-500">内核转发固定使用原生 nftables，隧道继承节点配置。</p>}
                 <Input
                   label="节点名称"
                   placeholder="请输入节点名称"
@@ -955,7 +941,7 @@ export default function NodePage() {
                 {/* 屏蔽协议 */}
                 <div className="mt-1">
                   <div className="text-sm font-medium text-default-700">屏蔽协议</div>
-                  <div className="text-xs text-default-500 mb-2">开启开关以屏蔽对应协议{form.engine==='iptables'&&'；未知流量放行并标记，变更后现有 TCP 连接需要重连'}</div>
+                  <div className="text-xs text-default-500 mb-2">开启开关以屏蔽对应协议{form.engine==='kernel'&&'；未知流量放行并标记，变更后现有 TCP 连接需要重连'}</div>
                   {protocolDisabled && (
                     <Alert
                       color="warning"

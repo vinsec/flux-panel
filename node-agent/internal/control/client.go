@@ -25,13 +25,16 @@ type Config struct {
 	Addr            string   `json:"addr"`
 	Secret          string   `json:"secret"`
 	StatePath       string   `json:"statePath"`
-	Iptables        string   `json:"iptables"`
+	Iptables        string   `json:"iptables,omitempty"`
 	Apply           bool     `json:"apply"`
 	AllowInsecure   bool     `json:"allowInsecure"`
 	IntervalSeconds int      `json:"intervalSeconds"`
 }
 
 func (c Config) URLs() (string, string, error) {
+	if c.Iptables != "" || (c.KernelBackend != "" && c.KernelBackend != "nftables") {
+		return "", "", fmt.Errorf("iptables backend is retired; only native nftables is supported")
+	}
 	u, e := url.Parse(c.Addr)
 	if e != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
 		return "", "", fmt.Errorf("panel address must be a ws(s)/http(s) URL without credentials or query")
@@ -53,8 +56,8 @@ func (c Config) URLs() (string, string, error) {
 	ws.Path += "/system-info"
 	q := ws.Query()
 	q.Set("type", "1")
-	q.Set("engine", "iptables")
-	q.Set("version", "iptables-v5.5")
+	q.Set("engine", "kernel")
+	q.Set("version", "kernel-v6.0")
 	if c.LegacyQueryAuth {
 		q.Set("secret", c.Secret)
 	}
@@ -384,7 +387,7 @@ func Run(ctx context.Context, c Config, m ManagerAPI) error {
 				continue
 			}
 		}
-		log.Print("iptables agent connected")
+		log.Print("kernel agent connected")
 		m.Connected(true)
 		connectionMu.Lock()
 		live = conn
@@ -421,7 +424,7 @@ func Run(ctx context.Context, c Config, m ManagerAPI) error {
 					return
 				case <-t.C:
 					info := metrics.sample()
-					info["engine"] = "iptables"
+					info["engine"] = "kernel"
 					info["engineState"] = m.Info()
 					body, _ := json.Marshal(info)
 					if writeFrame(body) != nil {

@@ -16,7 +16,7 @@ type nativeQuota struct {
 	Comment string `json:"comment"`
 }
 type SharedQuota struct {
-	parent     *IPTables
+	parent     *NativeKernel
 	ready      bool
 	hook       bool
 	localHooks bool

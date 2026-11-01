@@ -13,7 +13,7 @@ public class GostForwardingEngine implements ForwardingEngine {
         try {
             quotaModes.verify(n, s.getName());
         } catch (IllegalArgumentException e) {
-            return IptablesForwardingEngine.error(e.getMessage());
+            return KernelForwardingEngine.error(e.getMessage());
         }
         return update
                 ? LegacyGostCommands.UpdateService(
@@ -47,7 +47,7 @@ public class GostForwardingEngine implements ForwardingEngine {
             try {
                 quotaModes.verify(n, name);
             } catch (IllegalArgumentException e) {
-                return IptablesForwardingEngine.error(e.getMessage());
+                return KernelForwardingEngine.error(e.getMessage());
             }
         }
         return enabled

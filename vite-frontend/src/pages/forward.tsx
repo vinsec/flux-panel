@@ -213,7 +213,7 @@ export default function ForwardPage() {
     getTunnelCapabilities({tunnelId:form.tunnelId}).then(response=>{if(!cancelled&&response.code===0)setEngineCapabilities(response.data)}).catch(()=>{});
     return()=>{cancelled=true};
   },[form.tunnelId]);
-  const stateIDs=forwards.filter(f=>f.engine==='iptables').slice(0,200).map(f=>f.id).join(',');
+  const stateIDs=forwards.filter(f=>f.engine==='kernel').slice(0,200).map(f=>f.id).join(',');
   useEffect(()=>{
     if(!stateIDs)return;
     let cancelled=false;const refresh=async()=>{try{const response=await getForwardStates({ids:stateIDs.split(',').map(Number)});if(!cancelled&&response.code===0){const values:Record<number,any>={};for(const row of response.data||[])values[row.id]=row.state;setForwardStates(values);}}catch{}};
@@ -556,7 +556,7 @@ export default function ForwardPage() {
 
       const addressCount = processedRemoteAddr.split(',').length;
       
-      const engineOptions=engineCapabilities?.engine==='iptables'?engineOptionsForSubmit(form.engineOptions,form.remoteAddr,form.inPort,engineCapabilities?.node?.capabilities?.features||{}):undefined;
+      const engineOptions=engineCapabilities?.engine==='kernel'?engineOptionsForSubmit(form.engineOptions,form.remoteAddr,form.inPort,engineCapabilities?.node?.capabilities?.features||{}):undefined;
       let res;
       if (isEdit) {
         // 更新时确保包含必要字段
@@ -587,7 +587,7 @@ export default function ForwardPage() {
       }
       
       if (res.code === 0) {
-        toast.success(engineCapabilities?.engine==='iptables'?'配置已保存，请查看节点生效状态':(isEdit?'修改成功':'创建成功'));
+        toast.success(engineCapabilities?.engine==='kernel'?'配置已保存，请查看节点生效状态':(isEdit?'修改成功':'创建成功'));
         setModalOpen(false);
         loadData();
       } else {
@@ -1213,7 +1213,7 @@ export default function ForwardPage() {
             <div className="flex-1 min-w-0">
               <h3 className="font-semibold text-foreground truncate text-sm">{forward.name}</h3>
               <p className="text-xs text-default-500 truncate">{forward.tunnelName}</p>
-              {forward.engine==='iptables'&&<div className="mt-1 text-xs" title={forwardStates[forward.id]?.error||forwardStates[forward.id]?.resolution?.error||''}>
+              {forward.engine==='kernel'&&<div className="mt-1 text-xs" title={forwardStates[forward.id]?.error||forwardStates[forward.id]?.resolution?.error||''}>
                 <span className={forwardStates[forward.id]?.status==='applied'?'text-success':forwardStates[forward.id]?.status==='failed'?'text-danger':'text-default-500'}>
                   {{applied:'已生效',paused:'已暂停',pending:'等待解析或健康检查',failed:'应用/解析失败',unavailable:'节点状态不可用',absent:'等待对账'}[forwardStates[forward.id]?.status as string]||'正在获取生效状态'}
                 </span>
@@ -1666,8 +1666,8 @@ export default function ForwardPage() {
                       maxRows={6}
                     />
                     
-                    {engineCapabilities?.engine==='iptables'&&<AdvancedForwardFields value={form.engineOptions} onChange={engineOptions=>setForm(previous=>({...previous,engineOptions}))} features={engineCapabilities?.node?.capabilities?.features||{}} port={form.inPort} remoteAddr={form.remoteAddr} strategy={form.strategy} tcpHost={engineCapabilities?.tcpListenAddr} udpHost={engineCapabilities?.udpListenAddr}/>}
-                    {engineCapabilities?.engine!=='iptables'&&<Input
+                    {engineCapabilities?.engine==='kernel'&&<AdvancedForwardFields value={form.engineOptions} onChange={engineOptions=>setForm(previous=>({...previous,engineOptions}))} features={engineCapabilities?.node?.capabilities?.features||{}} port={form.inPort} remoteAddr={form.remoteAddr} strategy={form.strategy} tcpHost={engineCapabilities?.tcpListenAddr} udpHost={engineCapabilities?.udpListenAddr}/>}
+                    {engineCapabilities?.engine!=='kernel'&&<Input
                       label="出口网卡名或IP"
                       placeholder="请输入出口网卡名或IP"
                       value={form.interfaceName}
@@ -1678,7 +1678,7 @@ export default function ForwardPage() {
                       description="用于多IP服务器指定使用那个IP请求远程地址，不懂的默认为空就行"
                     />}
                     
-                    {engineCapabilities?.engine!=='iptables'&&getAddressCount(form.remoteAddr) > 1 && (
+                    {engineCapabilities?.engine!=='kernel'&&getAddressCount(form.remoteAddr) > 1 && (
                       <Select
                         label="负载策略"
                         placeholder="请选择负载均衡策略"
