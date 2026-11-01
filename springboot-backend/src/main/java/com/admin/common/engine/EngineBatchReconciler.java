@@ -17,6 +17,7 @@ import javax.annotation.Resource;
 @Service
 public class EngineBatchReconciler {
     @Resource private JdbcTemplate jdbc;
+    @Resource private com.admin.mapper.NodeMapper nodes;
     @Resource private EngineRevision revisions;
     @Resource private EngineCreditService credits;
     @Resource private EngineSpecFactory specs;
@@ -48,6 +49,7 @@ public class EngineBatchReconciler {
     private JSONObject reconcileLocked(Long node) {
         synchronized (locks.computeIfAbsent(node, x -> new Object())) {
             EngineCapabilities.require(node, "batch");
+            KernelBackend.verifyAgent(nodes.selectById(node), EngineCapabilities.info(node));
             JSONObject existing = pending.get(node);
             if (existing != null) {
                 JSONObject query = new JSONObject();

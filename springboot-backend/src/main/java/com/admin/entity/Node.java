@@ -22,6 +22,8 @@ public class Node extends BaseEntity {
 
     private String engine = "gost";
 
+    private String kernelBackend;
+
     private String secret;
 
     private String ip;

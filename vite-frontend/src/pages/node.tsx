@@ -27,6 +27,7 @@ import {
 
 interface Node {
   engine?: string;
+  kernelBackend?: string;
   id: number;
   name: string;
   ip: string;
@@ -57,6 +58,7 @@ interface Node {
 
 interface NodeForm {
   engine: string;
+  kernelBackend: string;
   id: number | null;
   name: string;
   ipString: string;
@@ -87,7 +89,8 @@ export default function NodePage() {
     name: '',
     ipString: '',
     serverIp: '',
-    engine: 'gost',
+    engine: 'iptables',
+    kernelBackend: 'nftables',
     portSta: 1000,
     portEnd: 65535,
     http: 0,
@@ -456,6 +459,7 @@ export default function NodePage() {
       ipString: node.ip ? node.ip.split(',').map(ip => ip.trim()).join('\n') : '',
       serverIp: node.serverIp || '',
       engine: node.engine || 'gost',
+      kernelBackend: node.kernelBackend || 'iptables',
       portSta: node.portSta,
       portEnd: node.portEnd,
       http: typeof node.http === 'number' ? node.http : 1,
@@ -552,6 +556,7 @@ export default function NodePage() {
         
       const submitData = {
         ...form,
+        kernelBackend: form.engine === 'iptables' ? form.kernelBackend : undefined,
         ip: ipString
       };
       delete (submitData as any).ipString;
@@ -562,6 +567,7 @@ export default function NodePage() {
         ip: ipString,
         serverIp: form.serverIp,
         engine: form.engine,
+        kernelBackend: form.engine === 'iptables' ? form.kernelBackend : undefined,
         portSta: form.portSta,
         portEnd: form.portEnd,
         http: form.http,
@@ -608,7 +614,8 @@ export default function NodePage() {
       name: '',
       ipString: '',
       serverIp: '',
-    engine: 'gost',
+      engine: 'iptables',
+      kernelBackend: 'nftables',
       portSta: 1000,
       portEnd: 65535,
       http: 0,
@@ -673,7 +680,7 @@ export default function NodePage() {
                   <div className="flex justify-between items-start w-full">
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-foreground truncate text-sm">{node.name}</h3>
-                      <p className="text-xs text-default-500 truncate">{node.serverIp} · {node.engine || "gost"}</p>
+                      <p className="text-xs text-default-500 truncate">{node.serverIp} · {node.engine === "iptables" ? `内核 / ${node.kernelBackend || "iptables"}` : "GOST"}</p>
                     </div>
                     <div className="flex items-center gap-1.5 ml-2">
                       <Chip 
@@ -869,12 +876,21 @@ export default function NodePage() {
             <ModalHeader>{dialogTitle}</ModalHeader>
             <ModalBody>
               <div className="space-y-4">
-                <Select label="转发引擎" selectedKeys={[form.engine]} isDisabled={isEdit}
+                <Select label="转发引擎" selectedKeys={[form.engine]} isDisabled={isEdit} disallowEmptySelection
                   onSelectionChange={(keys) => setForm(prev => ({...prev, engine: Array.from(keys)[0] as string, http: 0, tls: 0, socks: 0}))}
                   description="节点创建后引擎固定；切换引擎请新建节点迁移。">
                   <SelectItem key="gost">GOST</SelectItem>
-                  <SelectItem key="iptables">iptables · IPv4 端口转发</SelectItem>
+                  <SelectItem key="iptables">内核转发</SelectItem>
                 </Select>
+                {form.engine === 'iptables' && (
+                  <Select label="内核后端" selectedKeys={[form.kernelBackend]} isDisabled={isEdit}
+                    disallowEmptySelection
+                    onSelectionChange={(keys) => setForm(prev => ({...prev, kernelBackend: Array.from(keys)[0] as string}))}
+                    description="隧道继承入口节点的后端；创建后固定，切换请新建节点迁移。">
+                    <SelectItem key="nftables">原生 nftables（默认）</SelectItem>
+                    <SelectItem key="iptables">iptables（兼容模式）</SelectItem>
+                  </Select>
+                )}
                 <Input
                   label="节点名称"
                   placeholder="请输入节点名称"

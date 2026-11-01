@@ -41,6 +41,7 @@ interface Tunnel {
 
 interface Node {
   engine?: string;
+  kernelBackend?: string;
   id: number;
   name: string;
   status: number; // 1: 在线, 0: 离线
@@ -638,13 +639,13 @@ export default function TunnelPage() {
                       variant="bordered"
                     />
                     
-                    <Select label="转发引擎" selectedKeys={[form.engine]} isDisabled={isEdit}
+                    <Select label="转发引擎" selectedKeys={[form.engine]} isDisabled={isEdit} disallowEmptySelection
                       onSelectionChange={(keys) => {
                         const engine=Array.from(keys)[0] as string;
                         setForm(prev=>({...prev,engine,inNodeId:null,type:1,outNodeId:null,tcpListenAddr:engine==='iptables'?'0.0.0.0':'[::]',udpListenAddr:engine==='iptables'?'0.0.0.0':'[::]',interfaceName:''}));
-                      }} description={form.engine==='iptables'?'首版支持单目标 IPv4 TCP/UDP；不支持限速和 GOST 中继。':'使用现有 GOST 节点能力。'}>
+                      }} description={form.engine==='iptables'?'内核后端继承入口节点配置；高级能力以节点声明为准。':'使用现有 GOST 节点能力。'}>
                       <SelectItem key="gost">GOST</SelectItem>
-                      <SelectItem key="iptables">iptables · 内核转发</SelectItem>
+                      <SelectItem key="iptables">内核转发</SelectItem>
                     </Select>
                     <Select
                       label="隧道类型"
@@ -710,6 +711,7 @@ export default function TunnelPage() {
 
                     <Select
                       label="入口节点"
+                      description={form.engine === 'iptables' ? `继承后端：${form.inNodeId ? (nodes.find(node => node.id === form.inNodeId)?.kernelBackend || 'iptables') : '选择节点后确定'}` : undefined}
                       placeholder="请选择入口节点"
                       selectedKeys={form.inNodeId ? [form.inNodeId.toString()] : []}
                       onSelectionChange={(keys) => {

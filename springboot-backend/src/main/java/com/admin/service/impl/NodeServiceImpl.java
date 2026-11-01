@@ -97,6 +97,8 @@ public class NodeServiceImpl extends ServiceImpl<NodeMapper, Node> implements No
     public R createNode(NodeDto nodeDto) {
         try { nodeDto.setEngine(EngineRegistry.normalize(nodeDto.getEngine())); }
         catch(IllegalArgumentException e) { return R.err(e.getMessage()); }
+        try { nodeDto.setKernelBackend(com.admin.common.engine.KernelBackend.forCreate(nodeDto.getEngine(), nodeDto.getKernelBackend())); }
+        catch(IllegalArgumentException e) { return R.err(e.getMessage()); }
         Node node = buildNewNode(nodeDto);
         boolean result = this.save(node);
         return result ? R.ok(SUCCESS_CREATE_MSG) : R.err(ERROR_CREATE_MSG);
@@ -135,6 +137,8 @@ public class NodeServiceImpl extends ServiceImpl<NodeMapper, Node> implements No
         try { requestedEngine=EngineRegistry.normalize(nodeUpdateDto.getEngine()); }
         catch(IllegalArgumentException e) { return R.err(e.getMessage()); }
         if(!requestedEngine.equals(EngineRegistry.normalize(node.getEngine()))) return R.err("节点引擎不可原地切换，请新建节点后迁移");
+        try { com.admin.common.engine.KernelBackend.validateUpdate(node, nodeUpdateDto.getKernelBackend()); }
+        catch(IllegalArgumentException e) { return R.err(e.getMessage()); }
         if("iptables".equals(requestedEngine) && ((nodeUpdateDto.getHttp()!=null && nodeUpdateDto.getHttp()!=0) || (nodeUpdateDto.getTls()!=null && nodeUpdateDto.getTls()!=0) || (nodeUpdateDto.getSocks()!=null && nodeUpdateDto.getSocks()!=0))){try{com.admin.common.engine.EngineCapabilities.require(node.getId(),"protocolBlocking");}catch(Exception e){return R.err(e.getMessage());}}
 
         //1.1 如果节点在线 且传入更新的 http/tls/socks 任意一项与数据库不一致，则通过 WS 通知节点更新设置

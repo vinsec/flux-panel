@@ -59,6 +59,7 @@ public class NodeReleaseService {
             config.put("addr", addr);
             config.put("secret", node.getSecret());
             if ("iptables".equals(engine)) {
+                config.put("kernelBackend", KernelBackend.forNode(node));
                 config.put("apply", true);
                 config.put("helperSocket","/run/flux-agent/kernel.sock");
                 config.put("useSessions",true);

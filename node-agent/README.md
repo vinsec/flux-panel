@@ -2,6 +2,8 @@
 
 当前实现包含域名、双栈、多目标、出口路由、共享平滑限速、本地路径、源地址保留、
 缩权 helper、可选的[原生 nftables map 后端](../doc/forward-native-nft.md)，以及[HTTP/TLS/SOCKS 有界识别与旧监听迁移](../doc/forward-protocol-blocking.md)。
+管理员新建节点现可选择内核后端，表单默认原生 nftables，隧道继承入口节点；面板升级须显式执行 004 迁移，旧节点保留 iptables。见 [节点后端选择与验证](../doc/node-kernel-backend.md)。
+
 节点配置 `kernelBackend` 省略或为 `iptables` 时保持既有模式；显式为 `nftables`
 才选择新后端。模式切换须先用原配置维护结算/停流，不能直接覆盖活动节点配置。
 未使用新协议策略时，nft checkpoint 为 format 6，保留的 iptables 模式按功能写 3/4/5；schema 5 协议策略在两种后端均要求 format 7。

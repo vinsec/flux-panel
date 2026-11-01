@@ -18,6 +18,8 @@ public class NodeUpdateDto {
 
     private String engine = "gost";
 
+    private String kernelBackend;
+
     @NotBlank(message = "入口IP不能为空")
     private String ip;
 

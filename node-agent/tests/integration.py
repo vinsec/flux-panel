@@ -45,7 +45,7 @@ def api(path,data=None,uid=1,role=0,expect=True):
     return out
 def node(name,engine='iptables'):
     data={'name':name,'ip':'10.203.1.1','serverIp':'10.203.2.1','portSta':18000,'portEnd':18100}
-    if engine!='gost':data['engine']=engine
+    if engine!='gost':data.update(engine=engine,kernelBackend='iptables')
     api('node/create',data)
     return sql('SELECT * FROM node WHERE name=%s',(name,))[0]
 def tunnel(n,name,engine='iptables',**overrides):
@@ -105,7 +105,7 @@ try:
         c.execute((ROOT/'springboot-backend/migrations/001-forward-engines.sql').read_text())
         while c.nextset():pass
     with db.cursor() as c:
-        for migration in ['002-engine-foundation.sql','003-engine-p1.sql']:
+        for migration in ['002-engine-foundation.sql','003-engine-p1.sql','004-node-kernel-backend.sql']:
             for _ in range(2):
                 c.execute((ROOT/'springboot-backend/migrations'/migration).read_text())
                 while c.nextset():pass
@@ -263,7 +263,7 @@ try:
     cmd('ip','link','add','control2','type','veth','peer','name','r22');cmd('ip','link','set','r22','netns','router2');cmd('ip','addr','add','10.203.7.1/24','dev','control2');cmd('ip','link','set','control2','up');cmd('ip','-n','router2','addr','add','10.203.7.2/24','dev','r22');cmd('ip','-n','router2','link','set','r22','up')
     cmd('ip','-n','client2','route','add','default','via','10.203.6.1');cmd('ip','netns','exec','router2','sh','-c','mount -o remount,rw /proc/sys && sysctl -w net.ipv4.ip_forward=1')
     cmd('ip','netns','exec','router2','iptables','-P','FORWARD','DROP')
-    api('node/create',{'name':'second-lease-node','engine':'iptables','ip':'10.203.6.1','serverIp':'10.203.5.1','portSta':18200,'portEnd':18220})
+    api('node/create',{'name':'second-lease-node','engine':'iptables','kernelBackend':'iptables','ip':'10.203.6.1','serverIp':'10.203.5.1','portSta':18200,'portEnd':18220})
     n2=sql("SELECT * FROM node WHERE name='second-lease-node'")[0]
     cfg2=pathlib.Path('/tmp/agent2-config.json');cfg2.write_text(json.dumps({'addr':'http://10.203.7.1:6365','secret':n2['secret'],'statePath':'/tmp/agent2-state.json','apply':True,'allowInsecure':True,'intervalSeconds':1,'useSessions':True}))
     agent2=start(['ip','netns','exec','router2',str(AGENT),'--config',str(cfg2)],'agent2.log');wait(lambda:sql('SELECT status FROM node WHERE id=%s',(n2['id'],))[0]['status']==1)

@@ -1,0 +1,26 @@
+{
+  "success": true,
+  "passed": [
+    "repeatable migration keeps both old node engines and their iptables backend",
+    "migration leaves existing user accounting unchanged",
+    "real Spring panel starts with the new migration and dependencies",
+    "kernel create defaults to native nftables; explicit iptables and GOST survive",
+    "reject invalid backend combination iptables/nft",
+    "reject invalid backend combination gost/nftables",
+    "backend cannot change in place",
+    "engine cannot change in place",
+    "old clients can edit without resetting a native backend",
+    "old kernel node edits preserve iptables",
+    "admin node API exposes backend without node secrets",
+    "install command pins backend nftables",
+    "existing Go agent accepts generated nftables config",
+    "install command pins backend iptables",
+    "existing Go agent accepts generated iptables config",
+    "tunnels inherit their own entrance node backend despite submitted override",
+    "GOST installer remains GOST without kernel fields"
+  ],
+  "count": 17,
+  "network": "Docker --internal, no published ports",
+  "external_test_targets": [],
+  "panel_sha256": "233d9850e44c27379c0184f05f0362e61962507f21cfb642dd633a54911b4e04"
+}

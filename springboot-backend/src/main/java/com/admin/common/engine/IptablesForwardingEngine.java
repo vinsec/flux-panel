@@ -62,7 +62,9 @@ public class IptablesForwardingEngine implements ForwardingEngine {
     public GostDto apply(Long node, ForwardSpec s, boolean update) {
         try {
             if(s.getTunnelType()!=1||!"iptables".equals(EngineRegistry.normalize(s.getTunnel().getEngine())))throw new IllegalArgumentException("iptables supports direct forwarding on a matching node");
-            quotaModes.verify(node,s.getName());EngineCapabilities.negotiate(node);
+            EngineCapabilities.negotiate(node);
+            KernelBackend.verifyAgent(nodes.selectById(node), EngineCapabilities.info(node));
+            quotaModes.verify(node,s.getName());
             JSONObject d=specs.advanced(node,s);
             if(d==null){
                 validate(s);Endpoint target=Endpoint.parse(s.getTarget());d=new JSONObject();d.put("listenIP",s.getTunnel().getTcpListenAddr());d.put("listenPort",s.getPort());d.put("targetIP",target.getHost());d.put("targetPort",target.getPort());
@@ -110,6 +112,8 @@ public class IptablesForwardingEngine implements ForwardingEngine {
 
     private GostDto command(Long node, String name, boolean enabled, String command) {
         try {
+            EngineCapabilities.negotiate(node);
+            KernelBackend.verifyAgent(nodes.selectById(node), EngineCapabilities.info(node));
             if (enabled) quotaModes.verify(node, name);
             if (enabled && credits.strict(node)) EngineCapabilities.require(node, "creditLease");
             JSONObject d = new JSONObject();
