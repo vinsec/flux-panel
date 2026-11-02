@@ -13,7 +13,6 @@ import { Alert } from "@heroui/alert";
 import { Progress } from "@heroui/progress";
 import toast from 'react-hot-toast';
 import axios from 'axios';
-import NodeEngineTools from '@/components/node-engine-tools';
 import NodeModeSwitch from '@/components/node-mode-switch';
 
 
@@ -74,12 +73,12 @@ interface NodeForm {
 
 export default function NodePage() {
   const [nodeList, setNodeList] = useState<Node[]>([]);
-  const [engineToolsNode,setEngineToolsNode]=useState<Node|null>(null);
   const [loading, setLoading] = useState(false);
   const [dialogVisible, setDialogVisible] = useState(false);
   const [dialogTitle, setDialogTitle] = useState('');
   const [isEdit, setIsEdit] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [modeSwitchBusy, setModeSwitchBusy] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [nodeToDelete, setNodeToDelete] = useState<Node | null>(null);
@@ -734,8 +733,6 @@ export default function NodePage() {
                     </div>
                   </div>
 
-                  {node.engine==='kernel'&&<NodeModeSwitch node={node} onComplete={loadNodes}/>}
-                  {node.engine==='kernel'&&<Button size="sm" variant="flat" className="mb-2" onPress={()=>setEngineToolsNode(node)}>带宽组 / 升级向导</Button>}
                   {/* 系统监控 */}
                   <div className="space-y-3 mb-4">
                     <div className="grid grid-cols-2 gap-3">
@@ -879,13 +876,18 @@ export default function NodePage() {
               <div className="space-y-4">
                 <Select label="节点程序" selectedKeys={[form.engine]} isDisabled={isEdit} disallowEmptySelection
                   onSelectionChange={(keys) => setForm(prev => ({...prev, engine: Array.from(keys)[0] as string, http: 0, tls: 0, socks: 0}))}
-                  description="创建后可切换转发模式">
+                  description={isEdit?undefined:"创建后可切换转发模式"}>
                   <SelectItem key="gost">独立 GOST（旧版兼容）</SelectItem>
                   <SelectItem key="kernel">统一 Agent（nftables / GOST 可切换）</SelectItem>
                 </Select>
                 {form.engine === 'kernel' && !isEdit && <Select label="初始转发模式" selectedKeys={[form.forwardingMode]} disallowEmptySelection onSelectionChange={keys=>setForm(prev=>({...prev,forwardingMode:String(Array.from(keys)[0])}))} description="隧道继承此模式">
                   <SelectItem key="kernel">原生 nftables</SelectItem><SelectItem key="gost">受管 GOST</SelectItem>
                 </Select>}
+                {isEdit && nodeList.find(node=>node.id===form.id) && <NodeModeSwitch
+                  node={nodeList.find(node=>node.id===form.id)!}
+                  onBusyChange={setModeSwitchBusy}
+                  onComplete={mode=>{setForm(prev=>({...prev,forwardingMode:mode}));loadNodes();}}
+                />}
                 <Input
                   label="节点名称"
                   placeholder="请输入节点名称"
@@ -1044,6 +1046,7 @@ export default function NodePage() {
                 color="primary"
                 onPress={handleSubmit}
                 isLoading={submitLoading}
+                isDisabled={modeSwitchBusy}
               >
                 {submitLoading ? '提交中...' : '确定'}
               </Button>
@@ -1140,8 +1143,7 @@ export default function NodePage() {
             </ModalFooter>
           </ModalContent>
         </Modal>
-        <NodeEngineTools node={engineToolsNode} onClose={()=>setEngineToolsNode(null)}/>
     </div>
     
   );
-} 
+}
