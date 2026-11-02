@@ -1,86 +1,58 @@
 services:
   mysql:
-    image: mysql:5.7
-    container_name: gost-mysql
+    image: ${MYSQL_IMAGE:-mysql:8.2}
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
-      MYSQL_DATABASE: ${DB_NAME}
-      MYSQL_USER: ${DB_USER}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
-      TZ: Asia/Shanghai
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-${DB_PASSWORD:?DB_PASSWORD is required}}
+      MYSQL_DATABASE: ${DB_NAME:?DB_NAME is required}
+      MYSQL_USER: ${DB_USER:?DB_USER is required}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      TZ: ${TZ:-Asia/Shanghai}
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./gost.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    command: >
-      --default-authentication-plugin=mysql_native_password
-      --character-set-server=utf8mb4
-      --collation-server=utf8mb4_unicode_ci
-      --max_connections=1000
-      --innodb_buffer_pool_size=256M
-    networks:
-      - gost-network
+    networks: [gost-network]
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      timeout: 10s
-      retries: 10
-
+      interval: 3s
+      timeout: 5s
+      retries: 30
   backend:
-    image: bqlpfy/springboot-backend:1.4.3
-    container_name: springboot-backend
+    image: ${PANEL_IMAGE:-flux-panel-go:local}
+    build:
+      context: .
+      dockerfile: panel-go/Dockerfile
     restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
     environment:
-      DB_HOST: mysql
-      DB_NAME: ${DB_NAME}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      JWT_SECRET: ${JWT_SECRET}
-      LOG_DIR: /app/logs
-      JAVA_OPTS: "-Xms256m -Xmx512m -Dfile.encoding=UTF-8 -Duser.timezone=Asia/Shanghai"
+      PANEL_LISTEN: 0.0.0.0:6365
+      DB_HOST: ${DB_HOST:-mysql:3306}
+      DB_NAME: ${DB_NAME:?DB_NAME is required}
+      DB_USER: ${DB_USER:?DB_USER is required}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      TZ: ${TZ:-Asia/Shanghai}
+      NODE_RELEASE_BASE_URL: ${NODE_RELEASE_BASE_URL:-}
+      NODE_RELEASE_MANIFEST_SHA256: ${NODE_RELEASE_MANIFEST_SHA256:-}
+      NODE_RELEASE_INSTALLER_SHA256: ${NODE_RELEASE_INSTALLER_SHA256:-}
     ports:
-      - "127.0.0.1:${BACKEND_PORT}:6365"
-    volumes:
-      - backend_logs:/app/logs
+      - "${PANEL_BIND:-127.0.0.1}:${BACKEND_PORT:-6365}:6365"
     depends_on:
-      mysql:
-        condition: service_healthy
-    networks:
-      - gost-network
-    healthcheck:
-      test: ["CMD", "sh", "-c", "wget --no-verbose --tries=1 --spider http://localhost:6365/flow/test || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 90s
-
+      mysql: {condition: service_healthy}
+    networks: [gost-network]
   frontend:
-    image: bqlpfy/vite-frontend:1.4.3
-    container_name: vite-frontend
+    image: ${FRONTEND_IMAGE:-flux-panel-frontend:local}
+    build: ./vite-frontend
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${FRONTEND_PORT}:80"
+      - "${PANEL_BIND:-127.0.0.1}:${FRONTEND_PORT:-6366}:80"
     depends_on:
-      backend:
-        condition: service_healthy
-    networks:
-      - gost-network
-
-
+      backend: {condition: service_healthy}
+    networks: [gost-network]
 volumes:
   mysql_data:
-    name: mysql_data
-    driver: local
-  backend_logs:
-    name: backend_logs
-    driver: local
-
-
+    name: ${MYSQL_VOLUME_NAME:-flux_panel_mysql_data}
 networks:
   gost-network:
-    name: gost-network
     driver: bridge
-    enable_ipv6: true
-    ipam:
-      config:
-        - subnet: 172.20.0.0/16
-        - subnet: fd00:dead:beef::/48

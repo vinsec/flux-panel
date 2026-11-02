@@ -1071,8 +1071,11 @@
         "TestMySQLIntegration/ReadOnlyRejectsSideEffects",
         "TestExclusiveOwnerAndLostConnectionFailClosed",
         "node_backend_integration.py",
-        "integration.py ROLLBACK",
-        "packaging/build.sh"
+        "historical 3126f8c integration.py ROLLBACK; not a current Java dependency",
+        "packaging/build.sh",
+        "TestHealthcheckCommand",
+        "TestExplicitMigrationPreservesExistingLedger",
+        "deployment-probe.py"
       ],
       "implemented": true
     }
@@ -1083,5 +1086,7 @@
     "不支持 Java/Go 共库混跑/自动多主切换；首次整体交接",
     "跨引擎节点迁移单独处理，不承诺现有 TCP 无损迁移"
   ],
-  "httpVerified": 64
+  "httpVerified": 64,
+  "repositoryLayout": "go_only",
+  "currentValidation": "doc/go-only-validation.json"
 }

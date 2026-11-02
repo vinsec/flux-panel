@@ -12,7 +12,7 @@
 
 ## 安装与兼容边界
 
-- 面板升级前显式应用尚未执行的 `springboot-backend/migrations/001` 至 `005` 迁移；不自动修改线上数据库。
+- 面板升级前显式应用尚未执行的 `database/migrations/001` 至 `005` 迁移；不自动修改线上数据库。
 - Linux 需要 `nftables`、`conntrack`、`iproute2` 及相应内核能力。原生模式不依赖 iptables/ipset 可执行文件。
 - 主机转发开关、回程和外部防火墙需要事先配置；Agent 不修改宿主 sysctl 或全局防火墙默认策略。
 - `kernelBackend` 可省略或为 `nftables`。`iptables` 后端和旧 `iptables` 二进制选项明确拒绝。

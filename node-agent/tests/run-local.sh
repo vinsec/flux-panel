@@ -13,17 +13,18 @@ if [[ -n "${FLUX_TEST_GOST:-}" ]]; then
   install -m 755 "$FLUX_TEST_GOST" "$WORK/build/gost"
 fi
 case "$(docker info --format '{{.Architecture}}')" in aarch64|arm64) ARCH=arm64;; x86_64|amd64) ARCH=amd64;; *) exit 2;; esac
-IMAGE="${FLUX_TEST_IMAGE:-flux-iptables-test:local}"
+IMAGE="${FLUX_TEST_IMAGE:-flux-native-test:local}"
 if [[ "${FLUX_TEST_SKIP_BUILD:-0}" != 1 ]]; then
+  (cd "$ROOT/panel-go" && CGO_ENABLED=0 GOOS=linux GOARCH="$ARCH" go build -o "$WORK/build/flux-panel" ./cmd/panel)
   (cd "$ROOT/node-agent" && CGO_ENABLED=0 GOOS=linux GOARCH="$ARCH" go build -o "$WORK/build/flux-agent" ./cmd/flux-agent)
   docker build -q -t "$IMAGE" -f "$ROOT/node-agent/tests/Linux.Dockerfile" "$ROOT"
 else
-  [[ -x "$WORK/build/flux-agent" && -f "$ROOT/springboot-backend/target/admin-0.0.1-SNAPSHOT.jar" ]] || exit 2
+  [[ -x "$WORK/build/flux-agent" && -x "$WORK/build/flux-panel" ]] || exit 2
 fi
 cleanup() {
   docker inspect "$RUN_ID-mysql" --format '{{json .State}}' >"$WORK/evidence/mysql-state.json" 2>/dev/null || true
   docker logs "$RUN_ID-mysql" >"$WORK/evidence/mysql.log" 2>&1 || true
-  docker rm -f "$RUN_ID-runner" "$RUN_ID-mysql" "$RUN_ID-build" >/dev/null 2>&1 || true
+  docker rm -f "$RUN_ID-runner" "$RUN_ID-mysql" >/dev/null 2>&1 || true
   docker network rm "$RUN_ID" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT INT TERM
@@ -38,16 +39,7 @@ wait_container() {
   echo "test container deadline exceeded: $name" >&2
   return 1
 }
-if [[ "${FLUX_TEST_SKIP_BUILD:-0}" != 1 ]]; then
-docker create --name "$RUN_ID-build" -v "$ROOT/springboot-backend:/src" -v flux-iptables-m2:/root/.m2 -w /src \
-  maven:3.9.9-eclipse-temurin-21 mvn -o -q -DskipTests package >/dev/null
-python3 "$ROOT/node-agent/tests/start-container.py" "$RUN_ID-build"
-BUILD_STATUS="$(wait_container "$RUN_ID-build")"
-docker logs "$RUN_ID-build"
-[[ "$BUILD_STATUS" == 0 ]] || exit "$BUILD_STATUS"
-docker rm "$RUN_ID-build" >/dev/null
-fi
-docker network create --internal --label flux-iptables-test=true "$RUN_ID" >/dev/null
+docker network create --internal --label flux-native-test=true "$RUN_ID" >/dev/null
 docker create --name "$RUN_ID-mysql" --network "$RUN_ID" --network-alias mysql \
   --memory="${FLUX_TEST_MYSQL_MEMORY:-384m}" --tmpfs /var/lib/mysql:rw,size=256m \
   -e MYSQL_ROOT_PASSWORD=isolated-test-db-only -e MYSQL_ROOT_HOST=% -e MYSQL_DATABASE=flux_test \

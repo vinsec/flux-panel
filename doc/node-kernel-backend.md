@@ -26,7 +26,7 @@
 GOST 请求不应携带 `kernelBackend`。数据库中 GOST 的兼容默认值不控制 GOST 安装或行为。
 编辑请求省略 `kernelBackend` 保留数据库原值。非法值及不同后端的原地更新均拒绝。
 
-升级面板前须**显式**应用 `springboot-backend/migrations/004-node-kernel-backend.sql`，
+升级面板前须**显式**应用 `database/migrations/004-node-kernel-backend.sql`，
 以及此前尚未应用的 001–003；不在启动时自动执行。004 只增加列，可重复执行，
 已有节点默认保留 iptables，不改用户、规则、账本或 Agent 配置。
 如某个旧测试节点早已手工部署 native Agent，需核实后显式登记其实际后端，不能依赖旧行默认值推断。

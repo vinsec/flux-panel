@@ -256,5 +256,8 @@
     "GOST 保留旧 delta 协议，不声称新增 report-ID 去重或内核式预留能力",
     "不支持 Java/Go 共库混跑/自动多主切换；首次整体交接",
     "跨引擎节点迁移单独处理，不承诺现有 TCP 无损迁移"
-  ]
+  ],
+  "implementation_commit": "3126f8c",
+  "historical_validation": true,
+  "current_repository_validation": "go-only-validation.json"
 }

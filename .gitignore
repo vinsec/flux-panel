@@ -83,34 +83,8 @@ tramp
 .\#*
 
 # ==========================================
-# Java / Maven / Spring Boot
+# 日志及通用构建产物
 # ==========================================
-
-# Maven
-target/
-pom.xml.tag
-pom.xml.releaseBackup
-pom.xml.versionsBackup
-pom.xml.next
-release.properties
-dependency-reduced-pom.xml
-buildNumber.properties
-.mvn/timing.properties
-.mvn/wrapper/maven-wrapper.jar
-
-# Spring Boot
-*.jar
-*.war
-*.nar
-*.ear
-*.zip
-*.tar.gz
-*.rar
-application-local.properties
-application-dev.properties
-
-# Java编译输出
-*.class
 
 # 日志文件
 logs/
@@ -263,3 +237,10 @@ commit.sh
 /go-gost/gost
 /go-gost/gost-amd64
 /go-gost/gost-arm64
+
+# Go installation marker (not a credential or a source artifact)
+.flux-panel-go-install
+
+# Python verifier bytecode
+__pycache__/
+*.py[cod]

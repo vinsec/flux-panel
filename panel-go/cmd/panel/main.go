@@ -18,6 +18,13 @@ import (
 )
 
 func main() {
+	if len(os.Args) > 1 {
+		if err := runTool(os.Args[1:]); err != nil {
+			slog.Error("panel command failed", "error", err)
+			os.Exit(1)
+		}
+		return
+	}
 	cfg := mysql.NewConfig()
 	cfg.User = os.Getenv("DB_USER")
 	cfg.Passwd = os.Getenv("DB_PASSWORD")

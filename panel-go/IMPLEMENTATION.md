@@ -16,3 +16,5 @@ COMPLETE for retained a08e3d8 features after local isolated validation. See ../d
 - [x] Produce complete feature/test manifest and delivery evidence.
 
 Never reuse production credentials, databases or Agents. Never treat pre-existing Java results as Go validation.
+
+Go-only repository cleanup and current build/install validation: ../doc/go-only-validation.md. Historical Java comparison uses old Git objects and artifacts only.

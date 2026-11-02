@@ -1,5 +1,6 @@
 # Go 面板实现与本地隔离验收
 
+> 此文记录 `3126f8c` 的功能对照与验收；当前目录/安装/CI 的后续收尾见 [Go-only 验收](go-only-validation.md)。Java 源码及构建已从当前树移除，历史对照需使用旧提交。
 日期：2026-11-02。Java 对照基线为 `a08e3d8`，开发分支为 `feat/panel-go-native`。
 **已完成保留功能实现与本地隔离验收：64/64 HTTP 映射、47 项 Go/race/数据库用例、23 项 API/迁移检查、92 项真实 VM 检查及 600 秒稳态均通过。未部署线上。**
 
@@ -87,4 +88,4 @@ GOST→nftables 节点迁移另行安排，不与语言替换合并，不承诺�
 
 早期 VM 轮次的节点重连等待、私网返回路由和 DNS 夹具问题已修正；误选旧 GOST 二进制的轮次不计入最终通过记录。一次测试 MySQL 被容器 OOM 杀死，经实际 OOMKilled 状态确认后，将该临时数据库内存上限提高至 1536MiB，再完整重跑；这不构成对 512MiB 数据库容量的验证。最终 600 秒通过结果不能推定全天或生产容量。此前失败日志仍保留在本地证据目录。
 
-主要验证入口为 `go test -race -count=1 ./...`、`go vet ./...`、`tests/browser-flows.cjs`、`TestUnchangedGostWSSControlAndActualTCPUDP`、`node-agent/tests/node_backend_integration.py` 和 `integration.py`。后者实际使用 Go 二进制，并开启 SCALE、EXTENDED、ADVANCED 和 600 秒 SOAK；默认 Java 验证入口保留。数据库与浏览器环境参数必须指向一次性本地夹具，不能指向真实业务。
+该轮主要验证入口为 `go test -race -count=1 ./...`、`go vet ./...`、`tests/browser-flows.cjs`、`TestUnchangedGostWSSControlAndActualTCPUDP`、`node-agent/tests/node_backend_integration.py` 和 `integration.py`。后者实际使用 Go 二进制，并开启 SCALE、EXTENDED、ADVANCED 和 600 秒 SOAK；该历史提交仍保留默认 Java 验证入口；当前分支已固定为 Go，详见去 Java 收尾报告。数据库与浏览器环境参数必须指向一次性本地夹具，不能指向真实业务。

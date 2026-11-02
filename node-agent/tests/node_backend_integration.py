@@ -8,12 +8,10 @@ import pymysql
 
 ROOT = pathlib.Path('/repo')
 OUT = pathlib.Path('/evidence'); OUT.mkdir(exist_ok=True)
-GO_PANEL=os.getenv("FLUX_TEST_PANEL")=="go"
 checks = []
 panel = None
 
 def check(name, condition=True):
-    if GO_PANEL:name=name.replace("Spring panel","Go panel")
     assert condition, name
     checks.append(name); print('PASS', name, flush=True)
 
@@ -47,7 +45,7 @@ def sql(query, args=()):
 
 def migration(name):
     with db.cursor() as cursor:
-        cursor.execute((ROOT/'springboot-backend/migrations'/name).read_text())
+        cursor.execute((ROOT/'database/migrations'/name).read_text())
         while cursor.nextset(): pass
 
 def create(name, engine='kernel', **extra):
@@ -63,7 +61,7 @@ success=False
 try:
     def connect():
         global db
-        db=pymysql.connect(host='mysql',user='root',password='isolated-test-db-only',database='flux_test',
+        db=pymysql.connect(host='mysql',user='root',password=os.getenv('FLUX_TEST_DB_PASSWORD','isolated-test-db-only'),database='flux_test',
             autocommit=True,cursorclass=pymysql.cursors.DictCursor,client_flag=pymysql.constants.CLIENT.MULTI_STATEMENTS)
         return True
     wait(connect)
@@ -80,25 +78,18 @@ try:
     sql("INSERT INTO node(name,engine,kernel_backend,secret,ip,server_ip,port_sta,port_end,created_time,status) VALUES('old-native','iptables','nftables','isolated-native-old-key','10.0.0.2','10.0.0.2',18000,18100,0,0)")
     migration('005-native-only.sql'); migration('005-native-only.sql')
     check('existing native node keeps backend and identity',sql("SELECT engine,kernel_backend FROM node WHERE name='old-native'")[0]=={'engine':'kernel','kernel_backend':'nftables'})
-    migration('005-native-only-rollback.sql'); migration('005-native-only-rollback.sql')
-    check('explicit code rollback keeps accounting and original backend identity',before==sql('SELECT id,in_flow,out_flow FROM user ORDER BY id') and sql("SELECT engine,kernel_backend FROM node WHERE name='old-native'")[0]=={'engine':'iptables','kernel_backend':'nftables'})
     migration('005-native-only.sql')
+    check('forward migration preserves accounting and native backend identity',before==sql('SELECT id,in_flow,out_flow FROM user ORDER BY id') and sql("SELECT engine,kernel_backend FROM node WHERE name='old-native'")[0]=={'engine':'kernel','kernel_backend':'nftables'})
     check('repeatable migration renames kernel engine without relabeling old backend',sql("SELECT engine,kernel_backend FROM node WHERE name='old-iptables'")[0]=={'engine':'kernel','kernel_backend':'iptables'} and sql("SELECT engine FROM node WHERE name='old-gost'")[0]['engine']=='gost')
     check('migration leaves existing user accounting unchanged',before==sql('SELECT id,in_flow,out_flow FROM user ORDER BY id'))
-    if GO_PANEL:migration('006-go-panel-runtime.sql')
-    env=os.environ.copy();env.update(DB_HOST='mysql',DB_NAME='flux_test',DB_USER='root',DB_PASSWORD='isolated-test-db-only',
-        JWT_SECRET='isolated-test-jwt-only',LOG_DIR='/tmp/panel-logs')
-    jar=ROOT/'springboot-backend/target/admin-0.0.1-SNAPSHOT.jar'
-    if GO_PANEL:
-        env.update(PANEL_LISTEN='0.0.0.0:6365',NODE_RELEASE_BASE_URL='https://example.invalid/frozen',NODE_RELEASE_MANIFEST_SHA256='a'*64,NODE_RELEASE_INSTALLER_SHA256='b'*64)
-        command=['/build/flux-panel']
-    else:
-        command=['java','-Xmx192m','-XX:ActiveProcessorCount=1','-jar',str(jar),
-            '--node.release.base-url=https://example.invalid/frozen','--node.release.manifest-sha256='+'a'*64,
-            '--node.release.installer-sha256='+'b'*64]
+    migration('006-go-panel-runtime.sql')
+    env=os.environ.copy();env.update(DB_HOST='mysql',DB_NAME='flux_test',DB_USER='root',DB_PASSWORD=os.getenv('FLUX_TEST_DB_PASSWORD','isolated-test-db-only'),
+        JWT_SECRET='isolated-test-jwt-only')
+    env.update(PANEL_LISTEN='0.0.0.0:6365',NODE_RELEASE_BASE_URL='https://example.invalid/frozen',NODE_RELEASE_MANIFEST_SHA256='a'*64,NODE_RELEASE_INSTALLER_SHA256='b'*64)
+    command=['/build/flux-panel']
     panel=subprocess.Popen(command,stdout=open(OUT/'panel.log','w'),stderr=subprocess.STDOUT,env=env)
     wait(lambda:urllib.request.urlopen('http://127.0.0.1:6365/flow/test',timeout=1).status==200)
-    check('real Spring panel starts with the new migration and dependencies')
+    check('real Go panel starts with the new migration and dependencies')
     native=create('native-default'); legacy=create('native-alias','iptables'); gost=create('new-gost','gost')
     check('kernel create is native-only; historical engine alias normalizes to kernel; GOST survives',
         native['kernel_backend']=='nftables' and legacy['kernel_backend']=='nftables' and legacy['engine']=='kernel' and gost['engine']=='gost')
@@ -142,4 +133,4 @@ finally:
         except subprocess.TimeoutExpired: panel.kill();panel.wait()
     (OUT/'result.json').write_text(json.dumps({'success':success,'passed':checks,'count':len(checks),
         'network':'Docker --internal, no published ports','external_test_targets':[],
-        'panel_sha256':hashlib.sha256((pathlib.Path('/build/flux-panel') if GO_PANEL else ROOT/'springboot-backend/target/admin-0.0.1-SNAPSHOT.jar').read_bytes()).hexdigest()},ensure_ascii=False,indent=2)+'\n')
+        'panel_sha256':hashlib.sha256((pathlib.Path('/build/flux-panel')).read_bytes()).hexdigest()},ensure_ascii=False,indent=2)+'\n')

@@ -40,7 +40,7 @@ SIGTERM/SIGINT 时停止接收请求、等待在途 HTTP 操作、关闭 Agent �
 
 ## 测试与功能对照
 
-`contracts/java-baseline.json` 包含 Java 的 64 个 HTTP 映射和 DTO 约束；`tests/inventory.py` 可从基线源码重新生成。
+`contracts/java-baseline.json` 包含 Java 的 64 个 HTTP 映射和 DTO 约束；`tests/inventory.py` 默认从冻结 JSON 重新生成；`--from-git a08e3d8` 可核对历史 Git 对象，无需检出 Java 源码或安装 JRE。
 测试既检查成功路径，也检查权限、计数去重、额度预留、并发、崩溃/事务回滚、WSS、会话轮换和任务重复执行。
 四类验证码保留原 TAC 的请求、响应和交互格式。图像和字体来自原项目资源，答案只留在进程内存。
 浏览器测试的答案文件由 `_test.go` 专用装饰器写入临时目录，产品二进制不含该入口或文件导出功能。
@@ -52,7 +52,7 @@ GOTOOLCHAIN=local GOPROXY=off go vet ./...
 
 实际数据库测试要求 `FLUX_TEST_DSN` 指向名称以 `flux_go_test` 开头的可丢弃数据库；它会清空该库，禁止用于生产库。
 设置 `FLUX_TEST_SCHEMA_ROOT` 指向仓库根目录。仅单元测试通过不等于完成验证，必须另跑真实数据库和 Agent 套件。
-原 `node-agent/tests/node_backend_integration.py`、`integration.py` 默认仍测试 Java；设置 `FLUX_TEST_PANEL=go` 后测试 `/build/flux-panel`。
+`node-agent/tests/node_backend_integration.py`、`integration.py` 现在固定测试 `/build/flux-panel`，没有 Java 分支和运行依赖。历史 Java 切回验证记录保留在验收报告中，复测使用历史工作区。
 后一套件需要支持 IFB 的可丢弃 Linux 环境；使用现有 Fusion 私网，不能以 Docker 缺能力为理由跳过必要检查。
 
 原前端浏览器工作流使用固定构建，外部浏览器请求全部禁止。设置 `FLUX_TEST_BROWSER_SCRIPT` 为 `tests/browser-flows.cjs`，
@@ -70,3 +70,7 @@ ARM64 是本次实际 Linux 验证平台；其他架构的编译成功不能冒�
 失败时停止 Go，以 `a08e3d8` 配套 Java 接管同一份最新数据库，新增 006 表可以保留。
 不恢复旧数据库快照覆盖新账单；回退到更早双后端版本属于另一项迁移，不能混同为 Java/Go 代码回滚。
 GOST→nftables 节点迁移继续单独处理，现有 TCP 连接不能跨引擎无损迁移。
+
+## 当前分支发布入口
+
+根目录 `panel_install.sh`、Compose 和 CI 默认使用 Go。普通启动不做 DDL；`flux-panel migrate [--init] --dir PATH` 为显式操作，`flux-panel healthcheck` 用于最小容器健康检查。见 [部署说明](../deploy/README.md) 和 [去 Java 收尾验收](../doc/go-only-validation.md)。

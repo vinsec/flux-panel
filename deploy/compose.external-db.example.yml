@@ -1,0 +1,12 @@
+# Explicit opt-in only. Set DB_HOST in .env to your existing database.
+# docker compose -f docker-compose.yml -f deploy/compose.external-db.example.yml ...
+services:
+  mysql:
+    profiles: [bundled-db-disabled]
+  backend:
+    depends_on: !reset []
+    networks: [gost-network, database-network]
+networks:
+  database-network:
+    external: true
+    name: ${DATABASE_NETWORK:?Set DATABASE_NETWORK explicitly}

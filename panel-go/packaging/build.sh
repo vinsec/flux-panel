@@ -15,7 +15,9 @@ done
 cp packaging/Dockerfile "$OUTPUT/Dockerfile"
 cp ../gost.sql "$OUTPUT/gost.sql"
 mkdir -p "$OUTPUT/migrations"
-cp ../springboot-backend/migrations/*.sql "$OUTPUT/migrations/"
+# Do not retain the retired reverse migration when reusing an older output directory.
+rm -f "$OUTPUT/migrations/005-native-only-rollback.sql"
+cp ../database/migrations/*.sql "$OUTPUT/migrations/"
 python3 - "$OUTPUT" "$GO_BIN" <<'PY'
 from pathlib import Path
 import hashlib,json,subprocess,sys
@@ -26,13 +28,15 @@ h=hashlib.sha256()
 for p in paths:
  if not any(x in p.parts for x in ['.build','.test-work']):
   h.update(str(p.relative_to(root)).encode()+b'\0'+p.read_bytes()+b'\0')
+bundle={str(p.relative_to(out)):hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(out.rglob('*')) if p.is_file() and p.name not in ['release.json','SHA256SUMS'] and not p.name.startswith('flux-panel-linux-')}
 manifest={'component':'flux-panel-go','java_baseline':'a08e3d8','source_tree_sha256':h.hexdigest(),
  'go_version':subprocess.check_output([sys.argv[2],'version'],text=True).strip(),
  'git_head':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
  'source_dirty':bool(subprocess.check_output(['git','status','--porcelain'],text=True).strip()),
- 'files':files,'supported_engines':['gost','kernel'],'kernel_backends':['nftables'],
+ 'files':files,'bundle_files':bundle,'supported_engines':['gost','kernel'],'kernel_backends':['nftables'],
  'migration_policy':'explicit only; 001–006; no ledger reset','deployed':False}
 (out/'release.json').write_text(json.dumps(manifest,indent=2)+'\n')
-(out/'SHA256SUMS').write_text(''.join(f'{digest}  {name}\n' for name,digest in files.items()))
+checksums={**files,**bundle,'release.json':hashlib.sha256((out/'release.json').read_bytes()).hexdigest()}
+(out/'SHA256SUMS').write_text(''.join(f'{digest}  {name}\n' for name,digest in sorted(checksums.items())))
 print('Built pinned local artifacts; no deployment performed')
 PY

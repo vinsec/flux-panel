@@ -1,5 +1,6 @@
 # Flux Panel Go 后端方案与实现验收
 
+> 此文记录 `3126f8c` 的功能对照与验收；当前目录/安装/CI 的后续收尾见 [Go-only 验收](go-only-validation.md)。Java 源码及构建已从当前树移除，历史对照需使用旧提交。
 更新日期：2026-11-02。用户已授权：更新方案后继续完整实现 Go 后端，并完成全部功能和测试。
 当前实现以 `a08e3d8`（原生 nftables 单后端）为冻结对照，不以历史双后端版本为目标。
 独立开发工作区：`/Users/vinsec/Documents/Codex/2026-11-01/flux-panel-go-review/work/flux-panel-go`；

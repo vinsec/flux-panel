@@ -5,7 +5,7 @@ Only call this helper for disposable containers created by run-local.sh.
 """
 import subprocess,sys,time,json
 name=sys.argv[1]
-assert name.startswith('flux-iptables-test-')
+assert name.startswith(('flux-native-test-','flux-iptables-test-'))
 clients=[];deadline=time.monotonic()+15;retry=time.monotonic()+1
 def launch():clients.append(subprocess.Popen(['docker','start',name],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL))
 try:

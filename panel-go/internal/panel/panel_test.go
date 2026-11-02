@@ -202,7 +202,7 @@ func setupDB(t *testing.T) *testPanel {
 	if root == "" {
 		root = "../../.."
 	}
-	files := []string{"gost.sql", "springboot-backend/migrations/001-forward-engines.sql", "springboot-backend/migrations/002-engine-foundation.sql", "springboot-backend/migrations/003-engine-p1.sql", "springboot-backend/migrations/004-node-kernel-backend.sql", "springboot-backend/migrations/005-native-only.sql", "springboot-backend/migrations/006-go-panel-runtime.sql"}
+	files := []string{"gost.sql", "database/migrations/001-forward-engines.sql", "database/migrations/002-engine-foundation.sql", "database/migrations/003-engine-p1.sql", "database/migrations/004-node-kernel-backend.sql", "database/migrations/005-native-only.sql", "database/migrations/006-go-panel-runtime.sql"}
 	for _, f := range files {
 		b, e := os.ReadFile(filepath.Join(root, f))
 		if e != nil {

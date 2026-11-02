@@ -15,7 +15,7 @@
 
 ## 数据与计费
 
-显式迁移脚本：`springboot-backend/migrations/001-forward-engines.sql`。它增加 node/tunnel 的 `engine` 字段及持久化命令版本、统计水位表。迁移脚本不在应用启动时自动执行。
+显式迁移脚本：`database/migrations/001-forward-engines.sql`。它增加 node/tunnel 的 `engine` 字段及持久化命令版本、统计水位表。迁移脚本不在应用启动时自动执行。
 
 iptables 的原始字节来自 FORWARD，包含网络层开销和重传，不等同于 GOST 的用户态读写字节。两种模式保持原面板的流量倍率和单/双向计费系数（×1 / ×2），界面说明两种原始计量口径不同。
 

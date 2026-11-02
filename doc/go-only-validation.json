@@ -1,0 +1,113 @@
+{
+  "status": "complete_local_isolated_validation",
+  "date": "2026-11-02",
+  "scope": "Go-only panel repository, installation, Compose, CI, schema and verifier cleanup",
+  "parent_functional_acceptance": "3126f8c",
+  "deleted_java_source_files": 137,
+  "remaining_panel_java_sources": 0,
+  "remaining_maven_builds": 0,
+  "forward_migrations_moved_unchanged": 6,
+  "runtime_java_dependency": false,
+  "engines": [
+    "gost",
+    "kernel"
+  ],
+  "kernel_backends": [
+    "nftables"
+  ],
+  "validation": {
+    "go_race_mysql_browser": {
+      "success": true,
+      "passed_cases": 49,
+      "failed": [],
+      "skipped": []
+    },
+    "http_routes_verified": 64,
+    "captcha_modes": 4,
+    "frontend_pages": 8,
+    "node_api_checks": 23,
+    "nginx_go_deployment": {
+      "success": true,
+      "count": 7,
+      "checks": [
+        "frontend serves built static application",
+        "frontend proxies Go database health",
+        "frontend proxies flow test",
+        "login through actual nginx to Go backend",
+        "authenticated list through nginx",
+        "native session path reaches Go instead of frontend HTML",
+        "admin websocket upgrades through actual nginx"
+      ],
+      "network": "disposable Docker internal network",
+      "public_business_targets": []
+    },
+    "installation_lifecycle": {
+      "success": true,
+      "fresh_install": true,
+      "update_preserved_ledger": true,
+      "repeat_init_refused": true,
+      "consistent_backup_created": true,
+      "backup_mode": "0o600",
+      "source_images_retested": true,
+      "uninstall_preserved_database_volume_and_ledger": true
+    },
+    "trusted_frozen_gost_wss_tcp_udp_https": true,
+    "node_agent_unit_tests": true,
+    "gost_linux_cross_builds": [
+      "arm64",
+      "amd64"
+    ],
+    "clean_backend_source_docker_build": true,
+    "clean_frontend_npm_ci_docker_build": true,
+    "existing_frontend_dependency_versions_preserved": 852,
+    "go_vet": true,
+    "all_compose_variants_parse": true,
+    "go_only_entrypoint_guard": true,
+    "historical_contract_check_without_java_checkout": true,
+    "reproducible_linux_arches": [
+      "arm64",
+      "amd64"
+    ],
+    "source_image_binary_equals_offline_package": true,
+    "retired_reverse_migration_not_shipped": true
+  },
+  "artifacts": {
+    "flux-panel-linux-amd64": "f37c66a93e0b7e096601b5a6b18ea035af29ed5d0474f271dcdecb462c6d5ef5",
+    "flux-panel-linux-arm64": "5586d2e665fc505e2d2815b0fbca6ada1ee6cfa50095a1fa4d0d7decce58fdab"
+  },
+  "runtime_bundle_files": {
+    "Dockerfile": "0eeb7d7ba09f6c1523cf8cac6c04620c3c4b1049b412e5db489ebc80cf8ba612",
+    "gost.sql": "f4e73660919a8b8adb5a112e602c9f58085831bbaa521a099aa040e6a96978ca",
+    "migrations/001-forward-engines.sql": "ca31a783903a38349856218d9d89882b60b66abbba449585d05a6ba54879bfe0",
+    "migrations/002-engine-foundation.sql": "e10e156b23551e27a4fc2f69d51721f4edd8c5e1e09b8c4cd95565be706847ae",
+    "migrations/003-engine-p1.sql": "717657759a416246c18512eb60cf4e9011c5747bb7007ca5637c2c6058cf72cc",
+    "migrations/004-node-kernel-backend.sql": "1aadb01f87fba218c51ff5a9702f685032bf58adb1da518a5cc3908df623f2d6",
+    "migrations/005-native-only.sql": "c19d157d82e7fe6f1cd952ed2cf19e8e13381004a761aa769e64efc7b5798f41",
+    "migrations/006-go-panel-runtime.sql": "4a86de65e90f1a435245ea8f1fa3fa30a4a015eb2b081f7510d097f13a14a023"
+  },
+  "source_tree_sha256": "5610e35c16c6ad2a89e5132bf8911c7356555e4aab51e10556e12344e87981db",
+  "ci": {
+    "trigger": [
+      "main/beta push",
+      "pull_request",
+      "workflow_dispatch"
+    ],
+    "feature_push_runs_ci": false,
+    "automatic_image_publish": false,
+    "automatic_release_or_deploy": false,
+    "workflow_exercised_locally": true
+  },
+  "production_changes": false,
+  "vm_dataplane_rerun_this_round": false,
+  "previous_vm_acceptance": {
+    "commit": "3126f8c",
+    "checks": 92,
+    "soak_seconds": 600,
+    "historical_only": true
+  },
+  "limits": [
+    "Linux ARM64 runtime verified; AMD64 cross-compilation only",
+    "Android Kotlin/Gradle client remains independent; it is not the panel backend or a CI dependency",
+    "GOST legacy delta protocol and single-writer handover boundaries are unchanged"
+  ]
+}
