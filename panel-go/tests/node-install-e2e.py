@@ -3,7 +3,7 @@
 Requires a prebuilt panel image and the local Linux fixture image. Never uses SSH.
 """
 import argparse,json,pathlib,subprocess,tempfile,time,uuid,shutil,os
-p=argparse.ArgumentParser();p.add_argument('--panel-image',default='flux-node-install-candidate:local');p.add_argument('--fixture-image',default='flux-foundation-verifier:local');p.add_argument('--evidence',required=True,type=pathlib.Path);a=p.parse_args();out=a.evidence.resolve();out.mkdir(parents=True,exist_ok=True)
+p=argparse.ArgumentParser();p.add_argument('--panel-image',default='flux-node-install-candidate:local');p.add_argument('--fixture-image',default='flux-foundation-verifier:local');p.add_argument('--initial-mode',choices=['kernel','gost'],default='kernel');p.add_argument('--evidence',required=True,type=pathlib.Path);a=p.parse_args();out=a.evidence.resolve();out.mkdir(parents=True,exist_ok=True)
 for f in ['gost.service.log','flux-agent.service.log','flux-kernel.service.log','systemctl.calls']:
  if (out/f).exists():(out/f).unlink()
 name='flux-install-'+uuid.uuid4().hex[:8];network=name+'-net';containers=[];checks=[];repo=pathlib.Path(__file__).resolve().parents[2]
@@ -70,7 +70,9 @@ p=subprocess.Popen(args,cwd=cwd,stdout=open('/evidence/'+unit+'.log','a'),stderr
   except Exception:time.sleep(.5)
  token=login['token'];api('config/update-single',{'name':'ip','value':'https://panel.test'})
  def install(n,engine):
-  api('node/create',{'name':n,'engine':engine,'ip':ip(n),'serverIp':ip(n),'portSta':18000,'portEnd':18100})
+  payload={'name':n,'engine':engine,'ip':ip(n),'serverIp':ip(n),'portSta':18000,'portEnd':18100}
+  if engine=='kernel':payload['forwardingMode']=a.initial_mode
+  api('node/create',payload)
   row=next(v for v in api('node/list') if v['name']==n);cmd=api('node/install',{'id':row['id']})
   check(engine+' default command uses built-in HTTPS downloads and hashes','/node-install/' in cmd and 'sha256sum --strict -c' in cmd)
   f=out/(engine+'-command.sh');f.write_text(cmd);f.chmod(0o600)
@@ -91,13 +93,13 @@ p=subprocess.Popen(args,cwd=cwd,stdout=open('/evidence/'+unit+'.log','a'),stderr
  for _ in range(30):
   try:probe();passed=True;break
   except Exception:time.sleep(.2)
- check('fresh installed native mode forwards real TCP and UDP',passed)
- jid=str(uuid.uuid4());api('engine/switch-mode',{'nodeId':nid,'id':jid,'mode':'gost'})
+ check('fresh installed '+a.initial_mode+' mode forwards real TCP and UDP',passed)
+ nextmode='gost' if a.initial_mode=='kernel' else 'kernel';jid=str(uuid.uuid4());api('engine/switch-mode',{'nodeId':nid,'id':jid,'mode':nextmode})
  for _ in range(50):
   task=api('engine/mode-switch-status',{'nodeId':nid})
   if task['status'] in ['succeeded','failed','blocked']:break
   time.sleep(.25)
- check('installed managed GOST supports a real same-node switch',task['status']=='succeeded');probe();check('managed GOST forwards real TCP and UDP',True)
+ check('installed node supports a real same-node switch',task['status']=='succeeded');probe();check('switched '+nextmode+' mode forwards real TCP and UDP',True)
  install(legacy,'gost')
  check('test network has no external default route',not any(line.startswith('default') for line in docker('exec',node,'ip','route').splitlines()))
  (out/'result.json').write_text(json.dumps({'success':True,'checks':checks,'count':len(checks),'externalTargets':[],'systemd':'simulated manager, real kernel/helper/network processes'},indent=2));print(json.dumps({'success':True,'checks':len(checks)}))
