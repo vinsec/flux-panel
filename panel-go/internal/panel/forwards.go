@@ -466,12 +466,15 @@ func (p *Panel) diagnoseForward(s store, f, t, b M) M {
 				performed = truth(b["probe"]) && r["reachable"] != nil
 			}
 			success := truth(obj(r["routeEvidence"])["available"]) || r["route"] != nil
-			kind, label, message := "routeOnly", "节点路由与回程线索（只读）", "已读取路由；未执行连接探测"
+			kind, label, message := "routeOnly", "目标路由", ""
+			if !success {
+				message = "未找到可用路由"
+			}
 			if performed {
 				success = truth(r["reachable"])
 				kind = "tcpHandshake"
-				label = "节点自身连接探测（不证明客户端回程）"
-				message = "节点接口/源地址的 TCP 握手成功；不等于客户端回程或策略网关已验证"
+				label = "TCP 连接测试"
+				message = "节点到目标的连接测试"
 				if r["probeError"] != nil {
 					message = str(r["probeError"])
 				}

@@ -1,6 +1,39 @@
 package engine
 
-import "testing"
+import (
+	"context"
+	"path/filepath"
+	"testing"
+)
+
+func TestBasicForwardDiagnosticsWithoutAdvancedOptions(t *testing.T) {
+	m, err := New(filepath.Join(t.TempDir(), "state.json"), &memoryKernel{counters: map[string]uint64{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := valid()
+	if s.AdvancedOptions != nil {
+		t.Fatal("fixture must exercise basic forwarding")
+	}
+	if err = m.Apply(s); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 3; i++ {
+		d, err := m.ReturnPathDiagnostics(context.Background(), s.ID, false, ReturnPathQuery{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if d["probePerformed"] != false || d["probeCount"] != 0 || len(d["routes"].([]any)) == 0 {
+			t.Fatalf("unexpected diagnostic: %v", d)
+		}
+		if m.RuntimeStatus(s.ID)["status"] != "applied" {
+			t.Fatal("diagnostic changed rule state")
+		}
+	}
+	if _, err = m.ReturnPathDiagnostics(context.Background(), "999_1_0", false, ReturnPathQuery{}); err == nil {
+		t.Fatal("missing forward accepted")
+	}
+}
 
 func TestReturnPathEvidenceDoesNotOverstateReverseRoute(t *testing.T) {
 	cases := []struct {

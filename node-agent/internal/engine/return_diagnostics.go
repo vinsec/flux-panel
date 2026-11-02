@@ -138,6 +138,11 @@ func (m *Manager) ReturnPathDiagnostics(ctx context.Context, id string, probe bo
 	if !exists || s.Deleted {
 		return nil, fmt.Errorf("forward not found")
 	}
+	// Basic (numeric-target) forwards legitimately have no advanced options.
+	egress := EgressPolicy{}
+	if s.AdvancedOptions != nil {
+		egress = s.Egress
+	}
 	result := map[string]any{"id": id, "sampledAt": time.Now().UnixMilli(), "state": m.RuntimeStatus(id), "probeRequested": probe, "probePerformed": false, "externalLoadTest": false, "diagnosticVersion": 2}
 	routes := []any{}
 	seen := map[string]bool{}
@@ -153,9 +158,9 @@ func (m *Manager) ReturnPathDiagnostics(ctx context.Context, id string, probe bo
 			truncated = true
 			break
 		}
-		source := s.Egress.SourceIPv4
+		source := egress.SourceIPv4
 		if target.Family == "ipv6" {
-			source = s.Egress.SourceIPv6
+			source = egress.SourceIPv6
 		}
 		r := diagnosticRoute(ctx, target.Family, target.Host, mark, source)
 		entry := map[string]any{"target": target.Host, "port": target.Port, "family": target.Family, "routeEvidence": r, "route": r["rows"], "healthy": target.Healthy, "acceptNew": target.AcceptNew}
@@ -173,8 +178,8 @@ func (m *Manager) ReturnPathDiagnostics(ctx context.Context, id string, probe bo
 			// A business connmark could make the diagnostic consume this forward's
 			// quota. Bind interface/source only; do not claim this probes a mark-selected
 			// gateway or the original client's return route.
-			if s.Egress.Interface != "" {
-				dial.Control = socketInterface(s.Egress.Interface)
+			if egress.Interface != "" {
+				dial.Control = socketInterface(egress.Interface)
 			}
 			if source != "" {
 				dial.LocalAddr = &net.TCPAddr{IP: net.ParseIP(source)}

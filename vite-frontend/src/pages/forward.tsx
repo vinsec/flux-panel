@@ -1,3 +1,4 @@
+import DiagnosisCard from '@/components/diagnosis-card';
 import { useState, useEffect } from "react";
 import { Card, CardBody, CardHeader } from "@heroui/card";
 import { Button } from "@heroui/button";
@@ -8,7 +9,6 @@ import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@herou
 import { Chip } from "@heroui/chip";
 import { Spinner } from "@heroui/spinner";
 import { Switch } from "@heroui/switch";
-import { Alert } from "@heroui/alert";
 import { Accordion, AccordionItem } from "@heroui/accordion";
 import toast from 'react-hot-toast';
 import {
@@ -655,14 +655,16 @@ export default function ForwardPage() {
   };
 
   // 诊断转发
-  const handleDiagnose = async (forward: Forward) => {
+  const handleDiagnose = async (forward: Forward, retry = false) => {
+    const options = retry ? {clientIP:diagnosisClientIP.trim()||undefined, ingressInterface:diagnosisIngress.trim()||undefined, probe:diagnosisProbe} : {probe:false};
+    if (!retry) { setDiagnosisProbe(false); setDiagnosisClientIP(''); setDiagnosisIngress(''); }
     setCurrentDiagnosisForward(forward);
     setDiagnosisModalOpen(true);
     setDiagnosisLoading(true);
     setDiagnosisResult(null);
 
     try {
-      const response = await diagnoseForward(forward.id, {clientIP:diagnosisClientIP.trim()||undefined, ingressInterface:diagnosisIngress.trim()||undefined, probe:diagnosisProbe});
+      const response = await diagnoseForward(forward.id, options);
       if (response.code === 0) {
         setDiagnosisResult(response.data);
       } else {
@@ -700,17 +702,7 @@ export default function ForwardPage() {
     }
   };
 
-  // 获取连接质量
-  const getQualityDisplay = (averageTime?: number, packetLoss?: number) => {
-    if (averageTime === undefined || packetLoss === undefined) return null;
-    
-    if (averageTime < 30 && packetLoss === 0) return { text: '🚀 优秀', color: 'success' };
-    if (averageTime < 50 && packetLoss === 0) return { text: '✨ 很好', color: 'success' };
-    if (averageTime < 100 && packetLoss < 1) return { text: '👍 良好', color: 'primary' };
-    if (averageTime < 150 && packetLoss < 2) return { text: '😐 一般', color: 'warning' };
-    if (averageTime < 200 && packetLoss < 5) return { text: '😟 较差', color: 'warning' };
-    return { text: '😵 很差', color: 'danger' };
-  };
+
 
   // 格式化流量
   const formatFlow = (value: number): string => {
@@ -1217,9 +1209,6 @@ export default function ForwardPage() {
                 <span className={forwardStates[forward.id]?.status==='applied'?'text-success':forwardStates[forward.id]?.status==='failed'?'text-danger':'text-default-500'}>
                   {{applied:'已生效',paused:'已暂停',pending:'等待解析或健康检查',failed:'应用/解析失败',unavailable:'节点状态不可用',absent:'等待对账'}[forwardStates[forward.id]?.status as string]||'正在获取生效状态'}
                 </span>
-                {forwardStates[forward.id]?.appliedRevision!=null&&<span> · r{forwardStates[forward.id].appliedRevision}</span>}
-                {forwardStates[forward.id]?.resolution?.generation>0&&<span> · 解析代次 {forwardStates[forward.id].resolution.generation}</span>}
-                {forwardStates[forward.id]?.protocolInspection&&<p className="text-xs text-default-500">协议识别：拦截 {forwardStates[forward.id].protocolInspection.statistics?.blocked||0} · UNKNOWN 放行 {forwardStates[forward.id].protocolInspection.statistics?.unknown||0}（当前进程周期）</p>}
               </div>}
 
             </div>
@@ -2091,89 +2080,20 @@ export default function ForwardPage() {
                     </div>
                   ) : diagnosisResult ? (
                     <div className="space-y-4">
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        <Input label="客户端 IP（可选）" value={diagnosisClientIP} onValueChange={setDiagnosisClientIP} placeholder="用于本机反向路由检查" />
-                        <Input label="入口网卡（可选）" value={diagnosisIngress} onValueChange={setDiagnosisIngress} placeholder="例如 eth0" />
-                      </div>
-                      <label className="flex gap-2 text-small"><input type="checkbox" checked={diagnosisProbe} onChange={e=>setDiagnosisProbe(e.target.checked)} />内核节点附加 TCP 握手（最多两次，会建立连接）</label>
-                      {diagnosisResult.returnPath && <Card className="border border-warning"><CardBody className="space-y-2 text-small">
-                        <p>远端实际回程：未验证。管理员确认：{diagnosisResult.returnPath.administratorConfirmed?'已确认':'未确认'}。</p>
-                        {diagnosisResult.returnPath.ingress.map(item=><p key={item.interface}>{item.interface}：IPv4 rp_filter={item.ipv4RPFilterEffective??'未知'}，src_valid_mark={item.srcValidMarkEffective??'未知'}；{({'client-sample-missing':'未提供客户端 IP，无法检查来源路由','strict-interface-mismatch-risk':'反向路由出口与入口不同，严格过滤可能丢包','unreachable-risk':'本机客户端路由不可用，存在丢包风险','no-obvious-destination-route-conflict':'本机路由未见明显冲突；远端回程仍未验证','ipv6-no-ipv4-rp-filter':'IPv6 不适用 IPv4 rp_filter 检查','disabled':'IPv4 rp_filter 已关闭','unknown':'信息不足'} as Record<string,string>)[item.risk]??item.risk}</p>)}
-                        {diagnosisResult.returnPath.limitations.map(line=><p key={line}>{line}</p>)}
-                      </CardBody></Card>}
-                      {diagnosisResult.results.map((result, index) => {
-                        const quality = getQualityDisplay(result.averageTime, result.packetLoss);
-                        
-                        return (
-                          <Card key={index} className={`shadow-sm border ${result.success ? 'border-success' : 'border-danger'}`}>
-                            <CardHeader className="pb-2">
-                              <div className="flex items-center justify-between w-full">
-                                <div>
-                                  <h3 className="text-lg font-semibold text-foreground">{result.description}</h3>
-                                  <div className="flex items-center gap-2 mt-1">
-                                    <span className="text-small text-default-500">节点: {result.nodeName}</span>
-                                    <Chip 
-                                      color={result.success ? 'success' : 'danger'} 
-                                      variant="flat" 
-                                      size="sm"
-                                    >
-                                      {result.probeKind==='routeOnly'?(result.success?'路由已读取':'路由不可用'):(result.success?'连接成功':'连接失败')}
-                                    </Chip>
-                                  </div>
-                                </div>
-                              </div>
-                            </CardHeader>
-                            
-                            <CardBody className="pt-0">
-                              {result.success ? (
-                                <div className="space-y-3">
-                                  <div className="grid grid-cols-3 gap-4">
-                                    <div className="text-center">
-                                      <div className="text-2xl font-bold text-primary">{result.averageTime?.toFixed(0)??'-'}</div>
-                                      <div className="text-small text-default-500">{result.probeKind==='tcpHandshake'?'TCP握手(ms)':'平均延迟(ms)'}</div>
-                                    </div>
-                                    <div className="text-center">
-                                      <div className="text-2xl font-bold text-warning">{result.packetLoss?.toFixed(1)??'-'}</div>
-                                      <div className="text-small text-default-500">丢包率(%)</div>
-                                    </div>
-                                    <div className="text-center">
-                                      {quality && (
-                                        <>
-                                          <Chip color={quality.color as any} variant="flat" size="lg">
-                                            {quality.text}
-                                          </Chip>
-                                          <div className="text-small text-default-500 mt-1">连接质量</div>
-                                        </>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <div className="text-small text-default-500 flex items-center gap-1">
-                                    <span className="flex-shrink-0">目标地址:</span>
-                                    <code className="font-mono truncate min-w-0" title={`${result.targetIp}${result.targetPort ? ':' + result.targetPort : ''}`}>
-                                      {result.targetIp}{result.targetPort ? ':' + result.targetPort : ''}
-                                    </code>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="space-y-2">
-                                  <div className="text-small text-default-500 flex items-center gap-1">
-                                    <span className="flex-shrink-0">目标地址:</span>
-                                    <code className="font-mono truncate min-w-0" title={`${result.targetIp}${result.targetPort ? ':' + result.targetPort : ''}`}>
-                                      {result.targetIp}{result.targetPort ? ':' + result.targetPort : ''}
-                                    </code>
-                                  </div>
-                                  <Alert
-                                    color="danger"
-                                    variant="flat"
-                                    title="错误详情"
-                                    description={result.message}
-                                  />
-                                </div>
-                              )}
-                            </CardBody>
-                          </Card>
-                        );
-                      })}
+                      {diagnosisResult.returnPath && <details className="rounded-lg border border-default-200 p-3">
+                        <summary className="cursor-pointer text-small">高级诊断</summary>
+                        <div className="mt-3 space-y-3 text-small">
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            <Input label="客户端 IP" value={diagnosisClientIP} onValueChange={setDiagnosisClientIP} placeholder="可选" />
+                            <Input label="入口网卡" value={diagnosisIngress} onValueChange={setDiagnosisIngress} placeholder="可选，如 eth0" />
+                          </div>
+                          <label className="flex gap-2"><input type="checkbox" checked={diagnosisProbe} onChange={e=>setDiagnosisProbe(e.target.checked)} />附加 TCP 连接测试（最多两次）</label>
+                          <p>实际回程：{diagnosisResult.returnPath.remoteReturnVerified?'已验证':'未验证'}</p>
+                          {diagnosisResult.returnPath.ingress?.map(item=><p key={item.interface}>{item.interface}：rp_filter={item.ipv4RPFilterEffective??'未知'}，src_valid_mark={item.srcValidMarkEffective??'未知'}</p>)}
+                          <details><summary className="cursor-pointer">检查范围</summary>{diagnosisResult.returnPath.limitations?.map(line=><p key={line}>{line}</p>)}</details>
+                        </div>
+                      </details>}
+                      {diagnosisResult.results.map((result, index) => <DiagnosisCard key={index} result={result} />)}
                     </div>
                   ) : (
                     <div className="text-center py-16">
@@ -2193,7 +2113,7 @@ export default function ForwardPage() {
                   {currentDiagnosisForward && (
                     <Button 
                       color="primary" 
-                      onPress={() => handleDiagnose(currentDiagnosisForward)}
+                      onPress={() => handleDiagnose(currentDiagnosisForward, true)}
                       isLoading={diagnosisLoading}
                     >
                       重新诊断
@@ -2207,4 +2127,4 @@ export default function ForwardPage() {
       </div>
     
   );
-} 
+}

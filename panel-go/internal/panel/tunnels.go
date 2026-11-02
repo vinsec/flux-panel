@@ -1,6 +1,7 @@
 package panel
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 )
@@ -166,6 +167,9 @@ func (p *Panel) tunnelAPI(s store, c, b M, action string) any {
 	case "diagnose":
 		t := found(s.get("tunnel", b["tunnelId"]), "隧道不存在")
 		in := found(s.get("node", t["inNodeId"]), "入口节点不存在")
+		if normalizeEngine(t["engine"]) == "kernel" {
+			return p.diagnoseNativeTunnel(s, t, in)
+		}
 		results := []M{}
 		label := "端口转发"
 		if num(t["type"]) == 1 {
@@ -183,6 +187,60 @@ func (p *Panel) tunnelAPI(s store, c, b M, action string) any {
 	}
 	panic("unknown tunnel action")
 }
+
+// Native tunnel diagnostics inspect the live engine and its rules. They do not
+// issue legacy TcpPing commands or create public connections implicitly.
+func (p *Panel) diagnoseNativeTunnel(s store, tunnel, node M) M {
+	r := p.rpc(num(node["id"]), M{}, "GetCapabilities")
+	info := obj(r["data"])
+	ok := str(r["message"]) == "OK" && len(info) > 0 && !truth(info["blocked"]) && !truth(info["accountingBlocked"])
+	message := str(r["message"])
+	counts := M{}
+	checked := 0
+	forwards := s.rows("SELECT * FROM forward WHERE tunnel_id=? ORDER BY id LIMIT 101", tunnel["id"])
+	ids := []string{}
+	want := map[string]string{}
+	for _, f := range forwards {
+		if len(ids) == 100 {
+			break
+		}
+		name, _ := serviceName(s, f)
+		ids = append(ids, name)
+		want[name] = "applied"
+		if num(f["status"]) != 1 {
+			want[name] = "paused"
+		}
+	}
+	if ok && len(ids) > 0 {
+		status := p.rpc(num(node["id"]), M{"ids": ids}, "GetForwardStatuses")
+		if str(status["message"]) != "OK" {
+			ok = false
+			message = str(status["message"])
+		} else {
+			states := obj(status["data"])
+			for _, id := range ids {
+				state := str(obj(states[id])["status"])
+				if state == "" {
+					state = "unavailable"
+				}
+				counts[state] = num(counts[state]) + 1
+				checked++
+				if state != want[id] {
+					ok = false
+				}
+			}
+			message = fmt.Sprintf("已检查 %d 条规则，正常 %d 条", checked, num(counts["applied"])+num(counts["paused"]))
+		}
+	} else if ok {
+		message = "节点在线，尚未创建转发"
+	}
+	if truth(info["blocked"]) || truth(info["accountingBlocked"]) {
+		message = "节点转发或账本受阻"
+	}
+	result := M{"nodeId": node["id"], "nodeName": node["name"], "targetIp": node["serverIp"], "description": "节点与规则状态", "success": ok, "message": message, "probeKind": "runtimeState", "stateCounts": counts, "checkedForwards": checked, "truncated": len(forwards) > 100}
+	return M{"tunnelId": tunnel["id"], "tunnelName": tunnel["name"], "tunnelType": "端口转发", "timestamp": now(), "probePerformed": false, "results": []M{result}}
+}
+
 func (p *Panel) diagnose(node M, host string, port int64, label string) M {
 	r := p.rpc(num(node["id"]), M{"ip": host, "port": port, "count": 4, "timeout": 5000}, "TcpPing")
 	d := obj(r["data"])

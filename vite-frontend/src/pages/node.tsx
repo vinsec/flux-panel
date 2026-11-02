@@ -737,7 +737,6 @@ export default function NodePage() {
                   {node.engine==='kernel'&&<NodeModeSwitch node={node} onComplete={loadNodes}/>}
                   {node.engine==='kernel'&&<Button size="sm" variant="flat" className="mb-2" onPress={()=>setEngineToolsNode(node)}>带宽组 / 升级向导</Button>}
                   {/* 系统监控 */}
-                  {node.engine==='kernel'&&<p className="text-xs text-default-500 mb-2">{node.systemInfo?'系统网卡指标与转发计费分别统计。':'等待真实指标；旧心跳不作为资源使用率。'}</p>}
                   <div className="space-y-3 mb-4">
                     <div className="grid grid-cols-2 gap-3">
                       <div>
@@ -880,11 +879,11 @@ export default function NodePage() {
               <div className="space-y-4">
                 <Select label="节点程序" selectedKeys={[form.engine]} isDisabled={isEdit} disallowEmptySelection
                   onSelectionChange={(keys) => setForm(prev => ({...prev, engine: Array.from(keys)[0] as string, http: 0, tls: 0, socks: 0}))}
-                  description="节点程序创建后固定；统一 Agent 的转发模式可在节点卡片切换。">
+                  description="创建后可切换转发模式">
                   <SelectItem key="gost">独立 GOST（旧版兼容）</SelectItem>
                   <SelectItem key="kernel">统一 Agent（nftables / GOST 可切换）</SelectItem>
                 </Select>
-                {form.engine === 'kernel' && !isEdit && <Select label="初始转发模式" selectedKeys={[form.forwardingMode]} disallowEmptySelection onSelectionChange={keys=>setForm(prev=>({...prev,forwardingMode:String(Array.from(keys)[0])}))} description="隧道继承节点配置；安装后可从节点卡片切换，允许短暂中断。">
+                {form.engine === 'kernel' && !isEdit && <Select label="初始转发模式" selectedKeys={[form.forwardingMode]} disallowEmptySelection onSelectionChange={keys=>setForm(prev=>({...prev,forwardingMode:String(Array.from(keys)[0])}))} description="隧道继承此模式">
                   <SelectItem key="kernel">原生 nftables</SelectItem><SelectItem key="gost">受管 GOST</SelectItem>
                 </Select>}
                 <Input
@@ -951,7 +950,7 @@ export default function NodePage() {
                 {/* 屏蔽协议 */}
                 <div className="mt-1">
                   <div className="text-sm font-medium text-default-700">屏蔽协议</div>
-                  <div className="text-xs text-default-500 mb-2">开启开关以屏蔽对应协议{form.engine==='kernel'&&'；未知流量放行并标记，变更后现有 TCP 连接需要重连'}</div>
+                  <div className="text-xs text-default-500 mb-2">开启开关以屏蔽对应协议{form.engine==='kernel'&&'；未知流量放行'}</div>
                   {protocolDisabled && (
                     <Alert
                       color="warning"

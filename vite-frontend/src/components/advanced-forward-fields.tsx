@@ -39,9 +39,9 @@ export default function AdvancedForwardFields({value,onChange,features,port,remo
   const options=readEngineOptions(value);const addresses=remoteAddr.split(/[\n,]/).map(s=>s.trim()).filter(Boolean);
   const set=(key:keyof EngineOptions,data:any)=>{const next={...options};if(data===undefined)delete next[key];else (next as any)[key]=data;onChange(JSON.stringify(next));};
   const listener=(index:number,key:string,v:any)=>set('listeners',options.listeners?.map((l,i)=>i===index?{...l,[key]:v}:l));
-  return <div className="space-y-4 rounded-xl border border-default-200 p-4">
-    <p className="text-sm font-semibold">内核转发选项</p>
-    <p className="text-xs text-default-500">仅展示节点已声明的能力。域名由节点解析；IPv4/IPv6 分别转发，统计与配额归入同一业务。</p>
+  return <details className="rounded-xl border border-default-200 p-4">
+    <summary className="cursor-pointer text-sm font-semibold">高级设置</summary>
+    <div className="mt-4 space-y-4">
     {features.independentProtocols&&<>
       <Switch size="sm" isSelected={!!options.listeners} onValueChange={enabled=>set('listeners',enabled?[{host:tcpHost,port:port||0,protocol:'tcp'},{host:udpHost,port:port||0,protocol:'udp'}]:undefined)}>自定义 TCP/UDP 监听</Switch>
       {options.listeners&&<div className="space-y-2">
@@ -63,7 +63,7 @@ export default function AdvancedForwardFields({value,onChange,features,port,remo
       <Input size="sm" label="临时解析错误保留秒数" type="number" min={0} max={300} value={String((options.dnsPolicy?.staleMillis??30000)/1000)} onValueChange={v=>set('dnsPolicy',{...options.dnsPolicy,staleMillis:Number(v)*1000})}/>
     </div>}
     {features.multiTarget&&<>
-      <Switch size="sm" isSelected={!!options.health} onValueChange={v=>set('health',v?{protocol:'tcp',intervalMillis:5000,timeoutMillis:500,rise:2,fall:2}:undefined)}>启用有界健康检查</Switch>
+      <Switch size="sm" isSelected={!!options.health} onValueChange={v=>set('health',v?{protocol:'tcp',intervalMillis:5000,timeoutMillis:500,rise:2,fall:2}:undefined)}>启用健康检查</Switch>
       {options.health&&<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Select label="健康协议" selectedKeys={[options.health.protocol]} onSelectionChange={keys=>set('health',{...options.health,protocol:String(Array.from(keys)[0])})}><SelectItem key="tcp">TCP 连接</SelectItem><SelectItem key="udp">UDP 指定请求/响应</SelectItem></Select>
         <Input label="独立健康端口（0 沿用目标）" type="number" value={String(options.health.port||0)} onValueChange={v=>set('health',{...options.health,port:Number(v)})}/>
@@ -84,12 +84,11 @@ export default function AdvancedForwardFields({value,onChange,features,port,remo
       {features.localTargets&&<Switch size="sm" isSelected={!!options.traffic?.localTargets} onValueChange={v=>set('traffic',{...options.traffic,localTargets:v})}>允许转发到本机服务</Switch>}
       {features.preserveSource&&<Switch size="sm" isSelected={options.traffic?.sourceMode==='preserve'} onValueChange={v=>set('traffic',{...options.traffic,sourceMode:v?'preserve':'masquerade',returnPathConfirmed:false})}>保留客户端源地址</Switch>}
       {options.traffic?.sourceMode==='preserve'&&<Switch size="sm" isSelected={!!options.traffic.returnPathConfirmed} onValueChange={v=>set('traffic',{...options.traffic,returnPathConfirmed:v})}>已确认目标回程经过本节点</Switch>}
-      <p className="text-xs text-default-500">默认保持地址转换，支持同网段回流。本地平滑限速需节点预配置回环参数并支持内核 BPF；IPv4 回环与远端互通需节点预设路由；IPv6 远端请使用网卡监听与目标地址。本机 UDP 保留源地址需服务固定绑定目标 IP；绑定改变时节点会停止该规则。</p>
     </div>}
     {features.shaping&&<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <Input label="本转发上传上限（Mbps，0 不另限）" type="number" min={0} value={String((options.bandwidth?.upBitsPerSecond||0)/1000000)} onValueChange={v=>set('bandwidth',{...options.bandwidth,upBitsPerSecond:Math.round(Number(v)*1000000)})}/>
       <Input label="本转发下载上限（Mbps，0 不另限）" type="number" min={0} value={String((options.bandwidth?.downBitsPerSecond||0)/1000000)} onValueChange={v=>set('bandwidth',{...options.bandwidth,downBitsPerSecond:Math.round(Number(v)*1000000)})}/>
-      <p className="text-xs text-default-500 sm:col-span-2">用户总带宽及该隧道授权的共享上限继续生效；此处不能放宽共享上限。暂停优先于排队和限速。</p>
     </div>}
-  </div>;
+    </div>
+  </details>;
 }
