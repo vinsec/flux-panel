@@ -1,4 +1,21 @@
-# 统一节点 Agent（v7，原生 nftables / 受管 GOST）
+# 节点安装
+
+使用本仓库默认面板镜像时，节点程序和校验由面板提供，普通安装只需以下操作。
+
+## 安装步骤
+
+1. 在面板“网站配置”中填写面板的 HTTPS 访问地址。
+2. 打开“节点监控”→“新增”，选择“统一 Agent”，填写节点名称、服务器 IP 和业务端口范围，保存。
+3. 点击该节点的“安装”，复制弹窗里的整段命令。
+4. SSH 登录要安装节点的服务器，以 root 用户粘贴执行。
+5. 等命令执行结束，回到面板确认节点“在线”，再创建隧道和转发规则。
+
+默认使用原生 nftables，也可在“编辑节点”中切换为受管 GOST。安装命令会识别 x86_64／ARM64、准备必要依赖、开启 IPv4 转发并安装服务。节点需为支持 systemd 的 Linux；IPv6、特殊出口路由等按主机环境检查。命令包含该节点的连接凭据，不要公开分享。
+
+已有节点升级可能短暂停流。旧独立 GOST 转成统一 Agent 需要交接原记录和业务，不能把新节点命令当作所有旧版本的一键迁移。先阅读 [部署与交接](../deploy/README.md) 以及 [模式切换范围](../doc/unified-agent-switching.md)。
+
+<details>
+<summary>维护者参考：兼容边界、源码构建与隔离测试</summary>
 
 统一 Agent 支持同一节点在原生 nftables 和受管 GOST 之间切换，允许短暂中断；旧独立 GOST 节点继续兼容。
 控制协议值保持 `kernel`，执行方式使用 `forwardingMode=kernel|gost`，不提供 iptables 后端或自动回退。
@@ -30,7 +47,7 @@ CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o flux-agent ./cmd/flux-agent
 
 参考 `config.example.json`；真实配置权限应为 600。正式面板地址使用 WSS/HTTPS；
 `allowInsecure` 仅用于隔离测试。离线安装器使用 `--engine kernel` 或 `--engine gost`，并固定校验发布包。
-安装、升级、维护和卸载可能暂停业务，需另行安排发布窗口；qcloud 和 qhix 已按各自批准的窗口升级并实际切到原生 nftables，分别见 [qcloud 上线记录](../doc/qcloud-agent-migration-20261102.md)和 [qhix 上线记录](../doc/qhix-agent-migration-20261102.md)。
+安装、升级、维护和卸载可能暂停业务，需安排维护窗口。
 
 ## 验证
 
@@ -50,3 +67,5 @@ tests/run-local.sh native
 
 历史设计与边界参见 [原生 map 后端](../doc/forward-native-nft.md)、
 [协议识别](../doc/forward-protocol-blocking.md)、[先前 v5.5 验证](../doc/forward-performance-v55-validation.md)。
+
+</details>
