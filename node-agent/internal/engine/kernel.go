@@ -239,7 +239,15 @@ func (k *NativeKernel) run(name, input string, args ...string) (string, error) {
 	if e != nil {
 		return "", fmt.Errorf("%s: %w: %s", name, e, strings.TrimSpace(string(out)))
 	}
-	return strings.TrimSpace(string(out)), nil
+	result := strings.TrimSpace(string(out))
+	if name == "nft" && input == "" {
+		for _, a := range args {
+			if a == "-j" || a == "--json" {
+				return nftJSONTableComments(result, func(family, table string) (string, error) { return k.run("nft", "", "list", "table", family, table) })
+			}
+		}
+	}
+	return result, nil
 }
 
 func (k *NativeKernel) Initialize() error {
