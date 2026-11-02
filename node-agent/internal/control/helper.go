@@ -162,7 +162,7 @@ func ServeHelper(ctx context.Context, path string, uid uint32, m *engine.Manager
 			case "_Rules":
 				data = m.Rules()
 			default:
-				allowed := map[string]bool{"RequireCreditPolicy": true, "RequestCredit": true, "InstallCredit": true, "CollectCounters": true, "GetCapabilities": true, "GetForwardStatus": true, "GetForwardStatuses": true, "DiagnoseForward": true, "SubmitBatch": true, "GetBatchStatus": true, "GetEngineStatePage": true, "ApplyForward": true, "SetForwardState": true, "DeleteForward": true, "GetEngineState": true}
+				allowed := map[string]bool{"SubmitModeSwitch": true, "GetModeSwitchStatus": true, "RequireCreditPolicy": true, "RequestCredit": true, "InstallCredit": true, "CollectCounters": true, "GetCapabilities": true, "GetForwardStatus": true, "GetForwardStatuses": true, "DiagnoseForward": true, "SubmitBatch": true, "GetBatchStatus": true, "GetEngineStatePage": true, "ApplyForward": true, "SetForwardState": true, "DeleteForward": true, "GetEngineState": true}
 				if !allowed[call.Type] {
 					failure = fmt.Errorf("helper operation denied")
 					break
@@ -322,4 +322,15 @@ func (r *RemoteManager) ReturnPathDiagnostics(ctx context.Context, id string, pr
 	var result map[string]any
 	e := r.call("DiagnoseForward", map[string]any{"id": id, "probe": probe, "clientIP": q.ClientIP, "ingressInterface": q.IngressInterface}, &result)
 	return result, e
+}
+
+func (r *RemoteManager) SubmitModeSwitch(v engine.ModeRequest) (engine.ModeSwitch, error) {
+	var out engine.ModeSwitch
+	e := r.call("SubmitModeSwitch", v, &out)
+	return out, e
+}
+func (r *RemoteManager) ModeSwitchStatus(id string) (engine.ModeSwitch, error) {
+	var out engine.ModeSwitch
+	e := r.call("GetModeSwitchStatus", map[string]string{"id": id}, &out)
+	return out, e
 }

@@ -116,7 +116,7 @@ func (m *Manager) Collect(retention time.Duration) (int, error) {
 	current := map[string]bool{}
 	for _, s := range after.Rules {
 		if !s.Deleted {
-			for _, key := range s.TargetKeys() {
+			for _, key := range m.targetKeys(s) {
 				current[key] = true
 			}
 		}

@@ -85,7 +85,10 @@ func (k *NativeKernel) removeOwned(_ map[string]string, _ map[string]string) err
 	if e := k.protocolEngine().cleanup(); e != nil {
 		return e
 	}
-	return k.Native.cleanup()
+	if e := k.Native.cleanup(); e != nil {
+		return e
+	}
+	return removeGostGuard(k)
 }
 func sortedNames(m map[string]bool) []string {
 	r := map[string]Spec{}
@@ -103,7 +106,7 @@ func readMaintenanceState(path string) (State, error) {
 	if e = json.Unmarshal(b, &s); e != nil {
 		return s, e
 	}
-	if len(s.Epoch) != 32 || s.Sequence < 0 || s.Rules == nil || s.FormatVersion > 7 {
+	if len(s.Epoch) != 32 || s.Sequence < 0 || s.Rules == nil || s.FormatVersion > 8 {
 		return s, fmt.Errorf("invalid maintenance checkpoint")
 	}
 	return s, nil
@@ -205,7 +208,7 @@ func Maintain(path, configPath, action, backupDir string, k *NativeKernel, offli
 		if entries, err := os.ReadDir(backupDir); err == nil {
 			preparedDir = true
 			for _, entry := range entries {
-				if entry.IsDir() || (entry.Name() != "previous.bin" && entry.Name() != "previous.sha256" && entry.Name() != "previous-config.json" && entry.Name() != "previous-flux-agent.service" && entry.Name() != "previous-flux-kernel.service" && entry.Name() != "previous-units.sha256") {
+				if entry.IsDir() || (entry.Name() != "previous-managed.bin" && entry.Name() != "previous-managed.sha256" && entry.Name() != "previous.bin" && entry.Name() != "previous.sha256" && entry.Name() != "previous-config.json" && entry.Name() != "previous-flux-agent.service" && entry.Name() != "previous-flux-kernel.service" && entry.Name() != "previous-units.sha256") {
 					preparedDir = false
 				}
 			}
@@ -381,6 +384,9 @@ func Maintain(path, configPath, action, backupDir string, k *NativeKernel, offli
 			state = source
 		} else if action == "migrate" {
 			state.FormatVersion = requiredStateFormat(state.Rules)
+			if state.ManagedEngines {
+				state.FormatVersion = max(state.FormatVersion, 8)
+			}
 			if state.KernelBackend == "nftables" {
 				state.FormatVersion = max(state.FormatVersion, 6)
 			}

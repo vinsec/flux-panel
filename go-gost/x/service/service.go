@@ -54,15 +54,21 @@ var needWrap = false
 
 // SetProtocolBlock sets protocol blocking switches and recomputes wrapper need
 func SetProtocolBlock(httpOn int, tlsOn int, socksOn int) {
-    isHttp = httpOn
-    isTls = tlsOn
-    isSocks = socksOn
-    needWrap = isTls+isSocks+isHttp > 0
+	isHttp = httpOn
+	isTls = tlsOn
+	isSocks = socksOn
+	needWrap = isTls+isSocks+isHttp > 0
 }
 
 type Option func(opts *options)
 
 func init() {
+	for _, arg := range os.Args[1:] {
+		if arg == "--agent-managed" || arg == "--agent-managed=true" {
+			SetAgentManaged(true)
+			return
+		}
+	}
 	_, err := LoadConfig("config.json")
 	fmt.Println("config.json loaded")
 	if err != nil {

@@ -7,7 +7,7 @@ import (
 	"sort"
 )
 
-var reservationVersion = regexp.MustCompile(`^(?:iptables-v[345]|kernel-v6)(?:[.-].*)?$`)
+var reservationVersion = regexp.MustCompile(`^(?:iptables-v[345]|kernel-v[67])(?:[.-].*)?$`)
 
 func expiry(r M) int64 {
 	if r["expTime"] == nil {

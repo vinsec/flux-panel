@@ -33,7 +33,7 @@ CI 只验证、构建和上传工作流产物，不因 push 开发分支自动�
 
 ## 开发与验证
 
-Go 1.26.10，前端 Node 20.19.0。数据库结构为 `gost.sql` 加 `database/migrations/001–006`。
+Go 1.26.10，前端 Node 20.19.0。数据库结构为 `gost.sql` 加 `database/migrations/001–007`。
 
 ```sh
 cd panel-go
@@ -56,3 +56,5 @@ GOST→nftables 的节点迁移与面板语言切换分别进行。
 当前分支的默认构建和测试均为 Go；如确需重做历史 Java 对照，使用独立历史工作区及旧产物，不把 Java 加回当前分支。
 Android 客户端是独立的 Kotlin/Gradle 项目，不参与面板构建、安装或 CI。
 本项目继承原项目许可与署名；仅用于合法授权的网络转发管理。
+
+同一节点原生 nftables / 受管 GOST 切换见 [统一 Agent](doc/unified-agent-switching.md)，仅本地验证，未部署线上。

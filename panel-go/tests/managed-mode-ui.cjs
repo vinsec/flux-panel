@@ -1,0 +1,15 @@
+// Built React UI with mocked API. Start local dist HTTP server on 13320.
+const fs=require('node:fs');const path=require('node:path');const output=process.env.FLUX_UI_EVIDENCE||'/tmp/flux-managed-ui';fs.mkdirSync(output,{recursive:true});const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
+(async()=>{const browser=await chromium.launch({headless:true});const page=await browser.newPage({viewport:{width:1280,height:900}});let mode='kernel',job={status:'idle'},submissions=0;const errors=[];page.on('pageerror',e=>errors.push(e.message));
+await page.addInitScript(()=>{const e=x=>btoa(JSON.stringify(x));localStorage.setItem('token',e({alg:'HS256',typ:'JWT'})+'.'+e({sub:'1',role_id:0,exp:Math.floor(Date.now()/1000)+3600})+'.test');localStorage.setItem('role_id','0');localStorage.setItem('name','isolated-ui');});
+await page.route('**/*',async route=>{const u=new URL(route.request().url());if(!['127.0.0.1','localhost'].includes(u.hostname)&&!['data:','blob:'].includes(u.protocol))return route.abort();if(u.pathname.startsWith('/api/v1/')){let data={};const path=u.pathname;
+if(path.endsWith('/node/list'))data=[{id:1,name:'隔离测试统一节点',engine:'kernel',kernelBackend:'nftables',forwardingMode:mode,ip:'10.205.1.1',serverIp:'10.205.3.1',portSta:18000,portEnd:18100,status:1,http:0,tls:0,socks:0}];
+if(path.endsWith('/engine/capabilities'))data={capabilities:{features:{engineSwitch:true}}};
+if(path.endsWith('/engine/mode-switch-status')){if(job.status==='running'){mode=job.to;job.status='succeeded'}data=job}
+if(path.endsWith('/engine/switch-mode')){const b=JSON.parse(route.request().postData());submissions++;job={id:b.id,from:mode,to:b.mode,status:'running'};data=job;}
+return route.fulfill({json:{code:0,data,msg:'OK'}})}
+if(u.pathname==='/node')return route.fulfill({body:fs.readFileSync(path.resolve(__dirname,'../../vite-frontend/dist/index.html')),contentType:'text/html'});return route.continue()});
+await page.goto('http://127.0.0.1:13320/node',{waitUntil:'networkidle'});await page.getByRole('button',{name:'切换转发模式',exact:true}).click();await page.getByText('切换会短暂停流',{exact:false}).waitFor();await page.getByRole('button',{name:'暂停并切换',exact:true}).click();await page.waitForTimeout(2200);
+if(mode!=='gost'||submissions!==1)throw Error('switch did not complete once');await page.screenshot({path:output+'/browser-switch.png'});
+await page.getByRole('button',{name:'切换转发模式',exact:true}).click();await page.getByRole('button',{name:'暂停并切换',exact:true}).click();await page.waitForTimeout(2200);if(mode!=='kernel'||submissions!==2)throw Error('reverse switch failed');if(errors.length)throw Error(errors.join('\n'));
+fs.writeFileSync(output+'/browser-result.json',JSON.stringify({success:true,submissions,finalMode:mode,externalRequestsAllowed:false,kind:'built React UI with mocked mode API; real API verified separately'},null,2));console.log('PASS built browser UI: forward/reverse switching, interruption notice, polling, exactly one submission each');await browser.close()})().catch(e=>{console.error(e);process.exit(1)});

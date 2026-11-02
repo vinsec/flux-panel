@@ -1,7 +1,8 @@
-# 独立内核 Agent（v6，原生 nftables）
+# 统一节点 Agent（v7，原生 nftables / 受管 GOST）
 
-内核转发只保留原生 nftables map 后端；GOST 仍作为独立用户态引擎。
-面板只提供 GOST / 内核转发两种选择。内核引擎的新协议值是 `kernel`，不再提供 iptables 后端选择或自动回退。
+统一 Agent 支持同一节点在原生 nftables 和受管 GOST 之间切换，允许短暂中断；旧独立 GOST 节点继续兼容。
+控制协议值保持 `kernel`，执行方式使用 `forwardingMode=kernel|gost`，不提供 iptables 后端或自动回退。
+使用步骤、支持范围和格式 8 回滚边界见 [统一 Agent 切换说明](../doc/unified-agent-switching.md)。
 
 当前支持域名、双栈、多目标、出口路由、共享平滑限速、本地路径、源地址保留、缩权 helper，
 以及有界 HTTP/TLS/SOCKS 识别。未知流量放行并标记 UNKNOWN。
@@ -12,7 +13,7 @@
 
 ## 安装与兼容边界
 
-- 面板升级前显式应用尚未执行的 `database/migrations/001` 至 `005` 迁移；不自动修改线上数据库。
+- 面板升级前显式应用尚未执行的 `database/migrations/001` 至 `007` 迁移；不自动修改线上数据库。
 - Linux 需要 `nftables`、`conntrack`、`iproute2` 及相应内核能力。原生模式不依赖 iptables/ipset 可执行文件。
 - 主机转发开关、回程和外部防火墙需要事先配置；Agent 不修改宿主 sysctl 或全局防火墙默认策略。
 - `kernelBackend` 可省略或为 `nftables`。`iptables` 后端和旧 `iptables` 二进制选项明确拒绝。

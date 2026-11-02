@@ -55,6 +55,11 @@ func (p *Panel) withPort(s store, t M, fn func(store) any) any {
 		fail("physical node port lock busy")
 	}
 	defer releaseNamedLock(conn, key)
+	if !truth(t["_modeSwitch"]) {
+		if row := locked.one("SELECT status FROM engine_mode_switch WHERE node_id=?", n["id"]); row != nil && (str(row["status"]) == "pending" || str(row["status"]) == "running" || str(row["status"]) == "blocked") {
+			fail("节点正在切换或需要恢复，暂不接受规则变更")
+		}
+	}
 	return fn(locked)
 }
 func (p *Panel) forwardAPI(s store, c, b M, action string) any {

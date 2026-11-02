@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -38,6 +39,9 @@ func main() {
 	testFault := flag.String("test-fault", "", "crash injection in a marked disposable test container")
 	plan := flag.String("plan", "", "render a single ForwardSpec without executing commands")
 	prepareLocal := flag.Bool("prepare-local-shaping", false, "short-lived administrative preparation of the embedded local BPF program")
+	managedOutput := flag.String("write-managed-config", "", "write config with a pinned managed GOST binary")
+	managedBinary := flag.String("managed-binary", "", "installed managed GOST executable")
+	managedSHA := flag.String("managed-sha256", "", "pinned managed GOST SHA256")
 	flag.Parse()
 	if *prepareLocal {
 		result, e := engine.PrepareLocalShaping()
@@ -75,6 +79,23 @@ func main() {
 		if e = json.Unmarshal(b, &c); e != nil {
 			log.Fatal(e)
 		}
+	}
+	if *managedOutput != "" {
+		if !filepath.IsAbs(*managedOutput) || !filepath.IsAbs(*managedBinary) || len(*managedSHA) != 64 {
+			log.Fatal("invalid managed config output")
+		}
+		if value, err := hex.DecodeString(*managedSHA); err != nil || len(value) != 32 {
+			log.Fatal("invalid managed binary hash")
+		}
+		c.ManagedGost = &control.ManagedGostConfig{Binary: *managedBinary, SHA256: *managedSHA, Socket: "/run/flux-agent-gost/control.sock"}
+		data, e := json.Marshal(c)
+		if e != nil {
+			log.Fatal(e)
+		}
+		if e = os.WriteFile(*managedOutput, data, 0600); e != nil {
+			log.Fatal(e)
+		}
+		return
 	}
 	if c.Iptables != "" {
 		log.Fatal("iptables configuration is retired; only native nftables is supported")
@@ -198,6 +219,11 @@ func main() {
 	if c.HelperSocket != "" && !*helperMode && *maintenance == "" {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
+		finish, e := control.StartManagedGost(ctx, c)
+		if e != nil {
+			log.Fatal(e)
+		}
+		defer finish()
 		remote := &control.RemoteManager{Socket: c.HelperSocket}
 		deadline := time.Now().Add(30 * time.Second)
 		for {
@@ -242,6 +268,42 @@ func main() {
 	defer namespace.Close()
 	k := engine.NativeKernel{}
 	k.EnableNative(c.StatePath)
+	k.Mode = "kernel"
+	if c.ManagedGost != nil {
+		var err error
+		k.Gost, err = engine.NewGostRunner(c.ManagedGost.Socket, c.StatePath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if c.ForwardingMode != "" {
+			k.Mode = c.ForwardingMode
+		}
+		if data, err := os.ReadFile(c.StatePath); err == nil {
+			var s engine.State
+			if err = json.Unmarshal(data, &s); err != nil {
+				log.Fatal(err)
+			}
+			if s.ForwardingMode != "" {
+				k.Mode = s.ForwardingMode
+			}
+			if s.EngineSwitch.Status == "running" || s.EngineSwitch.Status == "queued" {
+				k.Mode = s.EngineSwitch.From
+			}
+		}
+		if k.Mode != "kernel" && k.Mode != "gost" {
+			log.Fatal("invalid forwardingMode")
+		}
+	}
+	if c.HelperSocket == "" && c.ManagedGost != nil {
+		ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer cancel()
+		finish, err := control.StartManagedGost(ctx, c)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer finish()
+		time.Sleep(300 * time.Millisecond)
+	}
 	if *testFault != "" {
 		if !c.AllowInsecure {
 			log.Fatal("fault injection is disabled outside isolated tests")
@@ -295,6 +357,11 @@ func main() {
 	if e = k.Initialize(); e != nil {
 		log.Fatal(e)
 	}
+	if *helperMode && k.Gost != nil && k.Mode == "gost" {
+		if e = k.Gost.WaitReady(20 * time.Second); e != nil {
+			log.Fatal(e)
+		}
+	}
 	m, e := engine.New(c.StatePath, &k)
 	if e != nil {
 		log.Fatal(e)
@@ -305,6 +372,9 @@ func main() {
 		}
 		if _, e = os.Stat("/run/flux-test-disposable"); e != nil {
 			log.Fatal("fault injection requires the disposable container marker")
+		}
+		if *testFault == "mode-reject" {
+			m.ModeFailure = func() error { return fmt.Errorf("injected mode activation failure") }
 		}
 		m.Fault = func(stage string) {
 			if stage == *testFault {

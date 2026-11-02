@@ -177,7 +177,7 @@ func (m *Manager) RefreshRuntime(ctx context.Context) error {
 				keys[fmt.Sprintf("%s,0x%x", p.Host, flowMark(s))] = true
 			}
 		}
-		for _, key := range old.TargetKeys() {
+		for _, key := range m.targetKeys(old) {
 			if !keys[key] {
 				after.CounterRetiredAt[key] = now
 			}

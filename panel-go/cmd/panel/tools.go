@@ -92,7 +92,7 @@ func runTool(args []string) error {
 	}
 }
 
-var forwardMigrations = []string{"001-forward-engines.sql", "002-engine-foundation.sql", "003-engine-p1.sql", "004-node-kernel-backend.sql", "005-native-only.sql", "006-go-panel-runtime.sql"}
+var forwardMigrations = []string{"001-forward-engines.sql", "002-engine-foundation.sql", "003-engine-p1.sql", "004-node-kernel-backend.sql", "005-native-only.sql", "006-go-panel-runtime.sql", "007-managed-agent.sql"}
 
 func migrateDatabase(ctx context.Context, db *sql.DB, dir string, initialize bool) error {
 	// Read the entire bundle before changing any data, so incomplete packages fail first.

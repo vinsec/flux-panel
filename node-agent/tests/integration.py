@@ -85,7 +85,10 @@ def namespaces():
     router('iptables','-A','FORWARD','-i','r0','-o','r1','-j','ACCEPT')
     check('isolated client/router/target namespaces; forwarding default DROP')
 def start_agent(n):
-    p=pathlib.Path('/tmp/flux-agent-config.json');p.write_text(json.dumps({'addr':'http://10.203.3.1:6365','secret':n['secret'],'statePath':'/tmp/flux-agent-state.json','apply':True,'allowInsecure':True,'intervalSeconds':1,'useSessions':True,**({'dnsServers':['10.203.3.1:8053']} if os.getenv('FLUX_TEST_ADVANCED')=='1' else {})}))
+    p=pathlib.Path('/tmp/flux-agent-config.json');config={'addr':'http://10.203.3.1:6365','secret':n['secret'],'statePath':'/tmp/flux-agent-state.json','apply':True,'allowInsecure':True,'intervalSeconds':1,'useSessions':True,**({'dnsServers':['10.203.3.1:8053']} if os.getenv('FLUX_TEST_ADVANCED')=='1' else {})}
+    if os.getenv('FLUX_TEST_MANAGED_GOST'):
+        binary=pathlib.Path(os.environ['FLUX_TEST_MANAGED_GOST']);config['managedGost']={'binary':str(binary),'sha256':hashlib.sha256(binary.read_bytes()).hexdigest(),'socket':'/tmp/managed-guest/control.sock'}
+    p.write_text(json.dumps(config))
     return start(['ip','netns','exec','router','sh','-c','mountpoint -q /sys/fs/bpf || mount -t bpf bpf /sys/fs/bpf; mkdir -p /run/flux-agent-bpf; mount -t tmpfs -o mode=0700 tmpfs /run/flux-agent-bpf; "$1" --prepare-local-shaping >/dev/null; exec setpriv --bounding-set=-all,+net_admin,+net_raw,+net_bind_service "$@"','sh',str(AGENT),'--config',str(p)],'agent.log')
 def usage_total(fid):return sql('SELECT in_flow+out_flow AS total FROM forward WHERE id=%s',(fid,))[0]['total']
 try:
@@ -112,7 +115,7 @@ try:
         c.execute((ROOT/'database/migrations/001-forward-engines.sql').read_text())
         while c.nextset():pass
     with db.cursor() as c:
-        for migration in ['002-engine-foundation.sql','003-engine-p1.sql','004-node-kernel-backend.sql','005-native-only.sql']+['006-go-panel-runtime.sql']:
+        for migration in ['002-engine-foundation.sql','003-engine-p1.sql','004-node-kernel-backend.sql','005-native-only.sql']+['006-go-panel-runtime.sql','007-managed-agent.sql']:
             for _ in range(2):
                 c.execute((ROOT/'database/migrations'/migration).read_text())
                 while c.nextset():pass
@@ -127,9 +130,19 @@ try:
     namespaces();start(['ip','netns','exec','target','python3','/repo/node-agent/tests/echo_server.py'],'target.log')
     n=node('iptables-test');agent=start_agent(n);wait(lambda:sql('SELECT status FROM node WHERE id=%s',(n['id'],))[0]['status']==1)
     check('independent agent authenticated and registered over encrypted WebSocket frames')
-    assert not any('gost' in p.read_text(errors='ignore').replace('\0',' ').split(' ')[0] for p in pathlib.Path('/proc').glob('[0-9]*/cmdline') if p.exists())
+    if not os.getenv('FLUX_TEST_MANAGED_GOST'):
+        assert not any('gost' in p.read_text(errors='ignore').replace('\0',' ').split(' ')[0] for p in pathlib.Path('/proc').glob('[0-9]*/cmdline') if p.exists())
     t=tunnel(n,'iptables-test');f=forward(t,'iptables-test')
     check('panel creates IPv4 TCP and UDP DNAT/SNAT forward',probe()=='tcp_udp_ok')
+    if os.getenv('FLUX_TEST_MANAGED_GOST'):
+        original_node=n['id'];epoch=json.loads(pathlib.Path('/tmp/flux-agent-state.json').read_text())['epoch']
+        for selected in ['gost','kernel']:
+            ident='full-e2e-mode-'+selected
+            api('engine/switch-mode',{'nodeId':n['id'],'id':ident,'mode':selected})
+            wait(lambda:api('engine/mode-switch-status',{'nodeId':n['id']})['data']['status']=='succeeded',60)
+            current=sql('SELECT engine,forwarding_mode FROM node WHERE id=%s',(n['id'],))[0]
+            check('real panel same-node switch to '+selected,current['engine']=='kernel' and current['forwarding_mode']==selected and probe()=='tcp_udp_ok' and json.loads(pathlib.Path('/tmp/flux-agent-state.json').read_text())['epoch']==epoch)
+
     config=json.loads(pathlib.Path('/tmp/flux-agent-config.json').read_text());config['statePath']='/tmp/missing-state.json';pathlib.Path('/tmp/lost-config.json').write_text(json.dumps(config))
     lost=subprocess.run(['ip','netns','exec','router',str(AGENT),'--config','/tmp/lost-config.json'],capture_output=True,text=True,timeout=8)
     check('a second state path cannot adopt counters from a managed namespace',lost.returncode!=0 and ('persistent state missing' in lost.stderr or 'network namespace is already managed' in lost.stderr) and probe()=='tcp_udp_ok')

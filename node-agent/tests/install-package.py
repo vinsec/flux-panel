@@ -16,6 +16,7 @@ try:
  wrong=install(extra=['--manifest-sha256','0'*64],success=False);check('wrong pinned manifest cannot install a binary',wrong.returncode!=0 and not binary.exists())
  install(extra=['--dry-run']);check('dry run verifies package without creating target directories',not prefix.exists())
  install();expected=hashlib.sha256((package/('flux-agent-linux-'+arch)).read_bytes()).hexdigest();check('offline pinned installation writes exact binary and protected config',hashlib.sha256(binary.read_bytes()).hexdigest()==expected and (prefix/'etc/flux-agent/config.json').stat().st_mode&0o777==0o600)
+ managed=prefix/'usr/local/lib/flux-agent/gost-managed';expected_managed=hashlib.sha256((package/('gost-managed-linux-'+arch)).read_bytes()).hexdigest();check('managed artifact is checksum-pinned and installed separately',managed.exists() and hashlib.sha256(managed.read_bytes()).hexdigest()==expected_managed)
  before=binary.stat().st_mtime_ns;install();check('repeated identical install is idempotent',binary.stat().st_mtime_ns==before)
  serial=PANEL.serial;a=spawn(ns('router',str(binary),'--config',str(prefix/'etc/flux-agent/config.json')),'installed-agent.log');wait(lambda:PANEL.serial>serial);apply(spec());check('installed artifact actually forwards TCP and UDP',probe());stop(a)
  install('uninstall');check('uninstall keeps durable state and backup while removing owned dataplane',not binary.exists() and ledger.exists() and 'keep-unrelated' in router('iptables-save'))

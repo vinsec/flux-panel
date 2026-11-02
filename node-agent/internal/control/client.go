@@ -17,21 +17,30 @@ import (
 )
 
 type Config struct {
-	KernelBackend   string   `json:"kernelBackend,omitempty"`
-	DNSServers      []string `json:"dnsServers,omitempty"`
-	LegacyQueryAuth bool     `json:"legacyQueryAuth,omitempty"`
-	UseSessions     bool     `json:"useSessions,omitempty"`
-	HelperSocket    string   `json:"helperSocket,omitempty"`
-	Addr            string   `json:"addr"`
-	Secret          string   `json:"secret"`
-	StatePath       string   `json:"statePath"`
-	Iptables        string   `json:"iptables,omitempty"`
-	Apply           bool     `json:"apply"`
-	AllowInsecure   bool     `json:"allowInsecure"`
-	IntervalSeconds int      `json:"intervalSeconds"`
+	ManagedGost     *ManagedGostConfig `json:"managedGost,omitempty"`
+	ForwardingMode  string             `json:"forwardingMode,omitempty"`
+	KernelBackend   string             `json:"kernelBackend,omitempty"`
+	DNSServers      []string           `json:"dnsServers,omitempty"`
+	LegacyQueryAuth bool               `json:"legacyQueryAuth,omitempty"`
+	UseSessions     bool               `json:"useSessions,omitempty"`
+	HelperSocket    string             `json:"helperSocket,omitempty"`
+	Addr            string             `json:"addr"`
+	Secret          string             `json:"secret"`
+	StatePath       string             `json:"statePath"`
+	Iptables        string             `json:"iptables,omitempty"`
+	Apply           bool               `json:"apply"`
+	AllowInsecure   bool               `json:"allowInsecure"`
+	IntervalSeconds int                `json:"intervalSeconds"`
 }
 
 func (c Config) URLs() (string, string, error) {
+	if c.ForwardingMode != "" && c.ForwardingMode != "kernel" && c.ForwardingMode != "gost" {
+		return "", "", fmt.Errorf("invalid forwardingMode")
+	}
+	if c.ForwardingMode == "gost" && c.ManagedGost == nil {
+		return "", "", fmt.Errorf("GOST mode requires managedGost")
+	}
+
 	if c.Iptables != "" || (c.KernelBackend != "" && c.KernelBackend != "nftables") {
 		return "", "", fmt.Errorf("iptables backend is retired; only native nftables is supported")
 	}
@@ -57,7 +66,7 @@ func (c Config) URLs() (string, string, error) {
 	q := ws.Query()
 	q.Set("type", "1")
 	q.Set("engine", "kernel")
-	q.Set("version", "kernel-v6.0")
+	q.Set("version", "kernel-v7.0")
 	if c.LegacyQueryAuth {
 		q.Set("secret", c.Secret)
 	}
@@ -109,6 +118,30 @@ func Handle(m ManagerAPI, data []byte) ([]byte, error) {
 		var count int
 		count, e = m.Collect(time.Minute)
 		r.Data = map[string]int{"removed": count}
+	case "SubmitModeSwitch":
+		var req engine.ModeRequest
+		if e = strictJSON(cmd.Data, &req); e == nil {
+			if v, ok := m.(interface {
+				SubmitModeSwitch(engine.ModeRequest) (engine.ModeSwitch, error)
+			}); ok {
+				r.Data, e = v.SubmitModeSwitch(req)
+			} else {
+				e = fmt.Errorf("engine switching unavailable")
+			}
+		}
+	case "GetModeSwitchStatus":
+		var req struct {
+			ID string `json:"id"`
+		}
+		if e = strictJSON(cmd.Data, &req); e == nil {
+			if v, ok := m.(interface {
+				ModeSwitchStatus(string) (engine.ModeSwitch, error)
+			}); ok {
+				r.Data, e = v.ModeSwitchStatus(req.ID)
+			} else {
+				e = fmt.Errorf("engine switching unavailable")
+			}
+		}
 	case "GetCapabilities":
 		r.Data = m.Info()
 	case "GetForwardStatus":

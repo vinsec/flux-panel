@@ -202,7 +202,7 @@ func setupDB(t *testing.T) *testPanel {
 	if root == "" {
 		root = "../../.."
 	}
-	files := []string{"gost.sql", "database/migrations/001-forward-engines.sql", "database/migrations/002-engine-foundation.sql", "database/migrations/003-engine-p1.sql", "database/migrations/004-node-kernel-backend.sql", "database/migrations/005-native-only.sql", "database/migrations/006-go-panel-runtime.sql"}
+	files := []string{"gost.sql", "database/migrations/001-forward-engines.sql", "database/migrations/002-engine-foundation.sql", "database/migrations/003-engine-p1.sql", "database/migrations/004-node-kernel-backend.sql", "database/migrations/005-native-only.sql", "database/migrations/006-go-panel-runtime.sql", "database/migrations/007-managed-agent.sql"}
 	for _, f := range files {
 		b, e := os.ReadFile(filepath.Join(root, f))
 		if e != nil {

@@ -53,6 +53,11 @@ func (p *program) Start() error {
 		return err
 	}
 
+	if agentManaged {
+		// The dedicated Unix server in runManaged is the only management endpoint.
+		cfg.API, cfg.Metrics, cfg.Profiling = nil, nil, nil
+	}
+
 	if outputFormat != "" {
 		if err := cfg.Write(os.Stdout, outputFormat); err != nil {
 			return err
@@ -72,9 +77,14 @@ func (p *program) Start() error {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	p.cancel = cancel
-	go p.reload(ctx)
+	if !agentManaged {
+		go p.reload(ctx)
+	}
 
 	go func() {
+		if agentManaged {
+			return
+		}
 		select {
 		case <-time.After(10 * time.Second):
 			xservice.StartConfigReporter(ctx)

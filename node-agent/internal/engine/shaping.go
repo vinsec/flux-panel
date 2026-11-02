@@ -109,7 +109,9 @@ func (x *Auxiliary) shapePlan(rules map[string]Spec) (map[string]shapeClass, []s
 			if tr == 0 {
 				tr = ur
 			}
-			lk := "forward:" + id + ":" + direction
+			// HTB cannot reparent an existing leaf. Group membership gets a new
+			// leaf identity; old classifiers are detached before old classes retire.
+			lk := "forward:" + id + ":" + direction + ":" + tk
 			definitions[uk] = shapeClass{Key: uk, Rate: ur, Depth: 1}
 			definitions[tk] = shapeClass{Key: tk, Parent: uk, Rate: tr, Depth: 2}
 			definitions[lk] = shapeClass{Key: lk, Parent: tk, Rate: lr, Depth: 3}

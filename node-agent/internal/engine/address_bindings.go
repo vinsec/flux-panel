@@ -41,6 +41,18 @@ func (m *Manager) refreshAddressesLocked() error {
 }
 
 func (k *NativeKernel) RefreshBindings(rules map[string]Spec) (bool, error) {
+	if k.Gost != nil && k.Mode == "gost" {
+		previous := k.Gost.generation
+		if e := k.Gost.ready(); e != nil {
+			_ = k.Quiesce()
+			k.P1.addressDirty.Store(true)
+			return false, e
+		}
+		if previous != k.Gost.generation {
+			k.P1.addressDirty.Store(true)
+			k.Native.bindings = ""
+		}
+	}
 	dirty := k.P1.addressDirty.Swap(false)
 	contractsChanged := k.P1.runtimeContractsChanged(rules)
 	if !dirty && !contractsChanged {
@@ -62,7 +74,7 @@ func (k *NativeKernel) RefreshBindings(rules map[string]Spec) (bool, error) {
 	if e := k.Native.gate(nil, false, false); e != nil {
 		return false, e
 	}
-	if e := k.Native.apply(mapSpecs(rules)); e != nil {
+	if e := k.Apply(Render(rules, nil)); e != nil {
 		k.P1.addressDirty.Store(true)
 		return false, e
 	}

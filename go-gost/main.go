@@ -30,14 +30,16 @@ func (l *stringList) Set(value string) error {
 }
 
 var (
-	cfgFile      string
-	outputFormat string
-	services     stringList
-	nodes        stringList
-	debug        bool
-	trace        bool
-	apiAddr      string
-	metricsAddr  string
+	cfgFile       string
+	outputFormat  string
+	services      stringList
+	nodes         stringList
+	debug         bool
+	trace         bool
+	apiAddr       string
+	metricsAddr   string
+	agentManaged  bool
+	managedSocket string
 )
 
 func init() {
@@ -96,6 +98,8 @@ func init() {
 	flag.BoolVar(&trace, "DD", false, "trace mode")
 	flag.StringVar(&apiAddr, "api", "", "api service address")
 	flag.StringVar(&metricsAddr, "metrics", "", "metrics service address")
+	flag.BoolVar(&agentManaged, "agent-managed", false, "run under the Flux Agent without panel registration or delta reporting")
+	flag.StringVar(&managedSocket, "agent-socket", "", "private supervisor Unix socket")
 	flag.Parse()
 
 	if printVersion {
@@ -106,6 +110,13 @@ func init() {
 }
 
 func main() {
+	if agentManaged {
+		if err := runManaged(); err != nil {
+			log.Print(err)
+			os.Exit(1)
+		}
+		return
+	}
 	// 加载配置文件
 	config, err := LoadConfig("config.json")
 	if err != nil {

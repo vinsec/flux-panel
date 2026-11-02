@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-gost/core/observer/stats"
@@ -16,6 +17,10 @@ import (
 )
 
 var httpReportURL string
+var agentManaged atomic.Bool
+
+func SetAgentManaged(value bool) { agentManaged.Store(value) }
+
 var configReportURL string
 var httpAESCrypto *crypto.AESCrypto // 新增：HTTP上报加密器
 
@@ -60,6 +65,9 @@ func SetHTTPReportURL(addr string, secret string) {
 
 // sendTrafficReport 发送流量报告到HTTP接口
 func sendTrafficReport(ctx context.Context, reportItems TrafficReportItem) (bool, error) {
+	if agentManaged.Load() {
+		return false, nil
+	}
 	jsonData, err := json.Marshal(reportItems)
 	if err != nil {
 		return false, fmt.Errorf("序列化报告数据失败: %v", err)

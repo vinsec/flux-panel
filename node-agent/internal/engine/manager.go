@@ -33,6 +33,8 @@ type Manager struct {
 	runtimeCursor  string
 	// Fault is injected by tests only. It is never supplied in remote commands.
 	Fault func(string)
+	// ModeFailure is injected only by local disposable-kernel verifiers.
+	ModeFailure func() error
 }
 
 func New(path string, k Kernel) (manager *Manager, err error) {
@@ -58,7 +60,7 @@ func New(path string, k Kernel) (manager *Manager, err error) {
 	} else if !fresh {
 		return nil, e
 	}
-	if m.state.FormatVersion > 7 {
+	if m.state.FormatVersion > 8 {
 		return nil, fmt.Errorf("unsupported state format")
 	}
 	if _, ok := k.(*NativeKernel); ok {
@@ -66,6 +68,24 @@ func New(path string, k Kernel) (manager *Manager, err error) {
 			return nil, fmt.Errorf("iptables state is retired; settle it using the previous release before explicit migration")
 		}
 		m.state.KernelBackend = "nftables"
+		if concrete := k.(*NativeKernel); concrete.Gost != nil {
+			m.state.ManagedEngines = m.state.ManagedEngines || concrete.Mode == "gost"
+			if m.state.ForwardingMode == "" {
+				m.state.ForwardingMode = concrete.Mode
+			}
+			if !validMode(m.state.ForwardingMode) {
+				return nil, fmt.Errorf("invalid persisted forwarding mode")
+			}
+			if j := m.state.EngineSwitch; j.Status == "queued" || j.Status == "running" {
+				m.state.ForwardingMode = j.From
+				j.Status = "failed"
+				j.Error = "interrupted mode switch rolled back on startup"
+				m.state.EngineSwitch = j
+			}
+			concrete.Mode = m.state.ForwardingMode
+		} else if m.state.ManagedEngines {
+			return nil, fmt.Errorf("managed GOST configuration required for this checkpoint")
+		}
 	}
 	if !fresh && (len(m.state.Epoch) != 32 || m.state.Sequence < 0) {
 		return nil, fmt.Errorf("invalid persistent accounting identity")
@@ -232,6 +252,9 @@ func (m *Manager) defaults() {
 		s.NextToken = 1
 	}
 	s.FormatVersion = requiredStateFormat(s.Rules)
+	if s.ManagedEngines {
+		s.FormatVersion = max(s.FormatVersion, 8)
+	}
 	if s.KernelBackend == "nftables" {
 		s.FormatVersion = max(s.FormatVersion, 6)
 	}
@@ -672,7 +695,7 @@ func (m *Manager) ApplyBatch(b Batch) error {
 				l.Closed = true
 				after.Leases[s.ID] = l
 			}
-			for _, key := range old.TargetKeys() {
+			for _, key := range m.targetKeys(old) {
 				after.CounterRetiredAt[key] = time.Now().UnixMilli()
 			}
 		}
@@ -1022,8 +1045,14 @@ func (m *Manager) Info() map[string]any {
 	}
 	capacity := map[string]any{"configuredForwards": configured, "retainedForwards": len(m.state.Rules), "forwardLimit": 10000, "resolvedPaths": paths, "resolvedPathLimit": 32768, "counterEntriesBySet": sets, "freeTokens": len(m.state.FreeTokens), "quarantinedTokens": len(m.state.Quarantine), "retiredCounters": len(m.state.CounterRetiredAt)}
 	caps := CurrentCapabilities()
+	switchable := false
+	if k, ok := m.Kernel.(*NativeKernel); ok {
+		switchable = k.Gost != nil
+	}
+	caps.Features["engineSwitch"] = switchable
+	caps.AgentVersion = "kernel-v7.0"
 	caps.Features["nativeNFTMap"] = m.state.KernelBackend == "nftables"
-	return map[string]any{"kernelBackend": m.state.KernelBackend, "capacity": capacity, "lastAckAt": m.state.LastAckAt, "lastConnectedAt": m.state.LastConnectedAt, "strictCreditPolicy": m.state.StrictCredit, "bootId": m.state.BootID, "capabilities": caps, "epoch": m.state.Epoch, "generation": m.state.Generation, "blocked": m.blocked, "maintenancePending": m.state.MaintenancePending, "accountingBlocked": m.state.AccountingBlocked, "lastDurableAt": m.state.LastDurableAt, "recovery": m.state.Recovery}
+	return map[string]any{"forwardingMode": m.state.ForwardingMode, "modeSwitch": m.state.EngineSwitch, "managedEngines": switchable, "kernelBackend": m.state.KernelBackend, "capacity": capacity, "lastAckAt": m.state.LastAckAt, "lastConnectedAt": m.state.LastConnectedAt, "strictCreditPolicy": m.state.StrictCredit, "bootId": m.state.BootID, "capabilities": caps, "epoch": m.state.Epoch, "generation": m.state.Generation, "blocked": m.blocked, "maintenancePending": m.state.MaintenancePending, "accountingBlocked": m.state.AccountingBlocked, "lastDurableAt": m.state.LastDurableAt, "recovery": m.state.Recovery}
 }
 
 func (m *Manager) Connected(value bool) {

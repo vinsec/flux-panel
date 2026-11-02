@@ -37,6 +37,10 @@ func (p *Panel) audit(s store, user any, node int64, action, service, detail str
 func (p *Panel) engineAPI(s store, c, b M, action string) any {
 	node := num(b["nodeId"])
 	switch action {
+	case "switch-mode":
+		return p.switchMode(s, c, b, false)
+	case "mode-switch-status":
+		return p.switchMode(s, c, b, true)
 	case "socket-ticket":
 		p.mu.Lock()
 		defer p.mu.Unlock()

@@ -83,6 +83,9 @@ type RecoveryInfo struct {
 	Reason        string `json:"reason,omitempty"`
 }
 type State struct {
+	ManagedEngines     bool              `json:"managedEngines,omitempty"`
+	ForwardingMode     string            `json:"forwardingMode,omitempty"`
+	EngineSwitch       ModeSwitch        `json:"engineSwitch,omitempty"`
 	KernelBackend      string            `json:"kernelBackend,omitempty"`
 	CounterLast        map[string]uint64 `json:"counterLast,omitempty"`
 	ReportCursor       string            `json:"reportCursor,omitempty"`

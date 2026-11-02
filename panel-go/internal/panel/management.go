@@ -213,6 +213,17 @@ func (p *Panel) nodeAPI(s store, c, b M, action string) any {
 		m["updatedTime"] = now()
 		if action == "create" {
 			m["kernelBackend"] = "nftables"
+			mode := str(b["forwardingMode"])
+			if mode == "" {
+				mode = "kernel"
+			}
+			if mode != "kernel" && mode != "gost" {
+				fail("invalid forwarding mode")
+			}
+			if engine != "kernel" && mode != "kernel" {
+				fail("旧 GOST 节点不接受统一 Agent 转发模式")
+			}
+			m["forwardingMode"] = mode
 			m["secret"] = randomHex(16)
 			defaults(m, M{"status": 0, "http": 0, "tls": 0, "socks": 0, "createdTime": now()})
 			s.insert("node", m)
@@ -284,7 +295,7 @@ func (p *Panel) installCommand(s store, n M) string {
 	cfg := M{"addr": panel, "secret": n["secret"]}
 	if engine == "kernel" {
 		nativeNode(n)
-		defaults(cfg, M{"kernelBackend": "nftables", "apply": true, "helperSocket": "/run/flux-agent/kernel.sock", "useSessions": true, "statePath": "/var/lib/flux-agent/state.json", "intervalSeconds": 5})
+		defaults(cfg, M{"kernelBackend": "nftables", "apply": true, "helperSocket": "/run/flux-agent/kernel.sock", "useSessions": true, "statePath": "/var/lib/flux-agent/state.json", "intervalSeconds": 5, "forwardingMode": n["forwardingMode"]})
 	}
 	baseURL := strings.TrimRight(p.cfg.ReleaseBase, "/")
 	return "umask 077\nFLUX_SETUP=$(mktemp -d)\ntrap 'rm -rf -- \"$FLUX_SETUP\"' EXIT\ncurl --fail --location --proto '=https' --proto-redir '=https' " + quote(baseURL+"/install.sh") + " -o \"$FLUX_SETUP/install.sh\"\nprintf '%s  %s\\n' " + quote(strings.ToLower(p.cfg.InstallerSHA)) + " \"$FLUX_SETUP/install.sh\" | sha256sum --strict -c -\ncat > \"$FLUX_SETUP/config.json\" <<'FLUX_NODE_CONFIG'\n" + jsonText(cfg) + "\nFLUX_NODE_CONFIG\nbash \"$FLUX_SETUP/install.sh\" --engine " + engine + " --release-url " + quote(baseURL) + " --manifest-sha256 " + quote(strings.ToLower(p.cfg.ManifestSHA)) + " --config \"$FLUX_SETUP/config.json\""

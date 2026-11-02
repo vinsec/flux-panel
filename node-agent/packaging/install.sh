@@ -26,6 +26,11 @@ verified "flux-agent-linux-$ARCH";chmod 0755 "$STAGE/flux-agent-linux-$ARCH";TOO
 if [[ "$ENGINE" == kernel ]];then
  UNIT=flux-agent.service;NAME=flux-agent;DIRECTORY="$PREFIX/etc/flux-agent";BINARY="$PREFIX/usr/local/bin/flux-agent";STATE_DIRECTORY="$PREFIX/var/lib/flux-agent";STATE="$STATE_DIRECTORY/state.json"
  verified flux-agent.service;verified flux-kernel.service;verified flux-agent-tmpfiles.conf
+ verified "gost-managed-linux-$ARCH";chmod 0755 "$STAGE/gost-managed-linux-$ARCH"
+ MANAGED_BINARY="$PREFIX/usr/local/lib/flux-agent/gost-managed"
+ MANAGED_SHA="$(sha256sum "$STAGE/gost-managed-linux-$ARCH" | cut -d' ' -f1)"
+ "$TOOL" --config "$CONFIG" --write-managed-config "$STAGE/managed-config.json" --managed-binary "$MANAGED_BINARY" --managed-sha256 "$MANAGED_SHA"
+ CONFIG="$STAGE/managed-config.json"
  "$TOOL" --check-config --expected-state-path "$STATE" --config "$CONFIG" >/dev/null
 else
  UNIT=gost.service;NAME=gost;DIRECTORY="$PREFIX/etc/gost";BINARY="$DIRECTORY/gost";STATE_DIRECTORY="$PREFIX/var/lib/gost-installer";STATE="$STATE_DIRECTORY/unused"
@@ -41,7 +46,9 @@ if [[ "$ENGINE" == kernel ]] && (( ! NO_SERVICE ));then "$TOOL" --config "$CONFI
 if [[ -f "$DIRECTORY/config.json" ]];then "$TOOL" --config "$CONFIG" --same-node-config "$DIRECTORY/config.json" >/dev/null;fi
 if [[ "$ACTION" == install && -f "$BINARY" && -f "$DIRECTORY/config.json" ]];then
  CURRENT="$(sha256sum "$BINARY" | cut -d' ' -f1)";EXPECTED="$(sha256sum "$STAGE/${ENGINE/kernel/flux-agent}-linux-$ARCH" | cut -d' ' -f1)"
- if [[ "$CURRENT" == "$EXPECTED" && ! -e "$STATE.maintenance" && ! -e "$STATE.journal" ]] && cmp -s "$EFFECTIVE_CONFIG" "$DIRECTORY/config.json";then echo 'Verified version and configuration already installed.';exit 0;fi
+ MANAGED_MATCH=1
+ if [[ "$ENGINE" == kernel ]] && { [[ ! -f "$MANAGED_BINARY" ]] || [[ "$(sha256sum "$MANAGED_BINARY" | cut -d' ' -f1)" != "$MANAGED_SHA" ]]; };then MANAGED_MATCH=0;fi
+ if (( MANAGED_MATCH )) && [[ "$CURRENT" == "$EXPECTED" && ! -e "$STATE.maintenance" && ! -e "$STATE.journal" ]] && cmp -s "$EFFECTIVE_CONFIG" "$DIRECTORY/config.json";then echo 'Verified version and configuration already installed.';exit 0;fi
 fi
 install -d -m 0700 "$DIRECTORY" "$STATE_DIRECTORY" "$STATE_DIRECTORY/backups"
 BACKUP="$STATE_DIRECTORY/backups/$(date -u +%Y%m%dT%H%M%SZ)-$$"
@@ -59,6 +66,7 @@ rollback(){
   fi
   (cd "$BACKUP";sha256sum -c previous.sha256 >/dev/null) || exit "$code"
   cp -p -- "$BACKUP/previous.bin" "$BINARY"
+  if [[ "$ENGINE" == kernel && -f "$BACKUP/previous-managed.bin" ]];then (cd "$BACKUP";sha256sum -c previous-managed.sha256 >/dev/null) || exit "$code";cp -p "$BACKUP/previous-managed.bin" "$MANAGED_BINARY";fi
   [[ ! -f "$BACKUP/previous-config.json" ]] || cp -p "$BACKUP/previous-config.json" "$DIRECTORY/config.json"
   if (( ! NO_SERVICE ));then
    if [[ -s "$BACKUP/previous-units.sha256" ]];then (cd "$BACKUP";sha256sum -c previous-units.sha256 >/dev/null) || exit "$code";fi
@@ -90,9 +98,13 @@ if (( ! NO_SERVICE ));then
  done
  (cd "$BACKUP";find . -maxdepth 1 -name 'previous-*.service' -type f -exec sha256sum '{}' ';' > previous-units.sha256)
 fi
+if [[ "$ENGINE" == kernel && -f "$MANAGED_BINARY" && ! -f "$BACKUP/previous-managed.bin" ]];then cp -p "$MANAGED_BINARY" "$BACKUP/previous-managed.bin";(cd "$BACKUP";sha256sum previous-managed.bin > previous-managed.sha256);fi
 SOURCE="$STAGE/flux-agent-linux-$ARCH";[[ "$ENGINE" == kernel ]] || SOURCE="$STAGE/gost-linux-$ARCH"
 if [[ "$ACTION" == install ]];then
- if [[ "$ENGINE" == kernel ]];then install -d -m 0755 "$(dirname "$BINARY")";fi
+ if [[ "$ENGINE" == kernel ]];then
+ install -d -m 0755 "$(dirname "$BINARY")" "$(dirname "$MANAGED_BINARY")"
+ install -m 0755 "$STAGE/gost-managed-linux-$ARCH" "$MANAGED_BINARY"
+ fi
  install -m 0755 "$SOURCE" "$BINARY.new";mv -f -- "$BINARY.new" "$BINARY"
  install -m 0600 "$EFFECTIVE_CONFIG" "$DIRECTORY/config.json"
 fi
@@ -103,6 +115,7 @@ fi
 if [[ "$ACTION" == uninstall ]];then
  if (( ! NO_SERVICE ));then systemctl disable "$UNIT" 2>/dev/null || true;if [[ "$ENGINE" == kernel ]];then systemctl disable flux-kernel.service 2>/dev/null || true;rm -f -- "$PREFIX/etc/systemd/system/flux-kernel.service";fi;rm -f -- "$PREFIX/etc/systemd/system/$UNIT";if [[ "$ENGINE" == kernel ]];then rm -f -- "$PREFIX/etc/tmpfiles.d/flux-agent.conf";fi;systemctl daemon-reload;fi
  rm -f -- "$BINARY"
+ if [[ "$ENGINE" == kernel ]];then rm -f -- "$MANAGED_BINARY";fi
  printf 'Uninstalled %s. State, credentials and recoverable backup retained at %s.\n' "$NAME" "$BACKUP";exit 0
 fi
 if [[ "$ENGINE" == gost ]];then [[ -f "$DIRECTORY/gost.json" ]] || printf '{}\n' > "$DIRECTORY/gost.json";chmod 0600 "$DIRECTORY/gost.json";fi

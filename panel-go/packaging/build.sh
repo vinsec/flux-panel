@@ -34,7 +34,7 @@ manifest={'component':'flux-panel-go','java_baseline':'a08e3d8','source_tree_sha
  'git_head':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
  'source_dirty':bool(subprocess.check_output(['git','status','--porcelain'],text=True).strip()),
  'files':files,'bundle_files':bundle,'supported_engines':['gost','kernel'],'kernel_backends':['nftables'],
- 'migration_policy':'explicit only; 001–006; no ledger reset','deployed':False}
+ 'migration_policy':'explicit only; 001–007; no ledger reset','deployed':False}
 (out/'release.json').write_text(json.dumps(manifest,indent=2)+'\n')
 checksums={**files,**bundle,'release.json':hashlib.sha256((out/'release.json').read_bytes()).hexdigest()}
 (out/'SHA256SUMS').write_text(''.join(f'{digest}  {name}\n' for name,digest in sorted(checksums.items())))

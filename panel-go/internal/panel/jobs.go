@@ -40,8 +40,8 @@ func (p *Panel) Start(ctx context.Context) {
 	if p.cfg.ReadOnly {
 		return
 	}
-	if _, e := p.db.ExecContext(ctx, "SELECT completed_at FROM panel_job_run LIMIT 0"); e != nil {
-		panic("explicit migration 006-go-panel-runtime.sql is required")
+	if _, e := p.db.ExecContext(ctx, "SELECT node_id FROM engine_mode_switch LIMIT 0"); e != nil {
+		panic("explicit migrations 006 and 007-managed-agent.sql are required")
 	}
 	conn, e := p.db.Conn(ctx)
 	must(e)
@@ -332,9 +332,16 @@ func (p *Panel) enforceQuotas(s store) {
 func (p *Panel) reconcile(s store, node int64) M {
 	n := found(s.get("node", node), "节点不存在")
 	nativeNode(n)
-	return p.withPort(s, M{"inNodeId": node}, func(s store) any { return p.reconcileLocked(s, node) }).(M)
+	return p.withPort(s, M{"inNodeId": node, "_modeSwitch": true}, func(s store) any { return p.reconcileLocked(s, node) }).(M)
 }
 func (p *Panel) reconcileLocked(s store, node int64) M {
+	if row := s.one("SELECT status FROM engine_mode_switch WHERE node_id=?", node); row != nil && (str(row["status"]) == "pending" || str(row["status"]) == "running") {
+		return p.resumeModeSwitch(s, node)
+	}
+	if row := s.one("SELECT status FROM engine_mode_switch WHERE node_id=?", node); row != nil && str(row["status"]) == "blocked" {
+		fail("节点切换回滚失败，等待恢复")
+	}
+
 	p.verifyAgent(s, node)
 	p.requireCapability(node, "batch")
 	pending := s.one("SELECT body FROM panel_pending_batch WHERE node_id=?", node)

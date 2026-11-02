@@ -7,6 +7,9 @@ commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).st
 for arch in ['amd64','arm64']:
  env=__import__('os').environ.copy();env.update(CGO_ENABLED='0',GOOS='linux',GOARCH=arch)
  subprocess.run(['go','build','-trimpath','-buildvcs=false','-o',str(out/('flux-agent-linux-'+arch)),'./cmd/flux-agent'],cwd=root/'node-agent',env=env,check=True)
+for arch in ['amd64','arm64']:
+ env=__import__('os').environ.copy();env.update(CGO_ENABLED='0',GOOS='linux',GOARCH=arch,GOTOOLCHAIN='go1.25.4')
+ subprocess.run(['go','build','-trimpath','-buildvcs=false','-o',str(out/('gost-managed-linux-'+arch)),'.'],cwd=root/'go-gost',env=env,check=True)
 shutil.copyfile(root/'node-agent/packaging/flux-agent-tmpfiles.conf',out/'flux-agent-tmpfiles.conf');shutil.copyfile(root/'node-agent/packaging/install.sh',out/'install.sh');shutil.copyfile(root/'node-agent/packaging/flux-agent.service',out/'flux-agent.service');shutil.copyfile(root/'node-agent/packaging/flux-kernel.service',out/'flux-kernel.service');shutil.copyfile(root/'node-agent/packaging/flux-kernel-local-shaping.conf',out/'flux-kernel-local-shaping.conf');shutil.copyfile(root/'node-agent/packaging/flux-local-shaping-prepare.service',out/'flux-local-shaping-prepare.service')
 proof={}
 if a.gost_amd64 or a.gost_arm64:
@@ -18,7 +21,7 @@ if a.gost_amd64 or a.gost_arm64:
   if expected.get('sha256')!=sha or not expected.get('ws') or not expected.get('wss'):p.error('unverified GOST binary '+arch)
   shutil.copyfile(source,out/('gost-linux-'+arch));(out/('gost-linux-'+arch)).chmod(0o755)
  (out/'gost-wss-evidence.json').write_text(json.dumps(proof,indent=2))
-manifest={'format':1,'sourceCommit':commit,'sourceDirty':dirty,'engines':['kernel']+(['gost'] if proof else []),'kernelBackends':['nftables'],'stateVersion':7,'requiresExplicitDatabaseMigration':['001-forward-engines.sql','002-engine-foundation.sql','003-engine-p1.sql','004-node-kernel-backend.sql','005-native-only.sql']}
+manifest={'format':1,'sourceCommit':commit,'sourceDirty':dirty,'engines':['kernel']+(['gost'] if proof else []),'kernelBackends':['nftables'],'stateVersion':8,'managedGost':True,'forwardingModes':['kernel','gost'],'requiresExplicitDatabaseMigration':['001-forward-engines.sql','002-engine-foundation.sql','003-engine-p1.sql','004-node-kernel-backend.sql','005-native-only.sql','006-go-panel-runtime.sql','007-managed-agent.sql']}
 (out/'release.json').write_text(json.dumps(manifest,indent=2)+'\n')
 lines=[]
 for f in sorted(out.iterdir()):

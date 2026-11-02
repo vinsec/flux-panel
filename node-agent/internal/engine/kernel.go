@@ -17,13 +17,25 @@ type Kernel interface {
 	Apply(map[string]string) error
 }
 type NativeKernel struct {
+	Gost   *GostRunner
+	Mode   string
 	DPI    *protocolEngine
 	Native *NativeNFT
 	P1     *AdvancedKernel
 }
 
 func (k *NativeKernel) Configured() (bool, error) { return k.Native.configured() }
-func (k *NativeKernel) ValidateSpec(s Spec) error { return k.P1.validate(s) }
+func (k *NativeKernel) ValidateSpec(s Spec) error {
+	if k.Gost != nil && k.Mode == "gost" {
+		if e := k.Gost.validate(s); e != nil {
+			return e
+		}
+		if e := k.checkGostShaping([]Spec{s}); e != nil {
+			return e
+		}
+	}
+	return k.P1.validate(s)
+}
 func ValidateCheckpointBackend(path string) error {
 	b, e := os.ReadFile(path)
 	if os.IsNotExist(e) {
@@ -87,6 +99,13 @@ func (k *NativeKernel) validateBaseSpec(s Spec) error {
 // conntrack mappings alive and could revive an old target when a port is reused.
 
 func (k *NativeKernel) Forget(s Spec) error {
+	if k.Gost != nil && k.Mode == "gost" {
+		plan, _, e := k.Gost.project([]Spec{s})
+		if e != nil {
+			return e
+		}
+		s = plan[0]
+	}
 	seen := map[string]bool{}
 	for _, l := range s.ListenerList() {
 		if seen[l.Family] {
@@ -108,6 +127,13 @@ func (k *NativeKernel) ForgetMany(specs []Spec) error {
 			}
 		}
 		return nil
+	}
+	if k.Gost != nil && k.Mode == "gost" {
+		projected, _, e := k.Gost.project(specs)
+		if e != nil {
+			return e
+		}
+		specs = projected
 	}
 	groups := map[string][]Spec{}
 	for _, s := range specs {
@@ -247,6 +273,32 @@ func (k *NativeKernel) Apply(tables map[string]string) (failure error) {
 	plan, e := decodePlan(tables)
 	if e != nil {
 		return e
+	}
+	if k.Gost != nil {
+		if k.Mode == "gost" {
+			projected, services, e := k.Gost.project(plan)
+			if e != nil {
+				return e
+			}
+			if e = k.Gost.guard(k, services); e != nil {
+				return e
+			}
+			if e = k.Gost.sync(services); e != nil {
+				return e
+			}
+			return k.Native.apply(projected)
+		}
+		if e := k.Gost.ready(); e == nil {
+			if e = k.Gost.clear(); e != nil {
+				return e
+			}
+			if e = k.Gost.guard(k, map[string]map[string]any{}); e != nil {
+				return e
+			}
+		} else if len(k.Gost.applied) > 0 {
+			return e
+		}
+
 	}
 	return k.Native.apply(plan)
 }

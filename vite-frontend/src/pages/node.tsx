@@ -14,6 +14,7 @@ import { Progress } from "@heroui/progress";
 import toast from 'react-hot-toast';
 import axios from 'axios';
 import NodeEngineTools from '@/components/node-engine-tools';
+import NodeModeSwitch from '@/components/node-mode-switch';
 
 
 import { 
@@ -28,6 +29,7 @@ import {
 interface Node {
   engine?: string;
   kernelBackend?: string;
+  forwardingMode?: string;
   id: number;
   name: string;
   ip: string;
@@ -58,6 +60,7 @@ interface Node {
 
 interface NodeForm {
   engine: string;
+  forwardingMode: string;
   id: number | null;
   name: string;
   ipString: string;
@@ -89,6 +92,7 @@ export default function NodePage() {
     ipString: '',
     serverIp: '',
     engine: 'kernel',
+    forwardingMode: 'kernel',
     portSta: 1000,
     portEnd: 65535,
     http: 0,
@@ -457,6 +461,7 @@ export default function NodePage() {
       ipString: node.ip ? node.ip.split(',').map(ip => ip.trim()).join('\n') : '',
       serverIp: node.serverIp || '',
       engine: node.engine || 'gost',
+      forwardingMode: node.forwardingMode || 'kernel',
       portSta: node.portSta,
       portEnd: node.portEnd,
       http: typeof node.http === 'number' ? node.http : 1,
@@ -563,6 +568,7 @@ export default function NodePage() {
         ip: ipString,
         serverIp: form.serverIp,
         engine: form.engine,
+        forwardingMode: form.engine==='kernel' ? form.forwardingMode : undefined,
         portSta: form.portSta,
         portEnd: form.portEnd,
         http: form.http,
@@ -610,6 +616,7 @@ export default function NodePage() {
       ipString: '',
       serverIp: '',
       engine: 'kernel',
+    forwardingMode: 'kernel',
         portSta: 1000,
       portEnd: 65535,
       http: 0,
@@ -674,7 +681,7 @@ export default function NodePage() {
                   <div className="flex justify-between items-start w-full">
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-foreground truncate text-sm">{node.name}</h3>
-                      <p className="text-xs text-default-500 truncate">{node.serverIp} · {node.engine === "kernel" ? (node.kernelBackend === "nftables" ? "内核 / 原生 nftables" : "内核 / 旧 iptables 节点需迁移") : "GOST"}</p>
+                      <p className="text-xs text-default-500 truncate">{node.serverIp} · {node.engine === "kernel" ? (node.kernelBackend === "nftables" ? (node.forwardingMode==='gost' ? "统一 Agent / 受管 GOST" : "统一 Agent / 原生 nftables") : "内核 / 旧 iptables 节点需迁移") : "GOST"}</p>
                     </div>
                     <div className="flex items-center gap-1.5 ml-2">
                       <Chip 
@@ -727,6 +734,7 @@ export default function NodePage() {
                     </div>
                   </div>
 
+                  {node.engine==='kernel'&&<NodeModeSwitch node={node} onComplete={loadNodes}/>}
                   {node.engine==='kernel'&&<Button size="sm" variant="flat" className="mb-2" onPress={()=>setEngineToolsNode(node)}>带宽组 / 升级向导</Button>}
                   {/* 系统监控 */}
                   {node.engine==='kernel'&&<p className="text-xs text-default-500 mb-2">{node.systemInfo?'系统网卡指标与转发计费分别统计。':'等待真实指标；旧心跳不作为资源使用率。'}</p>}
@@ -870,13 +878,15 @@ export default function NodePage() {
             <ModalHeader>{dialogTitle}</ModalHeader>
             <ModalBody>
               <div className="space-y-4">
-                <Select label="转发引擎" selectedKeys={[form.engine]} isDisabled={isEdit} disallowEmptySelection
+                <Select label="节点程序" selectedKeys={[form.engine]} isDisabled={isEdit} disallowEmptySelection
                   onSelectionChange={(keys) => setForm(prev => ({...prev, engine: Array.from(keys)[0] as string, http: 0, tls: 0, socks: 0}))}
-                  description="节点创建后引擎固定；切换引擎请新建节点迁移。">
-                  <SelectItem key="gost">GOST</SelectItem>
-                  <SelectItem key="kernel">内核转发</SelectItem>
+                  description="节点程序创建后固定；统一 Agent 的转发模式可在节点卡片切换。">
+                  <SelectItem key="gost">独立 GOST（旧版兼容）</SelectItem>
+                  <SelectItem key="kernel">统一 Agent（nftables / GOST 可切换）</SelectItem>
                 </Select>
-                {form.engine === 'kernel' && <p className="text-xs text-default-500">内核转发固定使用原生 nftables，隧道继承节点配置。</p>}
+                {form.engine === 'kernel' && !isEdit && <Select label="初始转发模式" selectedKeys={[form.forwardingMode]} disallowEmptySelection onSelectionChange={keys=>setForm(prev=>({...prev,forwardingMode:String(Array.from(keys)[0])}))} description="隧道继承节点配置；安装后可从节点卡片切换，允许短暂中断。">
+                  <SelectItem key="kernel">原生 nftables</SelectItem><SelectItem key="gost">受管 GOST</SelectItem>
+                </Select>}
                 <Input
                   label="节点名称"
                   placeholder="请输入节点名称"

@@ -1,0 +1,699 @@
+{
+  "date": "2026-11-02",
+  "baselineTag": "baseline/pre-unified-agent-20261102",
+  "baselineCommit": "ccec0d5624eada4fecdb1d5683d234d71cbd77c8",
+  "branch": "main",
+  "productionOperations": false,
+  "externalForwardTestTargets": [],
+  "evidenceRoot": "/Users/vinsec/Documents/Codex/2026-10-23/ssh/work/unified-switch-20261102",
+  "runtime": "Debian 13 ARM64 Fusion 4 vCPU / 4 GiB; host-only management, private netns data links",
+  "binaries": {
+    "flux-agent": "a97b7c013f03ae9cdd315d15861b2c1ccb3613c98e835c5e1035e1b782fbb87c",
+    "flux-agent-amd64": "e435ad593e2f35c2ab914750992c79ea63a43a56075b63ecc3d16389b3477427",
+    "gost": "117c58a95432c04d9b8751ae33cfccba31621a18bd1de3e43ec228a687c83680",
+    "gost-amd64": "8b54f905d556c75a3a0c0c2834b9ea46072692486c4b61b13a07e08028667be6",
+    "flux-panel": "8287f1d400fc87938a66a054d39bdc6c2e3d36f4ba6fae2d5c38600bef66a992",
+    "baseline-agent": "776e413eb2b58cc6cd81a40955772ef5f2a8ed0c762053cd07e982c53dceb28d"
+  },
+  "goAgentRaceAndVet": true,
+  "goPanelRealMySQLRaceAndVet": true,
+  "frontendBuild": true,
+  "suites": {
+    "managed-switch": {
+      "success": true,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "initial native mode forwards TCP and UDP",
+        "same-node mode switch to gost",
+        "mode and format durable; epoch and totals continuous",
+        "GOST client-facing network bytes counted exactly once",
+        "managed GOST pause blocks both protocols",
+        "managed GOST resume restores forwarding",
+        "managed worker backend refuses unmarked direct ingress",
+        "restart restores GOST mode and same epoch",
+        "same-node mode switch to kernel",
+        "both engines retain one cumulative ledger",
+        "same operation ID is idempotent",
+        "crash recovery at mode-prepared",
+        "crash recovery at mode-applied",
+        "crash recovery at mode-committed",
+        "same-node mode switch to kernel",
+        "activation failure restores original mode and live forwarding",
+        "unsupported source preservation rejects before stopping native traffic",
+        "same-node mode switch to gost",
+        "managed GOST cannot exceed shared kernel credit"
+      ],
+      "count": 20,
+      "externalForwardTestTargets": []
+    },
+    "managed-switch-unprivileged": {
+      "success": true,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "managed worker exposes no TCP management listener",
+        "network transport has zero capabilities",
+        "helper lacks SYS_ADMIN and SETUID",
+        "initial native mode forwards TCP and UDP",
+        "same-node mode switch to gost",
+        "mode and format durable; epoch and totals continuous",
+        "GOST client-facing network bytes counted exactly once",
+        "managed GOST pause blocks both protocols",
+        "managed GOST resume restores forwarding",
+        "managed worker backend refuses unmarked direct ingress",
+        "managed GOST child also has zero capabilities",
+        "worker crash automatically recovers without changing epoch",
+        "restart restores GOST mode and same epoch",
+        "GOST-mode helper starts before network worker without restart loop",
+        "same-node mode switch to kernel",
+        "both engines retain one cumulative ledger",
+        "same operation ID is idempotent"
+      ],
+      "count": 18,
+      "externalForwardTestTargets": []
+    },
+    "managed-protocol": {
+      "success": true,
+      "count": 29,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "HTTP detected and blocked",
+        "HTTP2 detected and blocked",
+        "TLS detected and blocked",
+        "SOCKS5 detected and blocked",
+        "SOCKS4 detected and blocked",
+        "large coalesced HTTP payload cannot bypass prefix recognition",
+        "segmented TCP prefix is classified before release",
+        "opaque traffic allowed without alteration",
+        "unknown SOCKS5 authentication methods are allowed and labelled UNKNOWN",
+        "bounded incomplete prefix timeout is allowed UNKNOWN",
+        "UDP preserved and marked UNKNOWN",
+        "blocked and UNKNOWN decisions separately observable",
+        "UNKNOWN conntrack decision cached in reserved low bits",
+        "all classified TCP flows preserve the complete forwarding token",
+        "pause remains authoritative for classified flows",
+        "independent switch permits HTTP while TLS/SOCKS remain blocked",
+        "absent queue listener never silently opens filtered TCP",
+        "policy survives restart and enabled state is not silently weakened",
+        "provider-NAT simulation reaches IPv4 wildcard over TCP and UDP",
+        "IPv6 shares classification and UNKNOWN allow contract",
+        "locally initiated OUTPUT traffic respects protocol policy",
+        "blocked request body is excluded from billed bytes",
+        "classified UNKNOWN TCP cannot bypass finite credit or billing",
+        "finite quota still closes UNKNOWN traffic with DPI enabled",
+        "pausing one rule retires its diagnostic object without affecting peers",
+        "managed worker guard removed on uninstall",
+        "owned classifier table removed on uninstall",
+        "maintenance discovers and backs up classifier before initialization"
+      ],
+      "externalForwardTestTargets": []
+    },
+    "install-package": {
+      "success": true,
+      "arch": "aarch64",
+      "backend": "nft",
+      "count": 12,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "wrong pinned manifest cannot install a binary",
+        "dry run verifies package without creating target directories",
+        "offline pinned installation writes exact binary and protected config",
+        "managed artifact is checksum-pinned and installed separately",
+        "repeated identical install is idempotent",
+        "installed artifact actually forwards TCP and UDP",
+        "uninstall keeps durable state and backup while removing owned dataplane",
+        "service activation failure triggers a verified version rollback",
+        "installer rollback preserves epoch, newer totals and paused business",
+        "retry upgrades the native checkpoint without resetting accounting",
+        "sandbox never invoked the real system service manager"
+      ],
+      "prefix": "/tmp/package-root and /tmp/package-upgrade",
+      "external_forward_test_targets": []
+    },
+    "managed-shaping": {
+      "success": true,
+      "count": 8,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "missing local shaping preparation rejects before stopping native traffic",
+        "unprepared GOST rejects a new bandwidth policy without disabling the live rule",
+        "prepared shaping helper still lacks SYS_ADMIN and SETUID",
+        "prepared node switches to GOST with rate policy intact",
+        "GOST 8 Mbps bidirectional cap shapes actual TCP transfer",
+        "two managed GOST forwards share the same user HTB ceiling",
+        "shaped rules return to native mode without changing epoch"
+      ],
+      "transfers": [
+        {
+          "profile": "gost-single-8Mbps",
+          "seconds": 1.2037083340001118
+        },
+        {
+          "profile": "gost-shared-user-8Mbps",
+          "seconds": 2.4429649180001434,
+          "individualSeconds": [
+            2.1446804590000283,
+            2.424995501000012
+          ]
+        }
+      ],
+      "externalForwardTestTargets": []
+    }
+  },
+  "fullIntegration": {
+    "artifact_sha256": {
+      "agent": "a97b7c013f03ae9cdd315d15861b2c1ccb3613c98e835c5e1035e1b782fbb87c",
+      "panel": "8287f1d400fc87938a66a054d39bdc6c2e3d36f4ba6fae2d5c38600bef66a992"
+    },
+    "virtual_link_bytes": {
+      "lo": {
+        "rx": 0,
+        "tx": 0
+      },
+      "fp4shape": {
+        "rx": 10158,
+        "tx": 10158
+      },
+      "r0": {
+        "rx": 212838,
+        "tx": 112449
+      },
+      "r1": {
+        "rx": 151016,
+        "tx": 153993
+      },
+      "r2": {
+        "rx": 7453555,
+        "tx": 8691833
+      }
+    },
+    "external_forward_test_targets": [],
+    "success": true,
+    "backend": "nft",
+    "passed": [
+      "validated immutable agent and Go executable snapshots before starting services",
+      "database migration is repeatable; legacy rows default to gost",
+      "real Go panel and MySQL started",
+      "isolated client/router/target namespaces; forwarding default DROP",
+      "independent agent authenticated and registered over encrypted WebSocket frames",
+      "panel creates IPv4 TCP and UDP DNAT/SNAT forward",
+      "real panel same-node switch to gost",
+      "real panel same-node switch to kernel",
+      "a second state path cannot adopt counters from a managed namespace",
+      "second agent cannot share the active state directory",
+      "kernel traffic reaches persistent panel ledger",
+      "replayed cumulative reports do not double bill",
+      "pause blocks existing TCP and UDP despite external ESTABLISHED ACCEPT",
+      "pause blocks new TCP and UDP",
+      "resume restores TCP/UDP",
+      "per-forward hash policy isolates two forwards to the same target",
+      "counter entries retain cumulative bytes across pause and resume",
+      "agent restart restores rules and ledger epoch",
+      "target change succeeds with targeted conntrack cleanup",
+      "scoped link-local target is rejected without disturbing existing forward",
+      "delete blocks traffic and removes dispatch and binding entries",
+      "deletion empties native binding maps and retains final accounting",
+      "unrelated firewall chain and default DROP preserved",
+      "Go API enables actual host OUTPUT TCP/UDP",
+      "P2 schema4 and traffic intent survive real panel accounting",
+      "later shared cap closes unprepared local OUTPUT instead of retaining unlimited traffic",
+      "real Go shared-bandwidth reconciliation enables prepared local shaping",
+      "removing local cap retains OUTPUT and its ledger",
+      "concurrent delete finishes while limiter reconciliation is queued",
+      "limiter reconciliation cannot resurrect a deleted local forward",
+      "Go rejects DNAT-only without operator confirmation",
+      "Go API applies routed source-preserving TCP/UDP",
+      "real Go API preserves independent same-port TCP/UDP and node health/shaping",
+      "API returns actual node applied state and distinct business IDs",
+      "admin bandwidth group changes reach existing forwards through batch reconciliation",
+      "admin inspection returns current capacity and fresh report acknowledgement",
+      "Go diagnostics default to route-only and keep remote return unverified",
+      "explicit Go diagnostics identify bounded node TCP handshake without inventing return proof",
+      "Go diagnostics reject non-Boolean probe",
+      "new agent registers with opaque short-lived bearer session stored only by hash",
+      "session revocation disconnects and bootstrap reauthentication restores forwarding",
+      "bandwidth API rejects fractional bit rate instead of silently truncating",
+      "forward, user and user-tunnel ledgers agree",
+      "quota pauses every forwarding with its own service id",
+      "normal forwards recover after quota reset",
+      "two nodes cannot reserve the same remaining user quota",
+      "concurrent bidirectional kernel credit stays within the shared 64 KiB remainder",
+      "exhausted shared budget blocks both forwarding nodes",
+      "a leased shared-quota owner cannot silently add a legacy forwarding peer",
+      "real legacy GOST adapter still forwards TCP/UDP",
+      "legacy GOST traffic reporting still updates the original ledger",
+      "kernel rejects a port occupied by GOST without shadowing it",
+      "GOST cannot take a port reserved by its co-located kernel peer",
+      "agent rejects a listener occupied outside the panel",
+      "legacy pause uses existing GOST command",
+      "legacy resume remains functional",
+      "engine identity mismatch rejected",
+      "real GOST tcp relay forwards both TCP and UDP",
+      "real GOST tcp relay target update remains operational",
+      "real GOST tcp relay pauses entry and remote service",
+      "real GOST tcp relay resumes entry and remote service",
+      "real GOST tls relay forwards both TCP and UDP",
+      "real GOST tls relay target update remains operational",
+      "real GOST tls relay pauses entry and remote service",
+      "real GOST tls relay resumes entry and remote service",
+      "real GOST wss relay forwards both TCP and UDP",
+      "real GOST wss relay target update remains operational",
+      "real GOST wss relay pauses entry and remote service",
+      "real GOST wss relay resumes entry and remote service",
+      "real GOST relay removal preserves other native forwards",
+      "unchanged real GOST accepts limiter create/update wire contract",
+      "real Go weighted multi-target and health policy fifo",
+      "real Go weighted multi-target and health policy round",
+      "real Go weighted multi-target and health policy rand",
+      "real Go weighted multi-target and health policy hash",
+      "real Go interface and explicit source routing",
+      "real Go hostname and bounded DNS policy use only private resolver",
+      "real Go canonical IPv6 listeners and targets forward TCP and UDP",
+      "real Go protocol policy still permits UNKNOWN TCP/UDP",
+      "real Go HTTP TLS SOCKS policy reaches native classifier",
+      "advanced shaped definition remains active for cross-runtime rollback",
+      "real Go reconciler cold-applies 10k desired forwards through one batch",
+      "real Go bulk reconciliation removes 9998 orphans and keeps live forwards",
+      "active quota leases continue renewing after 10k reconciliation cleanup",
+      "local expiry blocks TCP/UDP while the panel is stopped",
+      "control outage preserves still-valid forwarding",
+      "expired offline credit closes ordinary forwards despite later permission expiry",
+      "panel restart reconnects and converges the expired forwarding state"
+    ],
+    "count": 88
+  },
+  "gostStandaloneCompatibility": {
+    "arch": "aarch64",
+    "sha256": "117c58a95432c04d9b8751ae33cfccba31621a18bd1de3e43ec228a687c83680",
+    "ws": true,
+    "wss": true
+  },
+  "browserUI": {
+    "success": true,
+    "submissions": 2,
+    "finalMode": "kernel",
+    "externalRequestsAllowed": false,
+    "kind": "built React UI with mocked mode API; real API verified separately"
+  },
+  "performance": [
+    {
+      "logicalRules": 3,
+      "order": [
+        "baseline",
+        "native",
+        "native",
+        "baseline"
+      ],
+      "steadySeconds": 20,
+      "identicalNativePrograms": true,
+      "programSHA256": "6fb4c36cf4d3e7d5a99ff1ad2f2a71c49f450882a95cece12f97cb84816529f0",
+      "policyChecks": 20,
+      "byEngine": {
+        "baseline": {
+          "medianMbps": 150.00725010378233,
+          "medianAgentCPUPercent": 0.8240957849210029,
+          "medianCPS": 4975.941121832942,
+          "medianUnpacedFreshP95us": 234.91649999999998,
+          "medianPacedFreshP95us": 3086.3334999999997,
+          "rawSteady": [
+            {
+              "engine": "baseline",
+              "rules": 3,
+              "round": 0,
+              "profile": "150Mbps_single_stream",
+              "receivedBytes": 375128064,
+              "mbps": 150.03202150124784,
+              "forwarderCPUSeconds": 0.19000000000000003,
+              "forwarderCPUPercent": 0.9492267298153879,
+              "rssBytes": 16338944,
+              "cpu": {
+                "wall_seconds": 20.016292634000365,
+                "cgroup_cpu_seconds": 3.112,
+                "test_core_cpu_seconds": 0.46,
+                "softirq_seconds": 0.06,
+                "steal_seconds": 0.0,
+                "throttled_seconds": 0.0
+              }
+            },
+            {
+              "engine": "baseline",
+              "rules": 3,
+              "round": 3,
+              "profile": "150Mbps_single_stream",
+              "receivedBytes": 374996992,
+              "mbps": 149.98247870631678,
+              "forwarderCPUSeconds": 0.13999999999999999,
+              "forwarderCPUPercent": 0.6989648400266179,
+              "rssBytes": 16060416,
+              "cpu": {
+                "wall_seconds": 20.02961980100008,
+                "cgroup_cpu_seconds": 1.24,
+                "test_core_cpu_seconds": 0.12,
+                "softirq_seconds": 0.01,
+                "steal_seconds": 0.0,
+                "throttled_seconds": 0.0
+              }
+            }
+          ],
+          "rawContinuous": [
+            {
+              "engine": "baseline",
+              "rules": 3,
+              "round": 0,
+              "samples": 20000,
+              "lost": 0,
+              "cps": 4908.34358348244,
+              "p50_us": 178.167,
+              "p95_us": 239.25,
+              "p99_us": 316.792,
+              "forwarderCPUSecondsPer1000": 0.0695,
+              "cpu": {
+                "wall_seconds": 4.074694377000014,
+                "cgroup_cpu_seconds": 4.84,
+                "test_core_cpu_seconds": 1.33,
+                "softirq_seconds": 0.61,
+                "steal_seconds": 0.0,
+                "throttled_seconds": 0.0
+              }
+            },
+            {
+              "engine": "baseline",
+              "rules": 3,
+              "round": 3,
+              "samples": 20000,
+              "lost": 0,
+              "cps": 5043.538660183443,
+              "p50_us": 174.625,
+              "p95_us": 230.583,
+              "p99_us": 314.875,
+              "forwarderCPUSecondsPer1000": 0.06849999999999999,
+              "cpu": {
+                "wall_seconds": 3.96546975199999,
+                "cgroup_cpu_seconds": 4.468,
+                "test_core_cpu_seconds": 1.24,
+                "softirq_seconds": 0.69,
+                "steal_seconds": 0.0,
+                "throttled_seconds": 0.0
+              }
+            }
+          ]
+        },
+        "native": {
+          "medianMbps": 150.0042434456423,
+          "medianAgentCPUPercent": 0.7740311632557875,
+          "medianCPS": 5033.778365334361,
+          "medianUnpacedFreshP95us": 233.08350000000002,
+          "medianPacedFreshP95us": 2500.5,
+          "rawSteady": [
+            {
+              "engine": "native",
+              "rules": 3,
+              "round": 1,
+              "profile": "150Mbps_single_stream",
+              "receivedBytes": 375128064,
+              "mbps": 150.032239020152,
+              "forwarderCPUSeconds": 0.15,
+              "forwarderCPUPercent": 0.7491277278096036,
+              "rssBytes": 17276928,
+              "cpu": {
+                "wall_seconds": 20.02328767600011,
+                "cgroup_cpu_seconds": 1.364,
+                "test_core_cpu_seconds": 0.14,
+                "softirq_seconds": 0.02,
+                "steal_seconds": 0.0,
+                "throttled_seconds": 0.0
+              }
+            },
+            {
+              "engine": "native",
+              "rules": 3,
+              "round": 2,
+              "profile": "150Mbps_single_stream",
+              "receivedBytes": 374996992,
+              "mbps": 149.97624787113259,
+              "forwarderCPUSeconds": 0.15999999999999998,
+              "forwarderCPUPercent": 0.7989345987019715,
+              "rssBytes": 15818752,
+              "cpu": {
+                "wall_seconds": 20.02667055100028,
+                "cgroup_cpu_seconds": 1.404,
+                "test_core_cpu_seconds": 0.1,
+                "softirq_seconds": 0.02,
+                "steal_seconds": 0.0,
+                "throttled_seconds": 0.0
+              }
+            }
+          ],
+          "rawContinuous": [
+            {
+              "engine": "native",
+              "rules": 3,
+              "round": 1,
+              "samples": 20000,
+              "lost": 0,
+              "cps": 5100.631796720302,
+              "p50_us": 172.208,
+              "p95_us": 228.458,
+              "p99_us": 337.333,
+              "forwarderCPUSecondsPer1000": 0.06699999999999999,
+              "cpu": {
+                "wall_seconds": 3.9210828769996624,
+                "cgroup_cpu_seconds": 4.476,
+                "test_core_cpu_seconds": 1.28,
+                "softirq_seconds": 0.67,
+                "steal_seconds": 0.0,
+                "throttled_seconds": 0.0
+              }
+            },
+            {
+              "engine": "native",
+              "rules": 3,
+              "round": 2,
+              "samples": 20000,
+              "lost": 0,
+              "cps": 4966.924933948421,
+              "p50_us": 177,
+              "p95_us": 237.709,
+              "p99_us": 311.667,
+              "forwarderCPUSecondsPer1000": 0.06899999999999999,
+              "cpu": {
+                "wall_seconds": 4.026636252000117,
+                "cgroup_cpu_seconds": 4.652,
+                "test_core_cpu_seconds": 1.43,
+                "softirq_seconds": 0.72,
+                "steal_seconds": 0.0,
+                "throttled_seconds": 0.0
+              }
+            }
+          ]
+        }
+      },
+      "rawFile": "results/performance-final-3.json"
+    },
+    {
+      "logicalRules": 10000,
+      "order": [
+        "baseline",
+        "native",
+        "native",
+        "baseline"
+      ],
+      "steadySeconds": 20,
+      "identicalNativePrograms": true,
+      "programSHA256": "6fb4c36cf4d3e7d5a99ff1ad2f2a71c49f450882a95cece12f97cb84816529f0",
+      "policyChecks": 20,
+      "byEngine": {
+        "baseline": {
+          "medianMbps": 150.01062455413623,
+          "medianAgentCPUPercent": 12.867322034487,
+          "medianCPS": 4593.253866291921,
+          "medianUnpacedFreshP95us": 243.3545,
+          "medianPacedFreshP95us": 1925.5415,
+          "rawSteady": [
+            {
+              "engine": "baseline",
+              "rules": 10000,
+              "round": 0,
+              "profile": "150Mbps_single_stream",
+              "receivedBytes": 375128064,
+              "mbps": 150.03254654795478,
+              "forwarderCPUSeconds": 2.5,
+              "forwarderCPUPercent": 12.492271598711032,
+              "rssBytes": 178020352,
+              "cpu": {
+                "wall_seconds": 20.01237309199996,
+                "cgroup_cpu_seconds": 3.468,
+                "test_core_cpu_seconds": 2.5,
+                "softirq_seconds": 0.0,
+                "steal_seconds": 0.0,
+                "throttled_seconds": 0.0
+              }
+            },
+            {
+              "engine": "baseline",
+              "rules": 10000,
+              "round": 3,
+              "profile": "150Mbps_single_stream",
+              "receivedBytes": 374996992,
+              "mbps": 149.98870256031768,
+              "forwarderCPUSeconds": 2.6500000000000004,
+              "forwarderCPUPercent": 13.24237247026297,
+              "rssBytes": 168267776,
+              "cpu": {
+                "wall_seconds": 20.01151988399988,
+                "cgroup_cpu_seconds": 3.636,
+                "test_core_cpu_seconds": 2.65,
+                "softirq_seconds": 0.0,
+                "steal_seconds": 0.0,
+                "throttled_seconds": 0.0
+              }
+            }
+          ],
+          "rawContinuous": [
+            {
+              "engine": "baseline",
+              "rules": 10000,
+              "round": 0,
+              "samples": 20000,
+              "lost": 0,
+              "cps": 4599.074350560273,
+              "p50_us": 178.084,
+              "p95_us": 241.042,
+              "p99_us": 369.084,
+              "forwarderCPUSecondsPer1000": 0.08400000000000003,
+              "cpu": {
+                "wall_seconds": 4.348701167999934,
+                "cgroup_cpu_seconds": 4.984,
+                "test_core_cpu_seconds": 1.75,
+                "softirq_seconds": 0.7,
+                "steal_seconds": 0.0,
+                "throttled_seconds": 0.0
+              }
+            },
+            {
+              "engine": "baseline",
+              "rules": 10000,
+              "round": 3,
+              "samples": 20000,
+              "lost": 0,
+              "cps": 4587.43338202357,
+              "p50_us": 178,
+              "p95_us": 245.667,
+              "p99_us": 388.083,
+              "forwarderCPUSecondsPer1000": 0.086,
+              "cpu": {
+                "wall_seconds": 4.35973633499998,
+                "cgroup_cpu_seconds": 5.004,
+                "test_core_cpu_seconds": 1.73,
+                "softirq_seconds": 0.67,
+                "steal_seconds": 0.0,
+                "throttled_seconds": 0.0
+              }
+            }
+          ]
+        },
+        "native": {
+          "medianMbps": 150.0081649247411,
+          "medianAgentCPUPercent": 12.488213472177353,
+          "medianCPS": 4585.491468779103,
+          "medianUnpacedFreshP95us": 244.14600000000002,
+          "medianPacedFreshP95us": 1842.4789999999998,
+          "rawSteady": [
+            {
+              "engine": "native",
+              "rules": 10000,
+              "round": 1,
+              "profile": "150Mbps_single_stream",
+              "receivedBytes": 375128064,
+              "mbps": 150.03213401094712,
+              "forwarderCPUSeconds": 2.54,
+              "forwarderCPUPercent": 12.685083973817306,
+              "rssBytes": 167936000,
+              "cpu": {
+                "wall_seconds": 20.02351742599967,
+                "cgroup_cpu_seconds": 3.708,
+                "test_core_cpu_seconds": 2.58,
+                "softirq_seconds": 0.0,
+                "steal_seconds": 0.0,
+                "throttled_seconds": 0.0
+              }
+            },
+            {
+              "engine": "native",
+              "rules": 10000,
+              "round": 2,
+              "profile": "150Mbps_single_stream",
+              "receivedBytes": 374996992,
+              "mbps": 149.9841958385351,
+              "forwarderCPUSeconds": 2.4599999999999995,
+              "forwarderCPUPercent": 12.2913429705374,
+              "rssBytes": 144449536,
+              "cpu": {
+                "wall_seconds": 20.014086385000155,
+                "cgroup_cpu_seconds": 3.428,
+                "test_core_cpu_seconds": 2.46,
+                "softirq_seconds": 0.01,
+                "steal_seconds": 0.0,
+                "throttled_seconds": 0.0
+              }
+            }
+          ],
+          "rawContinuous": [
+            {
+              "engine": "native",
+              "rules": 10000,
+              "round": 1,
+              "samples": 20000,
+              "lost": 0,
+              "cps": 4470.002925853686,
+              "p50_us": 179.166,
+              "p95_us": 258.209,
+              "p99_us": 423.125,
+              "forwarderCPUSecondsPer1000": 0.0875,
+              "cpu": {
+                "wall_seconds": 4.474270002000139,
+                "cgroup_cpu_seconds": 5.312,
+                "test_core_cpu_seconds": 1.75,
+                "softirq_seconds": 0.68,
+                "steal_seconds": 0.0,
+                "throttled_seconds": 0.0
+              }
+            },
+            {
+              "engine": "native",
+              "rules": 10000,
+              "round": 2,
+              "samples": 20000,
+              "lost": 0,
+              "cps": 4700.980011704521,
+              "p50_us": 175.208,
+              "p95_us": 230.083,
+              "p99_us": 334.375,
+              "forwarderCPUSecondsPer1000": 0.083,
+              "cpu": {
+                "wall_seconds": 4.254432044000168,
+                "cgroup_cpu_seconds": 4.772,
+                "test_core_cpu_seconds": 1.72,
+                "softirq_seconds": 0.63,
+                "steal_seconds": 0.0,
+                "throttled_seconds": 0.0
+              }
+            }
+          ]
+        }
+      },
+      "rawFile": "results/performance-final-10000.json"
+    }
+  ],
+  "performanceLimits": [
+    "Native mode regression comparison; not a GOST-vs-nft throughput contest.",
+    "150 Mbps is a fixed-rate delivery check, not maximum throughput.",
+    "Serial fresh TCP application responses; endpoint/VM capacity included, not node-only connection capacity.",
+    "CPU percent is Agent-process CPU, excludes its GOST child and kernel/endpoint work.",
+    "Controller CPU0, Agent/worker CPU1, target CPU2, client CPU3; softirq placement is not confined to Agent CPU.",
+    "Microbench forwards are unlimited seeded rules; finite credit/quota and MySQL/cross-node reservation work are covered separately by functional tests.",
+    "Two samples per engine in ABBA order; VM scheduler/host background noise remains.",
+    "Earlier shared-core and intermediate-build trials retained separately, not pooled into final medians."
+  ],
+  "releaseManifestPin": "85b34156f401209bbeee2597f73ff93b6100affa83a436ae184186db30eaec07",
+  "deployment": "Not published or deployed; ARM64 actually executed, AMD64 compile only; no production systemd installation."
+}

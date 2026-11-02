@@ -82,7 +82,7 @@ try:
     check('forward migration preserves accounting and native backend identity',before==sql('SELECT id,in_flow,out_flow FROM user ORDER BY id') and sql("SELECT engine,kernel_backend FROM node WHERE name='old-native'")[0]=={'engine':'kernel','kernel_backend':'nftables'})
     check('repeatable migration renames kernel engine without relabeling old backend',sql("SELECT engine,kernel_backend FROM node WHERE name='old-iptables'")[0]=={'engine':'kernel','kernel_backend':'iptables'} and sql("SELECT engine FROM node WHERE name='old-gost'")[0]['engine']=='gost')
     check('migration leaves existing user accounting unchanged',before==sql('SELECT id,in_flow,out_flow FROM user ORDER BY id'))
-    migration('006-go-panel-runtime.sql')
+    migration('006-go-panel-runtime.sql'); migration('007-managed-agent.sql')
     env=os.environ.copy();env.update(DB_HOST='mysql',DB_NAME='flux_test',DB_USER='root',DB_PASSWORD=os.getenv('FLUX_TEST_DB_PASSWORD','isolated-test-db-only'),
         JWT_SECRET='isolated-test-jwt-only')
     env.update(PANEL_LISTEN='0.0.0.0:6365',NODE_RELEASE_BASE_URL='https://example.invalid/frozen',NODE_RELEASE_MANIFEST_SHA256='a'*64,NODE_RELEASE_INSTALLER_SHA256='b'*64)
