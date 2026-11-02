@@ -1,0 +1,263 @@
+{
+  "status": "complete_local_isolated_validation",
+  "date": "2026-11-02",
+  "timezone": "Asia/Hong_Kong",
+  "baseline": "a08e3d8",
+  "http_mappings": {
+    "implemented": 64,
+    "verified": 64
+  },
+  "functional_groups": 16,
+  "engines": [
+    "gost",
+    "kernel"
+  ],
+  "kernel_backends": [
+    "nftables"
+  ],
+  "iptables_backend": false,
+  "validation": {
+    "go_race_mysql_browser": {
+      "passed_cases": 47,
+      "failures": 0,
+      "skips": 0
+    },
+    "node_migration_api": {
+      "passed": 23
+    },
+    "frontend": {
+      "captcha_modes": 4,
+      "pages": 8,
+      "unicode_base64url": true
+    },
+    "frozen_gost_trusted_wss_https": true,
+    "real_vm": {
+      "passed": 92,
+      "checks": [
+        "validated immutable agent and Go executable snapshots before starting services",
+        "database migration is repeatable; legacy rows default to gost",
+        "real Go panel and MySQL started",
+        "isolated client/router/target namespaces; forwarding default DROP",
+        "independent agent authenticated and registered over encrypted WebSocket frames",
+        "panel creates IPv4 TCP and UDP DNAT/SNAT forward",
+        "a second state path cannot adopt counters from a managed namespace",
+        "second agent cannot share the active state directory",
+        "kernel traffic reaches persistent panel ledger",
+        "replayed cumulative reports do not double bill",
+        "pause blocks existing TCP and UDP despite external ESTABLISHED ACCEPT",
+        "pause blocks new TCP and UDP",
+        "resume restores TCP/UDP",
+        "per-forward hash policy isolates two forwards to the same target",
+        "counter entries retain cumulative bytes across pause and resume",
+        "agent restart restores rules and ledger epoch",
+        "target change succeeds with targeted conntrack cleanup",
+        "scoped link-local target is rejected without disturbing existing forward",
+        "delete blocks traffic and removes dispatch and binding entries",
+        "deletion empties native binding maps and retains final accounting",
+        "unrelated firewall chain and default DROP preserved",
+        "Go API enables actual host OUTPUT TCP/UDP",
+        "P2 schema4 and traffic intent survive real panel accounting",
+        "later shared cap closes unprepared local OUTPUT instead of retaining unlimited traffic",
+        "real Go shared-bandwidth reconciliation enables prepared local shaping",
+        "removing local cap retains OUTPUT and its ledger",
+        "concurrent delete finishes while limiter reconciliation is queued",
+        "limiter reconciliation cannot resurrect a deleted local forward",
+        "Go rejects DNAT-only without operator confirmation",
+        "Go API applies routed source-preserving TCP/UDP",
+        "real Go API preserves independent same-port TCP/UDP and node health/shaping",
+        "API returns actual node applied state and distinct business IDs",
+        "admin bandwidth group changes reach existing forwards through batch reconciliation",
+        "admin inspection returns current capacity and fresh report acknowledgement",
+        "Go diagnostics default to route-only and keep remote return unverified",
+        "explicit Go diagnostics identify bounded node TCP handshake without inventing return proof",
+        "Go diagnostics reject non-Boolean probe",
+        "new agent registers with opaque short-lived bearer session stored only by hash",
+        "session revocation disconnects and bootstrap reauthentication restores forwarding",
+        "bandwidth API rejects fractional bit rate instead of silently truncating",
+        "forward, user and user-tunnel ledgers agree",
+        "quota pauses every forwarding with its own service id",
+        "normal forwards recover after quota reset",
+        "two nodes cannot reserve the same remaining user quota",
+        "concurrent bidirectional kernel credit stays within the shared 64 KiB remainder",
+        "exhausted shared budget blocks both forwarding nodes",
+        "a leased shared-quota owner cannot silently add a legacy forwarding peer",
+        "real legacy GOST adapter still forwards TCP/UDP",
+        "legacy GOST traffic reporting still updates the original ledger",
+        "kernel rejects a port occupied by GOST without shadowing it",
+        "GOST cannot take a port reserved by its co-located kernel peer",
+        "agent rejects a listener occupied outside the panel",
+        "legacy pause uses existing GOST command",
+        "legacy resume remains functional",
+        "engine identity mismatch rejected",
+        "real GOST tcp relay forwards both TCP and UDP",
+        "real GOST tcp relay target update remains operational",
+        "real GOST tcp relay pauses entry and remote service",
+        "real GOST tcp relay resumes entry and remote service",
+        "real GOST tls relay forwards both TCP and UDP",
+        "real GOST tls relay target update remains operational",
+        "real GOST tls relay pauses entry and remote service",
+        "real GOST tls relay resumes entry and remote service",
+        "real GOST wss relay forwards both TCP and UDP",
+        "real GOST wss relay target update remains operational",
+        "real GOST wss relay pauses entry and remote service",
+        "real GOST wss relay resumes entry and remote service",
+        "real GOST relay removal preserves other native forwards",
+        "unchanged real GOST accepts limiter create/update wire contract",
+        "real Go weighted multi-target and health policy fifo",
+        "real Go weighted multi-target and health policy round",
+        "real Go weighted multi-target and health policy rand",
+        "real Go weighted multi-target and health policy hash",
+        "real Go interface and explicit source routing",
+        "real Go hostname and bounded DNS policy use only private resolver",
+        "real Go canonical IPv6 listeners and targets forward TCP and UDP",
+        "real Go protocol policy still permits UNKNOWN TCP/UDP",
+        "real Go HTTP TLS SOCKS policy reaches native classifier",
+        "advanced shaped definition remains active for cross-runtime rollback",
+        "real Go reconciler cold-applies 10k desired forwards through one batch",
+        "real Go bulk reconciliation removes 9998 orphans and keeps live forwards",
+        "active quota leases continue renewing after 10k reconciliation cleanup",
+        "local expiry blocks TCP/UDP while the panel is stopped",
+        "control outage preserves still-valid forwarding",
+        "expired offline credit closes ordinary forwards despite later permission expiry",
+        "panel restart reconnects and converges the expired forwarding state",
+        "Go to Java rollback preserves latest legal ledger without restoring a DB snapshot",
+        "Java takeover resumes existing real native rules and credit renewal",
+        "Java accepts Go durable replay hash with escaped recovery text",
+        "Java takeover controls existing unchanged GOST binary",
+        "Java to Go return preserves newest accounting and real forwarding",
+        "long steady real Go/native/GOST forwarding and monotonic ledger"
+      ],
+      "scale": {
+        "forwards": 10000,
+        "cold_seconds": 3.8666862520003633,
+        "cleanup_seconds": 4.098973375999776,
+        "cleanup_submit_seconds": 0.7928479579995837,
+        "cleanup_wait_seconds": 3.3061254180001924,
+        "total_seconds": 8.00636317000044
+      },
+      "soak_seconds": 600,
+      "soak_samples": 197
+    },
+    "go_vet": true,
+    "reproducible_linux_arches": [
+      "arm64",
+      "amd64"
+    ],
+    "runtime_nonroot_readonly_scratch": true,
+    "invalid_config_rejected": true
+  },
+  "artifacts": {
+    "go": {
+      "flux-panel-linux-amd64": "c8e863ecda3c4d7a31afa240ae71ddcd029e3b615d48454bf6ac467a4f82465b",
+      "flux-panel-linux-arm64": "7ce9721d140e1230cb5cf31e48131e02a45d7bfa4ec9dbcfac5655479f3963b3"
+    },
+    "agent": "8dab89cdfc84e6b2f5a0bb78a630773d0ffdab16f8c285ad01f1e558bdde5963",
+    "gost": "f1980886fd8214b1797d5e19208fd0ea9656a31436887e0b2e872932ff12ad22",
+    "java_reference": "74a96abac1906e3b97388d3eb27b95cd3f9470f35ab40db7674148edc071eac8"
+  },
+  "performance": {
+    "scope": "local control API; not forwarding throughput",
+    "cpu_limit": 1,
+    "memory_limit_mib": 384,
+    "response_contract_fixtures": 12,
+    "summary": [
+      {
+        "forwards": 3,
+        "route": "config/get",
+        "java_p95_ms": 1.613542000995949,
+        "go_p95_ms": 0.4632089985534549,
+        "go_over_java": 0.2870758853922253
+      },
+      {
+        "forwards": 3,
+        "route": "node/list",
+        "java_p95_ms": 1.119415999710327,
+        "go_p95_ms": 0.44175000221002847,
+        "go_over_java": 0.3946254138982655
+      },
+      {
+        "forwards": 3,
+        "route": "user/package",
+        "java_p95_ms": 3.426957999181468,
+        "go_p95_ms": 2.261334000650095,
+        "go_over_java": 0.6598662724171748
+      },
+      {
+        "forwards": 3,
+        "route": "forward/list",
+        "java_p95_ms": 1.0606249998090789,
+        "go_p95_ms": 0.5575839968514629,
+        "go_over_java": 0.5257126665426824
+      },
+      {
+        "forwards": 1000,
+        "route": "config/get",
+        "java_p95_ms": 1.26408299911418,
+        "go_p95_ms": 0.5066659978183452,
+        "go_over_java": 0.400817033512354
+      },
+      {
+        "forwards": 1000,
+        "route": "node/list",
+        "java_p95_ms": 1.024583001708379,
+        "go_p95_ms": 0.4224999975122046,
+        "go_over_java": 0.41236288012560474
+      },
+      {
+        "forwards": 1000,
+        "route": "user/package",
+        "java_p95_ms": 12.896124997496372,
+        "go_p95_ms": 12.563958000100683,
+        "go_over_java": 0.9742428832335159
+      },
+      {
+        "forwards": 1000,
+        "route": "forward/list",
+        "java_p95_ms": 15.17733299988322,
+        "go_p95_ms": 5.369667000195477,
+        "go_over_java": 0.3537951628416398
+      },
+      {
+        "forwards": 10000,
+        "route": "config/get",
+        "java_p95_ms": 1.083416002074955,
+        "go_p95_ms": 0.45141599912312813,
+        "go_over_java": 0.41665989634505823
+      },
+      {
+        "forwards": 10000,
+        "route": "node/list",
+        "java_p95_ms": 1.1522090026119258,
+        "go_p95_ms": 0.37233299735817127,
+        "go_over_java": 0.32314709962700777
+      },
+      {
+        "forwards": 10000,
+        "route": "user/package",
+        "java_p95_ms": 353.69420899951365,
+        "go_p95_ms": 65.65679199775332,
+        "go_over_java": 0.18563151538012204
+      },
+      {
+        "forwards": 10000,
+        "route": "forward/list",
+        "java_p95_ms": 469.4953749967681,
+        "go_p95_ms": 49.50375000044005,
+        "go_over_java": 0.10544033580901797
+      }
+    ],
+    "earlier_adverse_results_retained": true
+  },
+  "production_changes": false,
+  "production_ssh": false,
+  "public_business_targets": [],
+  "limits": [
+    "本轮禁止生产连接/部署；使用隔离一次性数据",
+    "GOST 保留旧 delta 协议，不声称新增 report-ID 去重或内核式预留能力",
+    "不支持 Java/Go 共库混跑/自动多主切换；首次整体交接",
+    "跨引擎节点迁移单独处理，不承诺现有 TCP 无损迁移"
+  ],
+  "implementation_commit": "3126f8c",
+  "historical_validation": true,
+  "current_repository_validation": "go-only-validation.json"
+}

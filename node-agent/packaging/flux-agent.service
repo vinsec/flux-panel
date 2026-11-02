@@ -1,0 +1,25 @@
+[Unit]
+Description=Flux unprivileged node control transport
+Wants=network-online.target
+After=network-online.target flux-kernel.service
+Requires=flux-kernel.service
+[Service]
+Type=simple
+User=flux-agent
+Group=flux-agent
+LoadCredential=agent-config:/etc/flux-agent/config.json
+ExecStart=/usr/local/bin/flux-agent --config %d/agent-config
+Restart=on-failure
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+PrivateTmp=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,1092 @@
+{
+  "baseline": "a08e3d8",
+  "status": "complete_local_isolated_validation",
+  "engines": [
+    "gost",
+    "kernel"
+  ],
+  "kernelBackends": [
+    "nftables"
+  ],
+  "iptablesForwardingBackend": false,
+  "httpMappings": [
+    {
+      "path": "/api/v1/captcha/check",
+      "method": "POST",
+      "admin": false,
+      "public": true,
+      "readOnly": true,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/CaptchaController.java",
+      "implementation": "panel-go/internal/panel/captcha.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/captcha/generate",
+      "method": "POST",
+      "admin": false,
+      "public": true,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/CaptchaController.java",
+      "implementation": "panel-go/internal/panel/captcha.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/captcha/verify",
+      "method": "POST",
+      "admin": false,
+      "public": true,
+      "readOnly": false,
+      "dto": "CaptchaVerifyDto",
+      "source": "springboot-backend/src/main/java/com/admin/controller/CaptchaController.java",
+      "implementation": "panel-go/internal/panel/captcha.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/error",
+      "method": "ANY",
+      "admin": false,
+      "public": true,
+      "readOnly": true,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/CustomErrorController.java",
+      "implementation": "panel-go/internal/panel/management.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/engine/capabilities",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/EngineControlController.java",
+      "implementation": "panel-go/internal/panel/engine_api.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/engine/reconcile",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/EngineControlController.java",
+      "implementation": "panel-go/internal/panel/engine_api.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/engine/batch-status",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/EngineControlController.java",
+      "implementation": "panel-go/internal/panel/engine_api.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/engine/collect",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/EngineControlController.java",
+      "implementation": "panel-go/internal/panel/engine_api.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/flow/engine/v3/session",
+      "method": "POST",
+      "admin": false,
+      "public": true,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/EngineSessionController.java",
+      "implementation": "panel-go/internal/panel/accounting.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/engine/socket-ticket",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/EngineSessionController.java",
+      "implementation": "panel-go/internal/panel/engine_api.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/engine/revoke-sessions",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/EngineSessionController.java",
+      "implementation": "panel-go/internal/panel/engine_api.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/engine/tunnel-capabilities",
+      "method": "POST",
+      "admin": false,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/EngineStateController.java",
+      "implementation": "panel-go/internal/panel/engine_api.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/engine/forward-states",
+      "method": "POST",
+      "admin": false,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/EngineStateController.java",
+      "implementation": "panel-go/internal/panel/engine_api.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/engine/bandwidth-groups",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": true,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/EngineStateController.java",
+      "implementation": "panel-go/internal/panel/engine_api.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/engine/set-bandwidth-group",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/EngineStateController.java",
+      "implementation": "panel-go/internal/panel/engine_api.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/engine/audit",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": true,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/EngineStateController.java",
+      "implementation": "panel-go/internal/panel/engine_api.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/flow/engine/v1/traffic",
+      "method": "POST",
+      "admin": false,
+      "public": true,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/EngineTrafficController.java",
+      "implementation": "panel-go/internal/panel/accounting.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/flow/engine/v2/traffic",
+      "method": "POST",
+      "admin": false,
+      "public": true,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/EngineTrafficController.java",
+      "implementation": "panel-go/internal/panel/accounting.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/flow/engine/v2/maintenance",
+      "method": "POST",
+      "admin": false,
+      "public": true,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/EngineTrafficController.java",
+      "implementation": "panel-go/internal/panel/accounting.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/flow/config",
+      "method": "POST",
+      "admin": false,
+      "public": true,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/FlowController.java",
+      "implementation": "panel-go/internal/panel/gost.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/flow/test",
+      "method": "ANY",
+      "admin": false,
+      "public": true,
+      "readOnly": true,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/FlowController.java",
+      "implementation": "panel-go/internal/panel/gost.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/flow/upload",
+      "method": "ANY",
+      "admin": false,
+      "public": true,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/FlowController.java",
+      "implementation": "panel-go/internal/panel/gost.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/forward/create",
+      "method": "POST",
+      "admin": false,
+      "public": false,
+      "readOnly": false,
+      "dto": "ForwardDto",
+      "source": "springboot-backend/src/main/java/com/admin/controller/ForwardController.java",
+      "implementation": "panel-go/internal/panel/forwards.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/forward/list",
+      "method": "POST",
+      "admin": false,
+      "public": false,
+      "readOnly": true,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/ForwardController.java",
+      "implementation": "panel-go/internal/panel/forwards.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/forward/update",
+      "method": "POST",
+      "admin": false,
+      "public": false,
+      "readOnly": false,
+      "dto": "ForwardUpdateDto",
+      "source": "springboot-backend/src/main/java/com/admin/controller/ForwardController.java",
+      "implementation": "panel-go/internal/panel/forwards.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/forward/delete",
+      "method": "POST",
+      "admin": false,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/ForwardController.java",
+      "implementation": "panel-go/internal/panel/forwards.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/forward/force-delete",
+      "method": "POST",
+      "admin": false,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/ForwardController.java",
+      "implementation": "panel-go/internal/panel/forwards.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/forward/pause",
+      "method": "POST",
+      "admin": false,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/ForwardController.java",
+      "implementation": "panel-go/internal/panel/forwards.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/forward/resume",
+      "method": "POST",
+      "admin": false,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/ForwardController.java",
+      "implementation": "panel-go/internal/panel/forwards.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/forward/diagnose",
+      "method": "POST",
+      "admin": false,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/ForwardController.java",
+      "implementation": "panel-go/internal/panel/forwards.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/forward/update-order",
+      "method": "POST",
+      "admin": false,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/ForwardController.java",
+      "implementation": "panel-go/internal/panel/forwards.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/node/create",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "NodeDto",
+      "source": "springboot-backend/src/main/java/com/admin/controller/NodeController.java",
+      "implementation": "panel-go/internal/panel/management.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/node/list",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": true,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/NodeController.java",
+      "implementation": "panel-go/internal/panel/management.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/node/update",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "NodeUpdateDto",
+      "source": "springboot-backend/src/main/java/com/admin/controller/NodeController.java",
+      "implementation": "panel-go/internal/panel/management.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/node/delete",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/NodeController.java",
+      "implementation": "panel-go/internal/panel/management.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/node/install",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/NodeController.java",
+      "implementation": "panel-go/internal/panel/management.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/open_api/sub_store",
+      "method": "GET",
+      "admin": false,
+      "public": true,
+      "readOnly": true,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/OpenApiController.java",
+      "implementation": "panel-go/internal/panel/management.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/speed-limit/create",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "SpeedLimitDto",
+      "source": "springboot-backend/src/main/java/com/admin/controller/SpeedLimitController.java",
+      "implementation": "panel-go/internal/panel/tunnels.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/speed-limit/list",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": true,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/SpeedLimitController.java",
+      "implementation": "panel-go/internal/panel/tunnels.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/speed-limit/update",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "SpeedLimitUpdateDto",
+      "source": "springboot-backend/src/main/java/com/admin/controller/SpeedLimitController.java",
+      "implementation": "panel-go/internal/panel/tunnels.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/speed-limit/delete",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/SpeedLimitController.java",
+      "implementation": "panel-go/internal/panel/tunnels.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/speed-limit/tunnels",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": true,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/SpeedLimitController.java",
+      "implementation": "panel-go/internal/panel/tunnels.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/tunnel/create",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "TunnelDto",
+      "source": "springboot-backend/src/main/java/com/admin/controller/TunnelController.java",
+      "implementation": "panel-go/internal/panel/tunnels.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/tunnel/list",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": true,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/TunnelController.java",
+      "implementation": "panel-go/internal/panel/tunnels.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/tunnel/update",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "TunnelUpdateDto",
+      "source": "springboot-backend/src/main/java/com/admin/controller/TunnelController.java",
+      "implementation": "panel-go/internal/panel/tunnels.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/tunnel/delete",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/TunnelController.java",
+      "implementation": "panel-go/internal/panel/tunnels.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/tunnel/user/assign",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "UserTunnelDto",
+      "source": "springboot-backend/src/main/java/com/admin/controller/TunnelController.java",
+      "implementation": "panel-go/internal/panel/tunnels.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/tunnel/user/list",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": true,
+      "dto": "UserTunnelQueryDto",
+      "source": "springboot-backend/src/main/java/com/admin/controller/TunnelController.java",
+      "implementation": "panel-go/internal/panel/tunnels.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/tunnel/user/remove",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/TunnelController.java",
+      "implementation": "panel-go/internal/panel/tunnels.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/tunnel/user/update",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "UserTunnelUpdateDto",
+      "source": "springboot-backend/src/main/java/com/admin/controller/TunnelController.java",
+      "implementation": "panel-go/internal/panel/tunnels.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/tunnel/user/tunnel",
+      "method": "POST",
+      "admin": false,
+      "public": false,
+      "readOnly": true,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/TunnelController.java",
+      "implementation": "panel-go/internal/panel/tunnels.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/tunnel/diagnose",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/TunnelController.java",
+      "implementation": "panel-go/internal/panel/tunnels.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/user/login",
+      "method": "POST",
+      "admin": false,
+      "public": true,
+      "readOnly": false,
+      "dto": "LoginDto",
+      "source": "springboot-backend/src/main/java/com/admin/controller/UserController.java",
+      "implementation": "panel-go/internal/panel/management.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/user/create",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "UserDto",
+      "source": "springboot-backend/src/main/java/com/admin/controller/UserController.java",
+      "implementation": "panel-go/internal/panel/management.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/user/list",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": true,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/UserController.java",
+      "implementation": "panel-go/internal/panel/management.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/user/update",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "UserUpdateDto",
+      "source": "springboot-backend/src/main/java/com/admin/controller/UserController.java",
+      "implementation": "panel-go/internal/panel/management.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/user/delete",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/UserController.java",
+      "implementation": "panel-go/internal/panel/management.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/user/package",
+      "method": "POST",
+      "admin": false,
+      "public": false,
+      "readOnly": true,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/UserController.java",
+      "implementation": "panel-go/internal/panel/management.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/user/updatePassword",
+      "method": "POST",
+      "admin": false,
+      "public": false,
+      "readOnly": false,
+      "dto": "ChangePasswordDto",
+      "source": "springboot-backend/src/main/java/com/admin/controller/UserController.java",
+      "implementation": "panel-go/internal/panel/management.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/user/reset",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "ResetFlowDto",
+      "source": "springboot-backend/src/main/java/com/admin/controller/UserController.java",
+      "implementation": "panel-go/internal/panel/management.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/config/list",
+      "method": "POST",
+      "admin": false,
+      "public": false,
+      "readOnly": true,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/ViteConfigController.java",
+      "implementation": "panel-go/internal/panel/management.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/config/get",
+      "method": "POST",
+      "admin": false,
+      "public": true,
+      "readOnly": true,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/ViteConfigController.java",
+      "implementation": "panel-go/internal/panel/management.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/config/update",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/ViteConfigController.java",
+      "implementation": "panel-go/internal/panel/management.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    },
+    {
+      "path": "/api/v1/config/update-single",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/ViteConfigController.java",
+      "implementation": "panel-go/internal/panel/management.go",
+      "implemented": true,
+      "positive_test": "TestFullHTTPContractSurface",
+      "permission_test": "TestMySQLIntegration/AuthenticationAndAllRoutePermissions"
+    }
+  ],
+  "httpCount": 64,
+  "functionalGroups": [
+    {
+      "id": "identity",
+      "behavior": "旧 JWT/密码记录、角色、授权、验证码登录",
+      "implementation": [
+        "panel-go/internal/panel/auth.go",
+        "panel-go/internal/panel/management.go",
+        "panel-go/internal/panel/authorization.go"
+      ],
+      "tests": [
+        "TestJWTAndCryptoCompatibility",
+        "TestMySQLIntegration/AuthenticationAndAllRoutePermissions",
+        "TestMySQLIntegration/UserConfigOpenAPIAndPasswords",
+        "TestAuthorizationRemovalSerializesWithCreation"
+      ],
+      "implemented": true
+    },
+    {
+      "id": "captcha",
+      "behavior": "四种验证码、随机模式、二次验证、过期与防重放",
+      "implementation": [
+        "panel-go/internal/panel/captcha.go"
+      ],
+      "tests": [
+        "TestAllCaptchaModesAndReplay",
+        "TestBrowserFrontendFlows"
+      ],
+      "implemented": true
+    },
+    {
+      "id": "management",
+      "behavior": "用户/配置/节点/隧道/授权/限速管理、唯一性与级联删除",
+      "implementation": [
+        "panel-go/internal/panel/management.go",
+        "panel-go/internal/panel/tunnels.go",
+        "panel-go/internal/panel/authorization.go"
+      ],
+      "tests": [
+        "TestFullHTTPContractSurface",
+        "TestConcurrentCatalogAndPermissionsStayUnique",
+        "TestConcurrentTunnelNamesStayUnique",
+        "TestAdministrativeCascadeWithOfflineNodes"
+      ],
+      "implemented": true
+    },
+    {
+      "id": "native_only",
+      "behavior": "GOST/kernel 规范值、旧原生协议别名、拒绝旧后端与实际会话核对",
+      "implementation": [
+        "panel-go/internal/panel/auth.go",
+        "panel-go/internal/panel/control.go",
+        "panel-go/internal/panel/management.go"
+      ],
+      "tests": [
+        "TestMySQLIntegration/NativeOnlyNodeContracts",
+        "TestActualCommandSessionMustAdvertiseNftables",
+        "node_backend_integration.py"
+      ],
+      "implemented": true
+    },
+    {
+      "id": "forwarding",
+      "behavior": "转发 CRUD、排序、暂停恢复、强制删除、端口互斥",
+      "implementation": [
+        "panel-go/internal/panel/forwards.go",
+        "panel-go/internal/panel/forward_list.go"
+      ],
+      "tests": [
+        "TestMySQLIntegration/CRUDWithControlFixture",
+        "TestFullHTTPContractSurface",
+        "integration.py"
+      ],
+      "implemented": true
+    },
+    {
+      "id": "gost",
+      "behavior": "不改 GOST 二进制、加密 WS/WSS、直连/三种中继、限速与部分失败补偿",
+      "implementation": [
+        "panel-go/internal/panel/gost.go",
+        "panel-go/internal/panel/control.go"
+      ],
+      "tests": [
+        "TestLegacyGostDeltaContract",
+        "TestUnchangedGostWSSControlAndActualTCPUDP",
+        "TestGostLimiterKeepsJavaHalfUpRounding",
+        "TestFailedGostRelayCreationCompensatesBothNodes",
+        "TestFailedGostUpdateStaysVisibleAndQuotaEnforced",
+        "integration.py EXTENDED"
+      ],
+      "implemented": true
+    },
+    {
+      "id": "control",
+      "behavior": "EngineHello、能力、请求关联、会话轮换/撤销、旧连接隔离、有界队列",
+      "implementation": [
+        "panel-go/internal/panel/control.go",
+        "panel-go/internal/panel/engine_api.go",
+        "panel-go/internal/panel/jobs.go"
+      ],
+      "tests": [
+        "TestSocketTicketsWSSAndSessionReplacement",
+        "TestRapidSocketRotationCannotLeaveLiveNodeOffline",
+        "TestReconnectWaitsForActualCapabilityAdvertisement",
+        "integration.py"
+      ],
+      "implemented": true
+    },
+    {
+      "id": "advanced",
+      "behavior": "IPv4/IPv6/域名、多目标权重/策略、健康/路由、流量路径与多层限速",
+      "implementation": [
+        "panel-go/internal/panel/spec.go"
+      ],
+      "tests": [
+        "TestEndpointContract",
+        "TestAdvancedOptionGuards",
+        "TestLegacyWildcardAndProtocolPolicy",
+        "integration.py ADVANCED"
+      ],
+      "implemented": true
+    },
+    {
+      "id": "protocol",
+      "behavior": "HTTP/TLS/SOCKS 能力门控、节点/规则开关、UNKNOWN 放行",
+      "implementation": [
+        "panel-go/internal/panel/spec.go"
+      ],
+      "tests": [
+        "TestAdvancedOptionGuards",
+        "TestLegacyWildcardAndProtocolPolicy",
+        "integration.py ADVANCED"
+      ],
+      "implemented": true
+    },
+    {
+      "id": "batch",
+      "behavior": "分页快照、持久批次、revision、10k 协调与重连恢复",
+      "implementation": [
+        "panel-go/internal/panel/jobs.go",
+        "panel-go/internal/panel/forwards.go"
+      ],
+      "tests": [
+        "TestCanceledMutationReleasesPhysicalPortLock",
+        "integration.py SCALE"
+      ],
+      "implemented": true
+    },
+    {
+      "id": "accounting",
+      "behavior": "累计去重、乱序、三层账本、倍率/单双向、整数与溢出、末次结算",
+      "implementation": [
+        "panel-go/internal/panel/accounting.go"
+      ],
+      "tests": [
+        "TestAccountingArithmetic",
+        "TestServiceIdentityCannotAliasAnotherWatermark",
+        "TestMySQLIntegration/CumulativeTransactionsAndReplay",
+        "TestCreditPriceFreezeRollbackAndMaintenance",
+        "integration.py"
+      ],
+      "implemented": true
+    },
+    {
+      "id": "credit",
+      "behavior": "跨节点共享预留、租约、归还、离线到期、崩溃重试和保守保留未结算额度",
+      "implementation": [
+        "panel-go/internal/panel/credit.go"
+      ],
+      "tests": [
+        "TestMySQLIntegration/SharedCreditNeverOverallocates",
+        "TestCreditPriceFreezeRollbackAndMaintenance",
+        "TestRebootWithoutFinalClaimKeepsOutstandingReservation",
+        "integration.py"
+      ],
+      "implemented": true
+    },
+    {
+      "id": "jobs",
+      "behavior": "小时统计、月末/每日重置、凭据过期、额度执法、定义队列与唯一执行",
+      "implementation": [
+        "panel-go/internal/panel/jobs.go"
+      ],
+      "tests": [
+        "TestMySQLIntegration/HourlyDailyIdempotence",
+        "TestExclusiveOwnerAndLostConnectionFailClosed",
+        "integration.py"
+      ],
+      "implemented": true
+    },
+    {
+      "id": "diagnostics",
+      "behavior": "真实节点状态、只读路由线索、明确 TCP 握手、不虚构回程/丢包证明",
+      "implementation": [
+        "panel-go/internal/panel/engine_api.go",
+        "panel-go/internal/panel/forwards.go",
+        "panel-go/internal/panel/tunnels.go"
+      ],
+      "tests": [
+        "TestFullHTTPContractSurface",
+        "integration.py"
+      ],
+      "implemented": true
+    },
+    {
+      "id": "openapi",
+      "behavior": "订阅鉴权、所属用户/隧道、流量头、GiB/到期口径",
+      "implementation": [
+        "panel-go/internal/panel/management.go"
+      ],
+      "tests": [
+        "TestMySQLIntegration/UserConfigOpenAPIAndPasswords",
+        "TestFullHTTPContractSurface"
+      ],
+      "implemented": true
+    },
+    {
+      "id": "operations",
+      "behavior": "固定发布配置、显式迁移、只读快照、优雅关闭、最新账本回滚与静态包",
+      "implementation": [
+        "panel-go/internal/panel/management.go",
+        "panel-go/internal/panel/jobs.go",
+        "panel-go/cmd/panel/main.go"
+      ],
+      "tests": [
+        "TestMySQLIntegration/ReadOnlyRejectsSideEffects",
+        "TestExclusiveOwnerAndLostConnectionFailClosed",
+        "node_backend_integration.py",
+        "historical 3126f8c integration.py ROLLBACK; not a current Java dependency",
+        "packaging/build.sh",
+        "TestHealthcheckCommand",
+        "TestExplicitMigrationPreservesExistingLedger",
+        "deployment-probe.py"
+      ],
+      "implemented": true
+    }
+  ],
+  "limits": [
+    "本轮禁止生产连接/部署；使用隔离一次性数据",
+    "GOST 保留旧 delta 协议，不声称新增 report-ID 去重或内核式预留能力",
+    "不支持 Java/Go 共库混跑/自动多主切换；首次整体交接",
+    "跨引擎节点迁移单独处理，不承诺现有 TCP 无损迁移"
+  ],
+  "httpVerified": 64,
+  "repositoryLayout": "go_only",
+  "currentValidation": "doc/go-only-validation.json"
+}

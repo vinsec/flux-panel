@@ -42,8 +42,11 @@ import {
   pauseForwardService,
   resumeForwardService,
   diagnoseForward,
-  updateForwardOrder
+  updateForwardOrder,
+  getTunnelCapabilities,
+  getForwardStates
 } from "@/api";
+import AdvancedForwardFields, { engineOptionsForSubmit } from "@/components/advanced-forward-fields";
 import { JwtUtil } from "@/utils/jwt";
 
 interface Forward {
@@ -54,6 +57,8 @@ interface Forward {
   inIp: string;
   inPort: number;
   remoteAddr: string;
+  engineOptions?: string;
+  engine?: string;
   interfaceName?: string;
   strategy: string;
   status: number;
@@ -80,6 +85,7 @@ interface ForwardForm {
   tunnelId: number | null;
   inPort: number | null;
   remoteAddr: string;
+  engineOptions?: string;
   interfaceName?: string;
   strategy: string;
 }
@@ -91,6 +97,7 @@ interface AddressItem {
 }
 
 interface DiagnosisResult {
+  returnPath?: {status:string;sourceMode:string;administratorConfirmed:boolean;remoteReturnVerified:boolean;limitations:string[];ingress:Array<{interface:string;ipv4RPFilterEffective:number|null;srcValidMarkEffective:number|null;risk:string}>};
   forwardName: string;
   timestamp: number;
   results: Array<{
@@ -103,6 +110,7 @@ interface DiagnosisResult {
     message?: string;
     averageTime?: number;
     packetLoss?: number;
+    probeKind?: string;
   }>;
 }
 
@@ -123,6 +131,8 @@ export default function ForwardPage() {
   const [loading, setLoading] = useState(true);
   const [forwards, setForwards] = useState<Forward[]>([]);
   const [tunnels, setTunnels] = useState<Tunnel[]>([]);
+  const [engineCapabilities,setEngineCapabilities]=useState<any>(null);
+  const [forwardStates,setForwardStates]=useState<Record<number,any>>({});
   
   // 检测是否为移动端
   const [isMobile, setIsMobile] = useState(false);
@@ -160,6 +170,9 @@ export default function ForwardPage() {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [diagnosisLoading, setDiagnosisLoading] = useState(false);
+  const [diagnosisClientIP, setDiagnosisClientIP] = useState("");
+  const [diagnosisIngress, setDiagnosisIngress] = useState("");
+  const [diagnosisProbe, setDiagnosisProbe] = useState(false);
   const [forwardToDelete, setForwardToDelete] = useState<Forward | null>(null);
   const [currentDiagnosisForward, setCurrentDiagnosisForward] = useState<Forward | null>(null);
   const [diagnosisResult, setDiagnosisResult] = useState<DiagnosisResult | null>(null);
@@ -194,6 +207,18 @@ export default function ForwardPage() {
     strategy: 'fifo'
   });
   
+  useEffect(()=>{
+    if(!form.tunnelId){setEngineCapabilities(null);return;}
+    let cancelled=false;setEngineCapabilities(null);
+    getTunnelCapabilities({tunnelId:form.tunnelId}).then(response=>{if(!cancelled&&response.code===0)setEngineCapabilities(response.data)}).catch(()=>{});
+    return()=>{cancelled=true};
+  },[form.tunnelId]);
+  const stateIDs=forwards.filter(f=>f.engine==='kernel').slice(0,200).map(f=>f.id).join(',');
+  useEffect(()=>{
+    if(!stateIDs)return;
+    let cancelled=false;const refresh=async()=>{try{const response=await getForwardStates({ids:stateIDs.split(',').map(Number)});if(!cancelled&&response.code===0){const values:Record<number,any>={};for(const row of response.data||[])values[row.id]=row.state;setForwardStates(values);}}catch{}};
+    refresh();const timer=window.setInterval(refresh,10000);return()=>{cancelled=true;window.clearInterval(timer)};
+  },[stateIDs]);
   // 表单验证错误
   const [errors, setErrors] = useState<{[key: string]: string}>({});
   const [selectedTunnel, setSelectedTunnel] = useState<Tunnel | null>(null);
@@ -462,7 +487,8 @@ export default function ForwardPage() {
       inPort: forward.inPort,
       remoteAddr: forward.remoteAddr.split(',').join('\n'),
       interfaceName: forward.interfaceName || '',
-      strategy: forward.strategy || 'fifo'
+      strategy: forward.strategy || 'fifo',
+      engineOptions: forward.engineOptions
     });
     const tunnel = tunnels.find(t => t.id === forward.tunnelId);
     setSelectedTunnel(tunnel || null);
@@ -530,6 +556,7 @@ export default function ForwardPage() {
 
       const addressCount = processedRemoteAddr.split(',').length;
       
+      const engineOptions=engineCapabilities?.engine==='kernel'?engineOptionsForSubmit(form.engineOptions,form.remoteAddr,form.inPort,engineCapabilities?.node?.capabilities?.features||{}):undefined;
       let res;
       if (isEdit) {
         // 更新时确保包含必要字段
@@ -541,7 +568,8 @@ export default function ForwardPage() {
           inPort: form.inPort,
           remoteAddr: processedRemoteAddr,
           interfaceName: form.interfaceName,
-          strategy: addressCount > 1 ? form.strategy : 'fifo'
+          strategy: addressCount > 1 ? form.strategy : 'fifo',
+          engineOptions
         };
         res = await updateForward(updateData);
       } else {
@@ -552,13 +580,14 @@ export default function ForwardPage() {
           inPort: form.inPort,
           remoteAddr: processedRemoteAddr,
           interfaceName: form.interfaceName,
-          strategy: addressCount > 1 ? form.strategy : 'fifo'
+          strategy: addressCount > 1 ? form.strategy : 'fifo',
+          engineOptions
         };
         res = await createForward(createData);
       }
       
       if (res.code === 0) {
-        toast.success(isEdit ? '修改成功' : '创建成功');
+        toast.success(engineCapabilities?.engine==='kernel'?'配置已保存，请查看节点生效状态':(isEdit?'修改成功':'创建成功'));
         setModalOpen(false);
         loadData();
       } else {
@@ -566,7 +595,7 @@ export default function ForwardPage() {
       }
     } catch (error) {
       console.error('提交失败:', error);
-      toast.error('操作失败');
+      toast.error(error instanceof Error?error.message:'操作失败');
     } finally {
       setSubmitLoading(false);
     }
@@ -633,7 +662,7 @@ export default function ForwardPage() {
     setDiagnosisResult(null);
 
     try {
-      const response = await diagnoseForward(forward.id);
+      const response = await diagnoseForward(forward.id, {clientIP:diagnosisClientIP.trim()||undefined, ingressInterface:diagnosisIngress.trim()||undefined, probe:diagnosisProbe});
       if (response.code === 0) {
         setDiagnosisResult(response.data);
       } else {
@@ -1184,6 +1213,15 @@ export default function ForwardPage() {
             <div className="flex-1 min-w-0">
               <h3 className="font-semibold text-foreground truncate text-sm">{forward.name}</h3>
               <p className="text-xs text-default-500 truncate">{forward.tunnelName}</p>
+              {forward.engine==='kernel'&&<div className="mt-1 text-xs" title={forwardStates[forward.id]?.error||forwardStates[forward.id]?.resolution?.error||''}>
+                <span className={forwardStates[forward.id]?.status==='applied'?'text-success':forwardStates[forward.id]?.status==='failed'?'text-danger':'text-default-500'}>
+                  {{applied:'已生效',paused:'已暂停',pending:'等待解析或健康检查',failed:'应用/解析失败',unavailable:'节点状态不可用',absent:'等待对账'}[forwardStates[forward.id]?.status as string]||'正在获取生效状态'}
+                </span>
+                {forwardStates[forward.id]?.appliedRevision!=null&&<span> · r{forwardStates[forward.id].appliedRevision}</span>}
+                {forwardStates[forward.id]?.resolution?.generation>0&&<span> · 解析代次 {forwardStates[forward.id].resolution.generation}</span>}
+                {forwardStates[forward.id]?.protocolInspection&&<p className="text-xs text-default-500">协议识别：拦截 {forwardStates[forward.id].protocolInspection.statistics?.blocked||0} · UNKNOWN 放行 {forwardStates[forward.id].protocolInspection.statistics?.unknown||0}（当前进程周期）</p>}
+              </div>}
+
             </div>
             <div className="flex items-center gap-1.5 ml-2">
               {viewMode === 'direct' && (
@@ -1628,7 +1666,8 @@ export default function ForwardPage() {
                       maxRows={6}
                     />
                     
-                    <Input
+                    {engineCapabilities?.engine==='kernel'&&<AdvancedForwardFields value={form.engineOptions} onChange={engineOptions=>setForm(previous=>({...previous,engineOptions}))} features={engineCapabilities?.node?.capabilities?.features||{}} port={form.inPort} remoteAddr={form.remoteAddr} strategy={form.strategy} tcpHost={engineCapabilities?.tcpListenAddr} udpHost={engineCapabilities?.udpListenAddr}/>}
+                    {engineCapabilities?.engine!=='kernel'&&<Input
                       label="出口网卡名或IP"
                       placeholder="请输入出口网卡名或IP"
                       value={form.interfaceName}
@@ -1637,9 +1676,9 @@ export default function ForwardPage() {
                       errorMessage={errors.interfaceName}
                       variant="bordered"
                       description="用于多IP服务器指定使用那个IP请求远程地址，不懂的默认为空就行"
-                    />
+                    />}
                     
-                    {getAddressCount(form.remoteAddr) > 1 && (
+                    {engineCapabilities?.engine!=='kernel'&&getAddressCount(form.remoteAddr) > 1 && (
                       <Select
                         label="负载策略"
                         placeholder="请选择负载均衡策略"
@@ -2052,6 +2091,16 @@ export default function ForwardPage() {
                     </div>
                   ) : diagnosisResult ? (
                     <div className="space-y-4">
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <Input label="客户端 IP（可选）" value={diagnosisClientIP} onValueChange={setDiagnosisClientIP} placeholder="用于本机反向路由检查" />
+                        <Input label="入口网卡（可选）" value={diagnosisIngress} onValueChange={setDiagnosisIngress} placeholder="例如 eth0" />
+                      </div>
+                      <label className="flex gap-2 text-small"><input type="checkbox" checked={diagnosisProbe} onChange={e=>setDiagnosisProbe(e.target.checked)} />内核节点附加 TCP 握手（最多两次，会建立连接）</label>
+                      {diagnosisResult.returnPath && <Card className="border border-warning"><CardBody className="space-y-2 text-small">
+                        <p>远端实际回程：未验证。管理员确认：{diagnosisResult.returnPath.administratorConfirmed?'已确认':'未确认'}。</p>
+                        {diagnosisResult.returnPath.ingress.map(item=><p key={item.interface}>{item.interface}：IPv4 rp_filter={item.ipv4RPFilterEffective??'未知'}，src_valid_mark={item.srcValidMarkEffective??'未知'}；{({'client-sample-missing':'未提供客户端 IP，无法检查来源路由','strict-interface-mismatch-risk':'反向路由出口与入口不同，严格过滤可能丢包','unreachable-risk':'本机客户端路由不可用，存在丢包风险','no-obvious-destination-route-conflict':'本机路由未见明显冲突；远端回程仍未验证','ipv6-no-ipv4-rp-filter':'IPv6 不适用 IPv4 rp_filter 检查','disabled':'IPv4 rp_filter 已关闭','unknown':'信息不足'} as Record<string,string>)[item.risk]??item.risk}</p>)}
+                        {diagnosisResult.returnPath.limitations.map(line=><p key={line}>{line}</p>)}
+                      </CardBody></Card>}
                       {diagnosisResult.results.map((result, index) => {
                         const quality = getQualityDisplay(result.averageTime, result.packetLoss);
                         
@@ -2068,7 +2117,7 @@ export default function ForwardPage() {
                                       variant="flat" 
                                       size="sm"
                                     >
-                                      {result.success ? '连接成功' : '连接失败'}
+                                      {result.probeKind==='routeOnly'?(result.success?'路由已读取':'路由不可用'):(result.success?'连接成功':'连接失败')}
                                     </Chip>
                                   </div>
                                 </div>
@@ -2080,11 +2129,11 @@ export default function ForwardPage() {
                                 <div className="space-y-3">
                                   <div className="grid grid-cols-3 gap-4">
                                     <div className="text-center">
-                                      <div className="text-2xl font-bold text-primary">{result.averageTime?.toFixed(0)}</div>
-                                      <div className="text-small text-default-500">平均延迟(ms)</div>
+                                      <div className="text-2xl font-bold text-primary">{result.averageTime?.toFixed(0)??'-'}</div>
+                                      <div className="text-small text-default-500">{result.probeKind==='tcpHandshake'?'TCP握手(ms)':'平均延迟(ms)'}</div>
                                     </div>
                                     <div className="text-center">
-                                      <div className="text-2xl font-bold text-warning">{result.packetLoss?.toFixed(1)}</div>
+                                      <div className="text-2xl font-bold text-warning">{result.packetLoss?.toFixed(1)??'-'}</div>
                                       <div className="text-small text-default-500">丢包率(%)</div>
                                     </div>
                                     <div className="text-center">

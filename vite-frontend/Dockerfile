@@ -3,8 +3,8 @@ FROM node:20.19.0 AS builder
 
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm install
+COPY package*.json .npmrc ./
+RUN npm ci
 
 COPY . .
 RUN npm run build

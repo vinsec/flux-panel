@@ -1,0 +1,29 @@
+[Unit]
+Description=Flux restricted kernel forwarding helper
+After=network-online.target systemd-tmpfiles-setup.service
+Wants=network-online.target
+Before=flux-agent.service
+[Service]
+Type=simple
+User=root
+Group=flux-agent
+ExecStart=/usr/local/bin/flux-agent --kernel-helper --helper-user flux-agent --config /etc/flux-agent/config.json
+Restart=on-failure
+RestartSec=3
+StateDirectory=flux-agent
+StateDirectoryMode=0700
+RuntimeDirectory=flux-agent
+RuntimeDirectoryMode=0750
+UMask=0077
+NoNewPrivileges=true
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW CAP_NET_BIND_SERVICE
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/flux-agent /run/flux-agent /run/xtables.lock
+RestrictAddressFamilies=AF_INET AF_INET6 AF_NETLINK AF_UNIX
+[Install]
+WantedBy=multi-user.target

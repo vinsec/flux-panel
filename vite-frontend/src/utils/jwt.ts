@@ -22,8 +22,11 @@ function getPayloadFromToken(token: string): JWTPayload | null {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
     
-    const encodedPayload = parts[1];
-    const decodedPayload = atob(encodedPayload);
+    // Both Java and Go issue unpadded base64url with UTF-8 JSON payloads.
+    const encodedPayload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const paddedPayload = encodedPayload + '='.repeat((4 - encodedPayload.length % 4) % 4);
+    const bytes = Uint8Array.from(atob(paddedPayload), char => char.charCodeAt(0));
+    const decodedPayload = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
     return JSON.parse(decodedPayload) as JWTPayload;
   } catch (error) {
     return null;

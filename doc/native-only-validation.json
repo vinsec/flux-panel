@@ -1,0 +1,1978 @@
+{
+  "candidateAgentSHA256": "8dab89cdfc84e6b2f5a0bb78a630773d0ffdab16f8c285ad01f1e558bdde5963",
+  "frozenNativeV55SHA256": "150b81c5937ddd54692970210e92830cad510f5ce0f00d4c29948933083fe1f9",
+  "baselineGitTag": "baseline/dual-kernel-20261101",
+  "productionOperations": false,
+  "externalForwardTestTargets": [],
+  "environment": "Fusion Debian 13 ARM64, Linux 6.12.113, 4 vCPU/4GiB; private veth; no public VM default route",
+  "frontendBuild": true,
+  "goRaceAndVet": true,
+  "javaTests": {
+    "tests": 27,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "api": {
+    "success": true,
+    "passed": [
+      "existing native node keeps backend and identity",
+      "explicit code rollback keeps accounting and original backend identity",
+      "repeatable migration renames kernel engine without relabeling old backend",
+      "migration leaves existing user accounting unchanged",
+      "real Spring panel starts with the new migration and dependencies",
+      "kernel create is native-only; historical engine alias normalizes to kernel; GOST survives",
+      "reject invalid backend combination kernel/iptables",
+      "reject invalid backend combination iptables/iptables",
+      "reject invalid backend combination kernel/nft",
+      "reject invalid backend combination gost/nftables",
+      "backend cannot change in place",
+      "engine cannot change in place",
+      "old clients can edit without resetting a native backend",
+      "editing through historical engine alias persists canonical kernel value",
+      "retired node cannot be edited into a native node",
+      "retired node installer is blocked",
+      "admin node API exposes backend without node secrets",
+      "install command pins backend nftables",
+      "existing Go agent accepts generated nftables config",
+      "install command pins backend nftables",
+      "existing Go agent accepts generated nftables config",
+      "tunnels inherit their own entrance node backend despite submitted override",
+      "GOST installer remains GOST without kernel fields"
+    ],
+    "count": 23,
+    "network": "Docker --internal, no published ports",
+    "external_test_targets": [],
+    "panel_sha256": "74a96abac1906e3b97388d3eb27b95cd3f9470f35ab40db7674148edc071eac8"
+  },
+  "javaAgentIntegration": {
+    "artifact_sha256": {
+      "agent": "8dab89cdfc84e6b2f5a0bb78a630773d0ffdab16f8c285ad01f1e558bdde5963",
+      "panel": "74a96abac1906e3b97388d3eb27b95cd3f9470f35ab40db7674148edc071eac8"
+    },
+    "virtual_link_bytes": {
+      "lo": {
+        "rx": 0,
+        "tx": 0
+      },
+      "r0": {
+        "rx": 165977,
+        "tx": 76219
+      },
+      "r1": {
+        "rx": 82601,
+        "tx": 87221
+      },
+      "r2": {
+        "rx": 4900808,
+        "tx": 5483707
+      }
+    },
+    "external_forward_test_targets": [],
+    "success": true,
+    "backend": "nft",
+    "passed": [
+      "validated immutable agent and JAR snapshots before starting services",
+      "database migration is repeatable; legacy rows default to gost",
+      "real Spring Boot panel and MySQL started",
+      "isolated client/router/target namespaces; forwarding default DROP",
+      "independent agent authenticated and registered over encrypted WebSocket frames",
+      "panel creates IPv4 TCP and UDP DNAT/SNAT forward",
+      "a second state path cannot adopt counters from a managed namespace",
+      "second agent cannot share the active state directory",
+      "kernel traffic reaches persistent panel ledger",
+      "replayed cumulative reports do not double bill",
+      "pause blocks existing TCP and UDP despite external ESTABLISHED ACCEPT",
+      "pause blocks new TCP and UDP",
+      "resume restores TCP/UDP",
+      "per-forward hash policy isolates two forwards to the same target",
+      "counter entries retain cumulative bytes across pause and resume",
+      "agent restart restores rules and ledger epoch",
+      "target change succeeds with targeted conntrack cleanup",
+      "scoped link-local target is rejected without disturbing existing forward",
+      "delete blocks traffic and removes dispatch and binding entries",
+      "deletion empties native binding maps and retains final accounting",
+      "unrelated firewall chain and default DROP preserved",
+      "Java API enables actual host OUTPUT TCP/UDP",
+      "P2 schema4 and traffic intent survive real panel accounting",
+      "later shared cap closes unprepared local OUTPUT instead of retaining unlimited traffic",
+      "real Java shared-bandwidth reconciliation enables prepared local shaping",
+      "removing local cap retains OUTPUT and its ledger",
+      "concurrent delete finishes while limiter reconciliation is queued",
+      "limiter reconciliation cannot resurrect a deleted local forward",
+      "Java rejects DNAT-only without operator confirmation",
+      "Java API applies routed source-preserving TCP/UDP",
+      "real Java API preserves independent same-port TCP/UDP and node health/shaping",
+      "API returns actual node applied state and distinct business IDs",
+      "admin bandwidth group changes reach existing forwards through batch reconciliation",
+      "admin inspection returns current capacity and fresh report acknowledgement",
+      "Java diagnostics default to route-only and keep remote return unverified",
+      "explicit Java diagnostics identify bounded node TCP handshake without inventing return proof",
+      "Java diagnostics reject non-Boolean probe",
+      "new agent registers with opaque short-lived bearer session stored only by hash",
+      "session revocation disconnects and bootstrap reauthentication restores forwarding",
+      "bandwidth API rejects fractional bit rate instead of silently truncating",
+      "forward, user and user-tunnel ledgers agree",
+      "quota pauses every forwarding with its own service id",
+      "normal forwards recover after quota reset",
+      "two nodes cannot reserve the same remaining user quota",
+      "concurrent bidirectional kernel credit stays within the shared 64 KiB remainder",
+      "exhausted shared budget blocks both forwarding nodes",
+      "a leased shared-quota owner cannot silently add a legacy forwarding peer",
+      "real legacy GOST adapter still forwards TCP/UDP",
+      "legacy GOST traffic reporting still updates the original ledger",
+      "iptables rejects a port occupied by GOST without shadowing it",
+      "GOST cannot take a port reserved by its co-located iptables peer",
+      "agent rejects a listener occupied outside the panel",
+      "legacy pause uses existing GOST command",
+      "legacy resume remains functional",
+      "engine identity mismatch rejected",
+      "real Java reconciler cold-applies 10k desired forwards through one batch",
+      "real Java bulk reconciliation removes 9998 orphans and keeps live forwards",
+      "active quota leases continue renewing after 10k reconciliation cleanup",
+      "local expiry blocks TCP/UDP while the panel is stopped",
+      "control outage preserves still-valid forwarding",
+      "expired offline credit closes ordinary forwards despite later permission expiry",
+      "panel restart reconnects and converges the expired forwarding state"
+    ],
+    "count": 62
+  },
+  "noLegacyTools": {
+    "success": true,
+    "passed": [
+      "four private netns including an intermediate PMTU router; no external route",
+      "native boot identity remains the real kernel boot ID",
+      "native TCP/UDP works without any xtables or ipset executable",
+      "pause remains effective without legacy tools",
+      "resume restores both protocols without legacy tools",
+      "restart preserves native epoch and cumulative usage without legacy tools",
+      "settled uninstall needs no legacy executable and preserves external firewall"
+    ],
+    "count": 7,
+    "externalForwardTestTargets": []
+  },
+  "offlinePackage": {
+    "success": true,
+    "arch": "aarch64",
+    "backend": "nft",
+    "count": 11,
+    "passed": [
+      "four private netns including an intermediate PMTU router; no external route",
+      "wrong pinned manifest cannot install a binary",
+      "dry run verifies package without creating target directories",
+      "offline pinned installation writes exact binary and protected config",
+      "repeated identical install is idempotent",
+      "installed artifact actually forwards TCP and UDP",
+      "uninstall keeps durable state and backup while removing owned dataplane",
+      "service activation failure triggers a verified version rollback",
+      "installer rollback preserves epoch, newer totals and paused business",
+      "retry upgrades the native checkpoint without resetting accounting",
+      "sandbox never invoked the real system service manager"
+    ],
+    "prefix": "/tmp/package-root and /tmp/package-upgrade",
+    "external_forward_test_targets": []
+  },
+  "realJavaScale": {
+    "forwards": 10000,
+    "cold_seconds": 22.173527594000007,
+    "cleanup_seconds": 4.414303043000018,
+    "cleanup_submit_seconds": 1.080757167000229,
+    "cleanup_wait_seconds": 3.333545875999789,
+    "total_seconds": 26.635501971000394
+  },
+  "nativeSuites": [
+    {
+      "suite": "p1-restart/restart-result.json",
+      "success": true,
+      "count": 2,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "populated 10k advanced rules restart within 60 seconds"
+      ],
+      "source": "/opt/flux-p1/evidence/native-only-final/p1-restart/restart-result.json"
+    },
+    {
+      "suite": "protocol-helper/protocol-result.json",
+      "success": true,
+      "count": 29,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "classifier helper retains only NET_ADMIN NET_RAW NET_BIND_SERVICE",
+        "SYN and first data are queued, empty ACK and cached packets stay in kernel",
+        "HTTP detected and blocked",
+        "HTTP2 detected and blocked",
+        "TLS detected and blocked",
+        "SOCKS5 detected and blocked",
+        "SOCKS4 detected and blocked",
+        "large coalesced HTTP payload cannot bypass prefix recognition",
+        "segmented TCP prefix is classified before release",
+        "opaque traffic allowed without alteration",
+        "unknown SOCKS5 authentication methods are allowed and labelled UNKNOWN",
+        "bounded incomplete prefix timeout is allowed UNKNOWN",
+        "UDP preserved and marked UNKNOWN",
+        "blocked and UNKNOWN decisions separately observable",
+        "UNKNOWN conntrack decision cached in reserved low bits",
+        "all classified TCP flows preserve the complete forwarding token",
+        "pause remains authoritative for classified flows",
+        "independent switch permits HTTP while TLS/SOCKS remain blocked",
+        "policy survives restart and enabled state is not silently weakened",
+        "provider-NAT simulation reaches IPv4 wildcard over TCP and UDP",
+        "IPv6 shares classification and UNKNOWN allow contract",
+        "locally initiated OUTPUT traffic respects protocol policy",
+        "blocked request body is excluded from billed bytes",
+        "classified UNKNOWN TCP cannot bypass finite credit or billing",
+        "finite quota still closes UNKNOWN traffic with DPI enabled",
+        "pausing one rule retires its diagnostic object without affecting peers",
+        "owned classifier table removed on uninstall",
+        "maintenance discovers and backs up classifier before initialization"
+      ],
+      "source": "/opt/flux-p1/evidence/native-only-final/protocol-helper/protocol-result.json"
+    },
+    {
+      "suite": "p1-faults/p1-fault-result.json",
+      "success": true,
+      "count": 13,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "advanced multi-target/shaping baseline forwards TCP/UDP",
+        "advanced crash recovery at prepared",
+        "advanced crash recovery at quiesced",
+        "advanced crash recovery at kernel",
+        "advanced crash recovery at credits",
+        "advanced crash recovery at conntrack",
+        "advanced crash recovery at counters",
+        "advanced crash recovery at checkpoint",
+        "advanced crash recovery at committed",
+        "advanced crash recovery at activated",
+        "unavailable typed egress is rejected before touching the live generation",
+        "crash transitions preserve unrelated firewall policy"
+      ],
+      "source": "/opt/flux-p1/evidence/native-only-final/p1-faults/p1-fault-result.json"
+    },
+    {
+      "suite": "p2-faults/p2-fault-result.json",
+      "success": true,
+      "count": 13,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "schema4 local target/OUTPUT SNAT baseline forwards TCP/UDP",
+        "schema4 local-path crash recovery at prepared",
+        "schema4 local-path crash recovery at quiesced",
+        "schema4 local-path crash recovery at kernel",
+        "schema4 local-path crash recovery at credits",
+        "schema4 local-path crash recovery at conntrack",
+        "schema4 local-path crash recovery at counters",
+        "schema4 local-path crash recovery at checkpoint",
+        "schema4 local-path crash recovery at committed",
+        "schema4 local-path crash recovery at activated",
+        "unavailable typed egress is rejected before touching the live generation",
+        "crash transitions preserve unrelated firewall policy"
+      ],
+      "source": "/opt/flux-p1/evidence/native-only-final/p2-faults/p2-fault-result.json"
+    },
+    {
+      "suite": "p2-traffic/p2-result.json",
+      "success": true,
+      "count": 46,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "schema4 preserves ordinary external ingress",
+        "local OUTPUT is opt in",
+        "host-initiated OUTPUT TCP/UDP reaches remote target",
+        "OUTPUT to remote and reply INPUT each meter one network packet",
+        "external TCP/UDP can reach an assigned local service",
+        "local service INPUT and outgoing reply meter exactly once",
+        "local OUTPUT to local service TCP/UDP works",
+        "local-to-local OUTPUT/INPUT traversal is not double counted",
+        "different IPv4 local listener/target addresses support TCP and wildcard UDP",
+        "different IPv4 local addresses retain exactly-once counters",
+        "loopback listener reaches a wildcard service on another local address",
+        "loopback listener and target support local TCP/UDP",
+        "loopback traffic has exact network-layer accounting",
+        "external-to-loopback refuses implicit global route_localnet changes",
+        "INPUT SNAT fixes external TCP/UDP loopback wildcard-service replies",
+        "preconfigured external TCP loopback reaches a real local service",
+        "prepared IPv4 loopback output reaches remote TCP and UDP targets",
+        "unprepared loopback output to remote is rejected explicitly",
+        "same-LAN hairpin TCP/UDP returns through default MASQUERADE",
+        "source preservation requires explicit return-path confirmation",
+        "DNAT-only TCP/UDP preserves actual client address across routed target",
+        "pause blocks existing local service hooks as well as new ingress",
+        "resume restores local paths",
+        "later user cap fails local path closed with a visible failed status",
+        "removing incompatible cap restores local paths",
+        "pause blocks already confirmed local TCP and UDP connections",
+        "IPv6 host OUTPUT supports TCP and UDP",
+        "IPv6 OUTPUT and INPUT accounting is exact",
+        "IPv6 loopback TCP and UDP supports local service",
+        "IPv6 loopback does not double count bytes",
+        "IPv6 different local target addresses and wildcard UDP replies work",
+        "IPv6 external ingress reaches assigned local service",
+        "IPv6 external-to-local reply accounting is exact",
+        "IPv6 DNAT-only preserves the real client source for TCP/UDP",
+        "ambiguous local UDP source preservation is rejected",
+        "external IPv6 loopback targets require an assigned target alternative",
+        "unhealthy wildcard output never falls through to a later local listener",
+        "unhealthy local target rejects both origins without fallback",
+        "packets without a DNAT target do not burn reserved quota",
+        "target recovery reuses its untouched reservation",
+        "local-to-local quota admits no more than the single shared 8KiB budget",
+        "exhaustion blocks local OUTPUT and external INPUT",
+        "checkpoint restart restores hook coverage and source policy",
+        "enabling another local rule cannot opt a remote-only rule into INPUT",
+        "uninstall removes local hooks, extra sets and quotas while preserving foreign rules"
+      ],
+      "source": "/opt/flux-p1/evidence/native-only-final/p2-traffic/p2-result.json"
+    },
+    {
+      "suite": "protocol-blocking/protocol-result.json",
+      "success": true,
+      "count": 29,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "SYN and first data are queued, empty ACK and cached packets stay in kernel",
+        "HTTP detected and blocked",
+        "HTTP2 detected and blocked",
+        "TLS detected and blocked",
+        "SOCKS5 detected and blocked",
+        "SOCKS4 detected and blocked",
+        "large coalesced HTTP payload cannot bypass prefix recognition",
+        "segmented TCP prefix is classified before release",
+        "opaque traffic allowed without alteration",
+        "unknown SOCKS5 authentication methods are allowed and labelled UNKNOWN",
+        "bounded incomplete prefix timeout is allowed UNKNOWN",
+        "UDP preserved and marked UNKNOWN",
+        "blocked and UNKNOWN decisions separately observable",
+        "UNKNOWN conntrack decision cached in reserved low bits",
+        "all classified TCP flows preserve the complete forwarding token",
+        "pause remains authoritative for classified flows",
+        "independent switch permits HTTP while TLS/SOCKS remain blocked",
+        "absent queue listener never silently opens filtered TCP",
+        "policy survives restart and enabled state is not silently weakened",
+        "provider-NAT simulation reaches IPv4 wildcard over TCP and UDP",
+        "IPv6 shares classification and UNKNOWN allow contract",
+        "locally initiated OUTPUT traffic respects protocol policy",
+        "blocked request body is excluded from billed bytes",
+        "classified UNKNOWN TCP cannot bypass finite credit or billing",
+        "finite quota still closes UNKNOWN traffic with DPI enabled",
+        "pausing one rule retires its diagnostic object without affecting peers",
+        "owned classifier table removed on uninstall",
+        "maintenance discovers and backs up classifier before initialization"
+      ],
+      "source": "/opt/flux-p1/evidence/native-only-final/protocol-blocking/protocol-result.json"
+    },
+    {
+      "suite": "native-scale/native-scale-result.json",
+      "success": true,
+      "count": 14,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "native scale baseline passes real TCP/UDP",
+        "10k forwarding cold delta completes as one asynchronous job",
+        "10k configuration retains constant regular-packet classifier/filter paths",
+        "duplicate batch identity returns the same committed generation",
+        "generation-consistent paginated snapshot includes all 10k rules",
+        "10000-forward atomic pause blocks existing data paths",
+        "10000-forward atomic resume restores TCP and UDP",
+        "1000-forward atomic pause blocks existing data paths",
+        "1000-forward atomic resume restores TCP and UDP",
+        "bulk delete reconciles without leaving a live orphan dispatch",
+        "compressed bulk conntrack cleanup removes revoked flows and preserves the survivor",
+        "crash after native GC restores every retired counter byte and packet",
+        "native batched GC reclaims 9999 retired tokens while other traffic continues"
+      ],
+      "source": "/opt/flux-p1/evidence/native-only-final/native-scale/native-scale-result.json"
+    },
+    {
+      "suite": "p1-metrics/metrics-result.json",
+      "success": true,
+      "count": 5,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "CPU usage agrees with independent /proc sample brackets",
+        "memory usage agrees with MemAvailable instead of fabricated zero",
+        "per-interface cumulative bytes agree with independent netlink counters",
+        "rates have a real sample interval and conntrack uses the actual namespace"
+      ],
+      "source": "/opt/flux-p1/evidence/native-only-final/p1-metrics/metrics-result.json"
+    },
+    {
+      "suite": "maintenance/maintenance-result.json",
+      "success": true,
+      "count": 27,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "unfinished prepare cannot silently start an Agent",
+        "maintenance retry resumes prepare with durable accounting and paused data",
+        "backup checksum and protected config at prepare",
+        "unfinished quiesced cannot silently start an Agent",
+        "maintenance retry resumes quiesced with durable accounting and paused data",
+        "backup checksum and protected config at quiesced",
+        "unfinished checkpoint cannot silently start an Agent",
+        "maintenance retry resumes checkpoint with durable accounting and paused data",
+        "backup checksum and protected config at checkpoint",
+        "unfinished backedup cannot silently start an Agent",
+        "maintenance retry resumes backedup with durable accounting and paused data",
+        "backup checksum and protected config at backedup",
+        "unfinished settled cannot silently start an Agent",
+        "maintenance retry resumes settled with durable accounting and paused data",
+        "backup checksum and protected config at settled",
+        "unfinished cleanup cannot silently start an Agent",
+        "maintenance retry resumes cleanup with durable accounting and paused data",
+        "backup checksum and protected config at cleanup",
+        "unfinished installed cannot silently start an Agent",
+        "maintenance retry resumes installed with durable accounting and paused data",
+        "backup checksum and protected config at installed",
+        "rollback preserves all later cumulative usage",
+        "offline upgrade retains a closed guard",
+        "offline upgrade only completes after panel maintenance acknowledgement",
+        "uninstall removes only owned chains and preserves unrelated policy",
+        "retired checkpoint is rejected without changing its ledger"
+      ],
+      "source": "/opt/flux-p1/evidence/native-only-final/maintenance/maintenance-result.json"
+    },
+    {
+      "suite": "p1-kernel/p1-result.json",
+      "success": true,
+      "count": 43,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "advanced IPv4 data path forwards actual TCP and UDP",
+        "IPv6 direct DNAT/SNAT forwards real TCP and UDP",
+        "real ICMPv6 Packet Too Big crosses NAT from an intermediate router",
+        "IPv6 source fragments and TCP segments survive the smaller PMTU",
+        "two families share one business ledger",
+        "one pause blocks both families",
+        "one resume restores both families",
+        "dual-stack state and counters survive process restart",
+        "concurrent IPv4/IPv6 share one 64KiB admitted-byte budget",
+        "one quota object covers both address families",
+        "exhausted shared quota blocks both families without disabling statistics",
+        "node-side CNAME/TTL resolution drives actual TCP forwarding",
+        "DNS rotation changes new connections while an old TCP connection drains",
+        "truncated UDP DNS response falls back to TCP",
+        "a foreign route in an otherwise reserved table is preserved and rejected",
+        "a foreign rule referencing an empty reserved table is rejected",
+        "owned policy routing and explicit SNAT select the requested source",
+        "IPv6 policy routing and explicit SNAT select the requested IPv6 source",
+        "owned HTB/fq_codel smoothly shapes both directions through IFB",
+        "pause flushes owned shaping queues and blocks TCP/UDP",
+        "IPv6 TCP uses the same bidirectional smooth shaping path",
+        "two forwarding peers cannot multiply one 6 Mbps shared user ceiling",
+        "a recreated same-name interface receives fresh owned shaping classifiers",
+        "DNS outage closes new admission after finite stale grace without a control request",
+        "NXDOMAIN has distinct failure status and cannot reuse stale targets",
+        "DNS recovery reopens new connections",
+        "separate business IDs can use TCP and UDP on the same listen port",
+        "pausing the TCP business leaves its same-port UDP peer working",
+        "new wildcard address forwards UDP without resuming paused TCP",
+        "deleted local address leaves no wildcard binding",
+        "IPv6 tentative addresses stay out of wildcard bindings until DAD completes",
+        "usable IPv6 address is added and removed by netlink without business revision",
+        "weighted new-connection selection retains the configured 1:3 distribution",
+        "health fall removes a failed target from new selection",
+        "health rise restores recovered targets",
+        "all unhealthy targets close new admission and report a failed state",
+        "source-IP hash is stable across fresh connections and distributes sources",
+        "egress source loss fails closed and address restoration recovers",
+        "restart restores dual-stack, policy routing, health and shaping ownership",
+        "advanced uninstall preserves epoch and monotonic cumulative ledger",
+        "advanced uninstall removes owned IPv4/IPv6/nft/IFB/routing resources",
+        "advanced uninstall preserves unrelated firewall policy"
+      ],
+      "source": "/opt/flux-p1/evidence/native-only-final/p1-kernel/p1-result.json"
+    },
+    {
+      "suite": "native-nft/native-result.json",
+      "success": true,
+      "count": 24,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "native mode initializes without ipset or owned iptables chains",
+        "native IPv4 TCP/UDP sockets pass",
+        "irrelevant addressless link events do not rebuild rules or fence traffic",
+        "exact network accounting once per direction",
+        "pause stops TCP and UDP",
+        "pause preserves named counters",
+        "resume restores flow",
+        "wrong-backend maintenance refuses before touching live rules",
+        "pause blocks already confirmed connections",
+        "restart preserves kernel and cumulative counts",
+        "lost checkpoint cannot reset the existing accounting epoch",
+        "restored checkpoint resumes the original cumulative ledger",
+        "concurrent directions share one finite 8KiB budget",
+        "exhausted credit remains closed",
+        "quota uses a shared stateful nft object",
+        "invalid native batch is atomic",
+        "unrelated host firewall preserved",
+        "frozen v5.2 refuses native checkpoint even after kernel rules disappear",
+        "kernel resource loss rotates its instance without resetting the ledger",
+        "kernel loss cannot recreate an old credit reservation",
+        "settled uninstall retains epoch and monotonic ledger",
+        "uninstall removes native and quota resources",
+        "uninstall leaves external firewall"
+      ],
+      "source": "/opt/flux-p1/evidence/native-only-final/native-nft/native-result.json"
+    },
+    {
+      "suite": "p2-return-diagnostics/result.json",
+      "success": true,
+      "count": null,
+      "passed": null,
+      "source": "/opt/flux-p1/evidence/native-only-final/p2-return-diagnostics/result.json"
+    },
+    {
+      "suite": "p2-local-preparation/result.json",
+      "success": true,
+      "count": null,
+      "passed": null,
+      "source": "/opt/flux-p1/evidence/native-only-final/p2-local-preparation/result.json"
+    },
+    {
+      "suite": "protocol-sequence/sequence-result.json",
+      "success": true,
+      "count": 3,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "SYN carrying HTTP data is inspected and blocked",
+        "SYN sequence tracking still blocks an out-of-order HTTP prefix"
+      ],
+      "source": "/opt/flux-p1/evidence/native-only-final/protocol-sequence/sequence-result.json"
+    },
+    {
+      "suite": "protocol-unavailable/protocol-unavailable-result.json",
+      "success": true,
+      "count": 7,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "unfiltered forward works with queue owned by another process",
+        "queue conflict surfaces a failed rule with explanation",
+        "unavailable classifier closes filtered TCP and UDP",
+        "no global queue unbind or unrelated-forward outage",
+        "new revision recovers after queue is released",
+        "recovered classifier is ready"
+      ],
+      "source": "/opt/flux-p1/evidence/native-only-final/protocol-unavailable/protocol-unavailable-result.json"
+    }
+  ],
+  "benchmarks": {
+    "3": {
+      "success": true,
+      "logicalRules": 3,
+      "artifactSHA256": {
+        "/build/flux-agent-v55-baseline": "150b81c5937ddd54692970210e92830cad510f5ce0f00d4c29948933083fe1f9",
+        "/build/flux-agent-native": "8dab89cdfc84e6b2f5a0bb78a630773d0ffdab16f8c285ad01f1e558bdde5963",
+        "/build/bench-peer": "06c514f1046fdfc3023a558f905474000404b87894088c6ed5fb11c2e99f3dd9"
+      },
+      "identicalNativeProgram": true,
+      "programSHA256": [
+        "6fb4c36cf4d3e7d5a99ff1ad2f2a71c49f450882a95cece12f97cb84816529f0"
+      ],
+      "policyChecks": 30,
+      "metrics": {
+        "steady/150Mbps_single_stream": {
+          "baseline": {
+            "mbps": {
+              "median": 149.9488188586744,
+              "min": 149.91372825490177,
+              "max": 150.02411624219502,
+              "samples": 3
+            },
+            "forwarderCPUPercent": {
+              "median": 0.7489050193807983,
+              "min": 0.6989319646159717,
+              "max": 0.9487733304866228,
+              "samples": 3
+            },
+            "rssBytes": {
+              "median": 16384000,
+              "min": 16338944,
+              "max": 18563072,
+              "samples": 3
+            },
+            "testCoreCPUPercent": {
+              "median": 6.989319646159717,
+              "min": 6.340729164090758,
+              "max": 9.837281373992878,
+              "samples": 3
+            }
+          },
+          "native": {
+            "mbps": {
+              "median": 149.97486830976118,
+              "min": 149.9628432083408,
+              "max": 150.025046229433,
+              "samples": 3
+            },
+            "forwarderCPUPercent": {
+              "median": 1.0485576167774715,
+              "min": 0.6992666510224815,
+              "max": 1.0490042322604716,
+              "samples": 3
+            },
+            "rssBytes": {
+              "median": 16265216,
+              "min": 16216064,
+              "max": 16908288,
+              "samples": 3
+            },
+            "testCoreCPUPercent": {
+              "median": 9.936331701843661,
+              "min": 6.093609387481625,
+              "max": 10.190326827673154,
+              "samples": 3
+            }
+          }
+        },
+        "steady/25Mbps_single_stream": {
+          "baseline": {
+            "mbps": {
+              "median": 25.0047118790825,
+              "min": 25.003600639053822,
+              "max": 25.005290663007408,
+              "samples": 3
+            },
+            "forwarderCPUPercent": {
+              "median": 0.898673357360903,
+              "min": 0.7994476012939693,
+              "max": 0.8989412022861089,
+              "samples": 3
+            },
+            "rssBytes": {
+              "median": 18178048,
+              "min": 18096128,
+              "max": 18403328,
+              "samples": 3
+            },
+            "testCoreCPUPercent": {
+              "median": 3.246176563810949,
+              "min": 3.1977904051758763,
+              "max": 3.694546024705935,
+              "samples": 3
+            }
+          },
+          "native": {
+            "mbps": {
+              "median": 25.00224453505053,
+              "min": 24.9970851854223,
+              "max": 25.003268161235024,
+              "samples": 3
+            },
+            "forwarderCPUPercent": {
+              "median": 0.9480276734093946,
+              "min": 0.8488832476961858,
+              "max": 1.0487139288124285,
+              "samples": 3
+            },
+            "rssBytes": {
+              "median": 17395712,
+              "min": 16465920,
+              "max": 18444288,
+              "samples": 3
+            },
+            "testCoreCPUPercent": {
+              "median": 3.1957957560327004,
+              "min": 3.0436677935775296,
+              "max": 3.895223164160449,
+              "samples": 3
+            }
+          }
+        },
+        "continuous/connections": {
+          "baseline": {
+            "cps": {
+              "median": 10189.764791649493,
+              "min": 10084.634575633278,
+              "max": 10410.520929500932,
+              "samples": 3
+            },
+            "p50_us": {
+              "median": 81.75,
+              "min": 80.833,
+              "max": 82.25,
+              "samples": 3
+            },
+            "p95_us": {
+              "median": 124.959,
+              "min": 117.584,
+              "max": 126.583,
+              "samples": 3
+            },
+            "p99_us": {
+              "median": 212.834,
+              "min": 198.875,
+              "max": 226.333,
+              "samples": 3
+            },
+            "forwarderCPUSecondsPer1000": {
+              "median": 0.0346,
+              "min": 0.0334,
+              "max": 0.0349,
+              "samples": 3
+            }
+          },
+          "native": {
+            "cps": {
+              "median": 10393.306757010478,
+              "min": 10096.62278287665,
+              "max": 10415.608509194697,
+              "samples": 3
+            },
+            "p50_us": {
+              "median": 80.708,
+              "min": 80.625,
+              "max": 82.25,
+              "samples": 3
+            },
+            "p95_us": {
+              "median": 119.208,
+              "min": 117.916,
+              "max": 125.5,
+              "samples": 3
+            },
+            "p99_us": {
+              "median": 198.25,
+              "min": 197.167,
+              "max": 219.834,
+              "samples": 3
+            },
+            "forwarderCPUSecondsPer1000": {
+              "median": 0.033699999999999994,
+              "min": 0.033600000000000005,
+              "max": 0.034999999999999996,
+              "samples": 3
+            }
+          }
+        },
+        "latency/fresh_response": {
+          "baseline": {
+            "p50_us": {
+              "median": 507.791,
+              "min": 483.916,
+              "max": 573.958,
+              "samples": 3
+            },
+            "p95_us": {
+              "median": 2255.666,
+              "min": 2135.125,
+              "max": 2658.625,
+              "samples": 3
+            },
+            "p99_us": {
+              "median": 6338.291,
+              "min": 5882.708,
+              "max": 6789.25,
+              "samples": 3
+            },
+            "lost": {
+              "median": 0,
+              "min": 0,
+              "max": 0,
+              "samples": 3
+            }
+          },
+          "native": {
+            "p50_us": {
+              "median": 546.708,
+              "min": 521.709,
+              "max": 559.708,
+              "samples": 3
+            },
+            "p95_us": {
+              "median": 1970.583,
+              "min": 1968.5,
+              "max": 3094.917,
+              "samples": 3
+            },
+            "p99_us": {
+              "median": 5168.292,
+              "min": 4740.167,
+              "max": 6362.417,
+              "samples": 3
+            },
+            "lost": {
+              "median": 0,
+              "min": 0,
+              "max": 0,
+              "samples": 3
+            }
+          }
+        },
+        "latency/tcp_persistent": {
+          "baseline": {
+            "p50_us": {
+              "median": 108.875,
+              "min": 104.958,
+              "max": 136.334,
+              "samples": 3
+            },
+            "p95_us": {
+              "median": 309.417,
+              "min": 299.25,
+              "max": 624.375,
+              "samples": 3
+            },
+            "p99_us": {
+              "median": 932.458,
+              "min": 743.042,
+              "max": 2068.333,
+              "samples": 3
+            },
+            "lost": {
+              "median": 0,
+              "min": 0,
+              "max": 0,
+              "samples": 3
+            }
+          },
+          "native": {
+            "p50_us": {
+              "median": 106.792,
+              "min": 105.5,
+              "max": 112.375,
+              "samples": 3
+            },
+            "p95_us": {
+              "median": 343.209,
+              "min": 336.041,
+              "max": 501.667,
+              "samples": 3
+            },
+            "p99_us": {
+              "median": 1128.542,
+              "min": 1051.333,
+              "max": 1904.584,
+              "samples": 3
+            },
+            "lost": {
+              "median": 0,
+              "min": 0,
+              "max": 0,
+              "samples": 3
+            }
+          }
+        },
+        "latency/udp_persistent": {
+          "baseline": {
+            "p50_us": {
+              "median": 94.959,
+              "min": 92.5,
+              "max": 110.083,
+              "samples": 3
+            },
+            "p95_us": {
+              "median": 306.459,
+              "min": 293.875,
+              "max": 513.709,
+              "samples": 3
+            },
+            "p99_us": {
+              "median": 999.167,
+              "min": 979.417,
+              "max": 1763.25,
+              "samples": 3
+            },
+            "lost": {
+              "median": 0,
+              "min": 0,
+              "max": 0,
+              "samples": 3
+            }
+          },
+          "native": {
+            "p50_us": {
+              "median": 103.042,
+              "min": 94.208,
+              "max": 109.625,
+              "samples": 3
+            },
+            "p95_us": {
+              "median": 397.542,
+              "min": 311.042,
+              "max": 458.958,
+              "samples": 3
+            },
+            "p99_us": {
+              "median": 1304.375,
+              "min": 961.084,
+              "max": 1661.083,
+              "samples": 3
+            },
+            "lost": {
+              "median": 0,
+              "min": 0,
+              "max": 0,
+              "samples": 3
+            }
+          }
+        },
+        "bulk/bulk_download_1stream": {
+          "baseline": {
+            "bits_per_second": {
+              "median": 50981550651.22097,
+              "min": 50059145954.862686,
+              "max": 57594824831.58297,
+              "samples": 3
+            },
+            "seconds": {
+              "median": 0.168491042,
+              "min": 0.149144209,
+              "max": 0.171595708,
+              "samples": 3
+            },
+            "bytes": {
+              "median": 1073741824,
+              "min": 1073741824,
+              "max": 1073741824,
+              "samples": 3
+            }
+          },
+          "native": {
+            "bits_per_second": {
+              "median": 54376569103.55523,
+              "min": 53759568842.72184,
+              "max": 58091173689.028946,
+              "samples": 3
+            },
+            "seconds": {
+              "median": 0.15797125,
+              "min": 0.147869875,
+              "max": 0.159784291,
+              "samples": 3
+            },
+            "bytes": {
+              "median": 1073741824,
+              "min": 1073741824,
+              "max": 1073741824,
+              "samples": 3
+            }
+          }
+        },
+        "bulk/bulk_download_4stream": {
+          "baseline": {
+            "bits_per_second": {
+              "median": 48585213499.73117,
+              "min": 48427954291.62356,
+              "max": 48978462523.56465,
+              "samples": 3
+            },
+            "seconds": {
+              "median": 0.176801417,
+              "min": 0.175381875,
+              "max": 0.177375541,
+              "samples": 3
+            },
+            "bytes": {
+              "median": 1073741824,
+              "min": 1073741824,
+              "max": 1073741824,
+              "samples": 3
+            }
+          },
+          "native": {
+            "bits_per_second": {
+              "median": 47675739188.4101,
+              "min": 46475613210.61889,
+              "max": 49019199619.94138,
+              "samples": 3
+            },
+            "seconds": {
+              "median": 0.180174125,
+              "min": 0.175236125,
+              "max": 0.184826708,
+              "samples": 3
+            },
+            "bytes": {
+              "median": 1073741824,
+              "min": 1073741824,
+              "max": 1073741824,
+              "samples": 3
+            }
+          }
+        },
+        "bulk/bulk_upload_1stream": {
+          "baseline": {
+            "bits_per_second": {
+              "median": 49705355472.842026,
+              "min": 48042968168.18156,
+              "max": 57825256278.404816,
+              "samples": 3
+            },
+            "seconds": {
+              "median": 0.172817084,
+              "min": 0.148549875,
+              "max": 0.178796917,
+              "samples": 3
+            },
+            "bytes": {
+              "median": 1073741824,
+              "min": 1073741824,
+              "max": 1073741824,
+              "samples": 3
+            }
+          },
+          "native": {
+            "bits_per_second": {
+              "median": 51663302413.80425,
+              "min": 48952539279.8679,
+              "max": 52019146049.86064,
+              "samples": 3
+            },
+            "seconds": {
+              "median": 0.166267625,
+              "min": 0.16513025,
+              "max": 0.17547475,
+              "samples": 3
+            },
+            "bytes": {
+              "median": 1073741824,
+              "min": 1073741824,
+              "max": 1073741824,
+              "samples": 3
+            }
+          }
+        }
+      },
+      "rawFile": "/Users/vinsec/Documents/Codex/2026-10-23/ssh/work/native-only-20261101/comparison-3.json",
+      "rawSHA256": "6c5cdb18a692cd64a184014965b85b76c94f40341b49913374d940f0069eba78"
+    },
+    "10000": {
+      "success": true,
+      "logicalRules": 10000,
+      "artifactSHA256": {
+        "/build/flux-agent-v55-baseline": "150b81c5937ddd54692970210e92830cad510f5ce0f00d4c29948933083fe1f9",
+        "/build/flux-agent-native": "8dab89cdfc84e6b2f5a0bb78a630773d0ffdab16f8c285ad01f1e558bdde5963",
+        "/build/bench-peer": "06c514f1046fdfc3023a558f905474000404b87894088c6ed5fb11c2e99f3dd9"
+      },
+      "identicalNativeProgram": true,
+      "programSHA256": [
+        "6fb4c36cf4d3e7d5a99ff1ad2f2a71c49f450882a95cece12f97cb84816529f0"
+      ],
+      "policyChecks": 30,
+      "metrics": {
+        "steady/150Mbps_single_stream": {
+          "baseline": {
+            "mbps": {
+              "median": 150.0286687896475,
+              "min": 150.022203804674,
+              "max": 150.0299813546402,
+              "samples": 3
+            },
+            "forwarderCPUPercent": {
+              "median": 13.03879431804007,
+              "min": 12.139784340521038,
+              "max": 13.290370622114745,
+              "samples": 3
+            },
+            "rssBytes": {
+              "median": 155435008,
+              "min": 146677760,
+              "max": 156012544,
+              "samples": 3
+            },
+            "testCoreCPUPercent": {
+              "median": 19.533212943883782,
+              "min": 18.13473957040797,
+              "max": 19.535845538522047,
+              "samples": 3
+            }
+          },
+          "native": {
+            "mbps": {
+              "median": 149.98682035239486,
+              "min": 149.97083473786313,
+              "max": 150.04412851272136,
+              "samples": 3
+            },
+            "forwarderCPUPercent": {
+              "median": 12.940552985458007,
+              "min": 10.791979171210784,
+              "max": 13.290662362066321,
+              "samples": 3
+            },
+            "rssBytes": {
+              "median": 134115328,
+              "min": 127979520,
+              "max": 151945216,
+              "samples": 3
+            },
+            "testCoreCPUPercent": {
+              "median": 18.287151971865693,
+              "min": 16.787523155216775,
+              "max": 18.78628541518228,
+              "samples": 3
+            }
+          }
+        },
+        "continuous/connections": {
+          "baseline": {
+            "cps": {
+              "median": 9636.374688111611,
+              "min": 9531.291318803142,
+              "max": 9654.018709821088,
+              "samples": 3
+            },
+            "p50_us": {
+              "median": 81.292,
+              "min": 80.583,
+              "max": 81.292,
+              "samples": 3
+            },
+            "p95_us": {
+              "median": 124.375,
+              "min": 119.333,
+              "max": 125.792,
+              "samples": 3
+            },
+            "p99_us": {
+              "median": 214.834,
+              "min": 208.083,
+              "max": 214.917,
+              "samples": 3
+            },
+            "forwarderCPUSecondsPer1000": {
+              "median": 0.04069999999999999,
+              "min": 0.040600000000000004,
+              "max": 0.041399999999999985,
+              "samples": 3
+            }
+          },
+          "native": {
+            "cps": {
+              "median": 8952.034980817274,
+              "min": 8908.77154699517,
+              "max": 9083.802732109862,
+              "samples": 3
+            },
+            "p50_us": {
+              "median": 83.875,
+              "min": 81.5,
+              "max": 85.958,
+              "samples": 3
+            },
+            "p95_us": {
+              "median": 137.583,
+              "min": 134.75,
+              "max": 144.916,
+              "samples": 3
+            },
+            "p99_us": {
+              "median": 240.959,
+              "min": 240.958,
+              "max": 269.917,
+              "samples": 3
+            },
+            "forwarderCPUSecondsPer1000": {
+              "median": 0.0444,
+              "min": 0.044199999999999996,
+              "max": 0.0447,
+              "samples": 3
+            }
+          }
+        },
+        "latency/fresh_response": {
+          "baseline": {
+            "p50_us": {
+              "median": 232.375,
+              "min": 229.417,
+              "max": 409.167,
+              "samples": 3
+            },
+            "p95_us": {
+              "median": 1435.667,
+              "min": 1352.042,
+              "max": 2346.833,
+              "samples": 3
+            },
+            "p99_us": {
+              "median": 8800.417,
+              "min": 4764.708,
+              "max": 9454.291,
+              "samples": 3
+            },
+            "lost": {
+              "median": 0,
+              "min": 0,
+              "max": 0,
+              "samples": 3
+            }
+          },
+          "native": {
+            "p50_us": {
+              "median": 252.541,
+              "min": 198.792,
+              "max": 328.459,
+              "samples": 3
+            },
+            "p95_us": {
+              "median": 1591.792,
+              "min": 1295.292,
+              "max": 2635.25,
+              "samples": 3
+            },
+            "p99_us": {
+              "median": 9398.75,
+              "min": 7081.375,
+              "max": 9502.708,
+              "samples": 3
+            },
+            "lost": {
+              "median": 0,
+              "min": 0,
+              "max": 0,
+              "samples": 3
+            }
+          }
+        },
+        "latency/tcp_persistent": {
+          "baseline": {
+            "p50_us": {
+              "median": 83.5,
+              "min": 68.375,
+              "max": 85.292,
+              "samples": 3
+            },
+            "p95_us": {
+              "median": 390.125,
+              "min": 286.916,
+              "max": 394.208,
+              "samples": 3
+            },
+            "p99_us": {
+              "median": 1566.709,
+              "min": 990.625,
+              "max": 2205,
+              "samples": 3
+            },
+            "lost": {
+              "median": 0,
+              "min": 0,
+              "max": 0,
+              "samples": 3
+            }
+          },
+          "native": {
+            "p50_us": {
+              "median": 91.041,
+              "min": 65.083,
+              "max": 122.666,
+              "samples": 3
+            },
+            "p95_us": {
+              "median": 277.25,
+              "min": 264.25,
+              "max": 401.958,
+              "samples": 3
+            },
+            "p99_us": {
+              "median": 815.375,
+              "min": 802.291,
+              "max": 1224.042,
+              "samples": 3
+            },
+            "lost": {
+              "median": 0,
+              "min": 0,
+              "max": 0,
+              "samples": 3
+            }
+          }
+        },
+        "latency/udp_persistent": {
+          "baseline": {
+            "p50_us": {
+              "median": 61.833,
+              "min": 55.916,
+              "max": 85.583,
+              "samples": 3
+            },
+            "p95_us": {
+              "median": 289.125,
+              "min": 207.625,
+              "max": 318.708,
+              "samples": 3
+            },
+            "p99_us": {
+              "median": 925.459,
+              "min": 687.042,
+              "max": 1228.292,
+              "samples": 3
+            },
+            "lost": {
+              "median": 0,
+              "min": 0,
+              "max": 0,
+              "samples": 3
+            }
+          },
+          "native": {
+            "p50_us": {
+              "median": 77.583,
+              "min": 59.333,
+              "max": 84.25,
+              "samples": 3
+            },
+            "p95_us": {
+              "median": 290.375,
+              "min": 282.416,
+              "max": 347.75,
+              "samples": 3
+            },
+            "p99_us": {
+              "median": 1085.583,
+              "min": 1047.417,
+              "max": 1149.833,
+              "samples": 3
+            },
+            "lost": {
+              "median": 0,
+              "min": 0,
+              "max": 0,
+              "samples": 3
+            }
+          }
+        },
+        "bulk/bulk_download_1stream": {
+          "baseline": {
+            "bits_per_second": {
+              "median": 52522487114.61943,
+              "min": 52175813226.22231,
+              "max": 55544640047.55847,
+              "samples": 3
+            },
+            "seconds": {
+              "median": 0.16354775,
+              "min": 0.154649208,
+              "max": 0.164634417,
+              "samples": 3
+            },
+            "bytes": {
+              "median": 1073741824,
+              "min": 1073741824,
+              "max": 1073741824,
+              "samples": 3
+            }
+          },
+          "native": {
+            "bits_per_second": {
+              "median": 47432760648.055275,
+              "min": 41779769841.13153,
+              "max": 54751189115.329735,
+              "samples": 3
+            },
+            "seconds": {
+              "median": 0.181097083,
+              "min": 0.156890375,
+              "max": 0.205600333,
+              "samples": 3
+            },
+            "bytes": {
+              "median": 1073741824,
+              "min": 1073741824,
+              "max": 1073741824,
+              "samples": 3
+            }
+          }
+        },
+        "bulk/bulk_upload_1stream": {
+          "baseline": {
+            "bits_per_second": {
+              "median": 51946543684.6969,
+              "min": 31853297914.96514,
+              "max": 57283702142.486786,
+              "samples": 3
+            },
+            "seconds": {
+              "median": 0.165361042,
+              "min": 0.14995425,
+              "max": 0.26967175,
+              "samples": 3
+            },
+            "bytes": {
+              "median": 1073741824,
+              "min": 1073741824,
+              "max": 1073741824,
+              "samples": 3
+            }
+          },
+          "native": {
+            "bits_per_second": {
+              "median": 48275021395.43884,
+              "min": 47439691512.63492,
+              "max": 50435794961.37287,
+              "samples": 3
+            },
+            "seconds": {
+              "median": 0.177937458,
+              "min": 0.17031425,
+              "max": 0.181070625,
+              "samples": 3
+            },
+            "bytes": {
+              "median": 1073741824,
+              "min": 1073741824,
+              "max": 1073741824,
+              "samples": 3
+            }
+          }
+        }
+      },
+      "rawFile": "/Users/vinsec/Documents/Codex/2026-10-23/ssh/work/native-only-20261101/comparison-10000.json",
+      "rawSHA256": "7e71585c0836e27f61c8f0102416e55816157263d60af953f55942e5c13d55aa"
+    }
+  },
+  "confirmations": {
+    "3": {
+      "success": true,
+      "logicalRules": 3,
+      "artifactSHA256": {
+        "/build/flux-agent-v55-baseline": "150b81c5937ddd54692970210e92830cad510f5ce0f00d4c29948933083fe1f9",
+        "/build/flux-agent-native": "8dab89cdfc84e6b2f5a0bb78a630773d0ffdab16f8c285ad01f1e558bdde5963",
+        "/build/bench-peer": "06c514f1046fdfc3023a558f905474000404b87894088c6ed5fb11c2e99f3dd9"
+      },
+      "identicalNativeProgram": true,
+      "programSHA256": [
+        "6fb4c36cf4d3e7d5a99ff1ad2f2a71c49f450882a95cece12f97cb84816529f0"
+      ],
+      "policyChecks": 20,
+      "metrics": {
+        "steady/150Mbps_single_stream": {
+          "baseline": {
+            "mbps": {
+              "median": 150.0090839873189,
+              "min": 150.00856276109326,
+              "max": 150.00960521354455,
+              "samples": 2
+            },
+            "forwarderCPUPercent": {
+              "median": 0.724512705648316,
+              "min": 0.674543547292291,
+              "max": 0.774481864004341,
+              "samples": 2
+            },
+            "rssBytes": {
+              "median": 17274880.0,
+              "min": 17141760,
+              "max": 17408000,
+              "samples": 2
+            },
+            "testCoreCPUPercent": {
+              "median": 6.695496202835422,
+              "min": 6.370689057760526,
+              "max": 7.0203033479103185,
+              "samples": 2
+            }
+          },
+          "native": {
+            "mbps": {
+              "median": 150.00473741141525,
+              "min": 149.9930745642054,
+              "max": 150.01640025862514,
+              "samples": 2
+            },
+            "forwarderCPUPercent": {
+              "median": 0.6995358481845823,
+              "min": 0.6746535938667957,
+              "max": 0.7244181025023688,
+              "samples": 2
+            },
+            "rssBytes": {
+              "median": 17485824.0,
+              "min": 16748544,
+              "max": 18223104,
+              "samples": 2
+            },
+            "testCoreCPUPercent": {
+              "median": 6.558158977868324,
+              "min": 6.396715556662951,
+              "max": 6.719602399073696,
+              "samples": 2
+            }
+          }
+        },
+        "latency/fresh_response": {
+          "baseline": {
+            "p50_us": {
+              "median": 481.708,
+              "min": 404.125,
+              "max": 559.291,
+              "samples": 2
+            },
+            "p95_us": {
+              "median": 2203.5834999999997,
+              "min": 1931.792,
+              "max": 2475.375,
+              "samples": 2
+            },
+            "p99_us": {
+              "median": 5494.021000000001,
+              "min": 5109.375,
+              "max": 5878.667,
+              "samples": 2
+            },
+            "lost": {
+              "median": 0.0,
+              "min": 0,
+              "max": 0,
+              "samples": 2
+            }
+          },
+          "native": {
+            "p50_us": {
+              "median": 505.1035,
+              "min": 499.666,
+              "max": 510.541,
+              "samples": 2
+            },
+            "p95_us": {
+              "median": 2010.208,
+              "min": 1943.333,
+              "max": 2077.083,
+              "samples": 2
+            },
+            "p99_us": {
+              "median": 5520.708500000001,
+              "min": 5394.375,
+              "max": 5647.042,
+              "samples": 2
+            },
+            "lost": {
+              "median": 0.0,
+              "min": 0,
+              "max": 0,
+              "samples": 2
+            }
+          }
+        },
+        "latency/tcp_persistent": {
+          "baseline": {
+            "p50_us": {
+              "median": 108.271,
+              "min": 100.792,
+              "max": 115.75,
+              "samples": 2
+            },
+            "p95_us": {
+              "median": 402.14599999999996,
+              "min": 275.709,
+              "max": 528.583,
+              "samples": 2
+            },
+            "p99_us": {
+              "median": 1356.271,
+              "min": 814.542,
+              "max": 1898,
+              "samples": 2
+            },
+            "lost": {
+              "median": 0.0,
+              "min": 0,
+              "max": 0,
+              "samples": 2
+            }
+          },
+          "native": {
+            "p50_us": {
+              "median": 104.5,
+              "min": 104.208,
+              "max": 104.792,
+              "samples": 2
+            },
+            "p95_us": {
+              "median": 300.22900000000004,
+              "min": 295.458,
+              "max": 305,
+              "samples": 2
+            },
+            "p99_us": {
+              "median": 752.792,
+              "min": 707.542,
+              "max": 798.042,
+              "samples": 2
+            },
+            "lost": {
+              "median": 0.0,
+              "min": 0,
+              "max": 0,
+              "samples": 2
+            }
+          }
+        },
+        "latency/udp_persistent": {
+          "baseline": {
+            "p50_us": {
+              "median": 102.0415,
+              "min": 95.5,
+              "max": 108.583,
+              "samples": 2
+            },
+            "p95_us": {
+              "median": 368.16650000000004,
+              "min": 328.25,
+              "max": 408.083,
+              "samples": 2
+            },
+            "p99_us": {
+              "median": 1131.5415,
+              "min": 959.75,
+              "max": 1303.333,
+              "samples": 2
+            },
+            "lost": {
+              "median": 0.0,
+              "min": 0,
+              "max": 0,
+              "samples": 2
+            }
+          },
+          "native": {
+            "p50_us": {
+              "median": 97.604,
+              "min": 93.292,
+              "max": 101.916,
+              "samples": 2
+            },
+            "p95_us": {
+              "median": 298.02099999999996,
+              "min": 290.542,
+              "max": 305.5,
+              "samples": 2
+            },
+            "p99_us": {
+              "median": 847.854,
+              "min": 845,
+              "max": 850.708,
+              "samples": 2
+            },
+            "lost": {
+              "median": 0.0,
+              "min": 0,
+              "max": 0,
+              "samples": 2
+            }
+          }
+        }
+      },
+      "rawFile": "/Users/vinsec/Documents/Codex/2026-10-23/ssh/work/native-only-20261101/confirmation-3.json",
+      "rawSHA256": "85ef24bd1945130cffa59e58aee456bcceed7ae1195e6533fa9843b7ca0293e2"
+    },
+    "10000": {
+      "success": true,
+      "logicalRules": 10000,
+      "artifactSHA256": {
+        "/build/flux-agent-v55-baseline": "150b81c5937ddd54692970210e92830cad510f5ce0f00d4c29948933083fe1f9",
+        "/build/flux-agent-native": "8dab89cdfc84e6b2f5a0bb78a630773d0ffdab16f8c285ad01f1e558bdde5963",
+        "/build/bench-peer": "06c514f1046fdfc3023a558f905474000404b87894088c6ed5fb11c2e99f3dd9"
+      },
+      "identicalNativeProgram": true,
+      "programSHA256": [
+        "6fb4c36cf4d3e7d5a99ff1ad2f2a71c49f450882a95cece12f97cb84816529f0"
+      ],
+      "policyChecks": 20,
+      "metrics": {
+        "steady/150Mbps_single_stream": {
+          "baseline": {
+            "mbps": {
+              "median": 150.00494368621668,
+              "min": 149.992887080249,
+              "max": 150.01700029218438,
+              "samples": 2
+            },
+            "forwarderCPUPercent": {
+              "median": 11.966793652113232,
+              "min": 11.766289348927103,
+              "max": 12.16729795529936,
+              "samples": 2
+            },
+            "rssBytes": {
+              "median": 150687744.0,
+              "min": 149479424,
+              "max": 151896064,
+              "samples": 2
+            },
+            "testCoreCPUPercent": {
+              "median": 17.625404782558526,
+              "min": 17.487054234074247,
+              "max": 17.763755331042805,
+              "samples": 2
+            }
+          },
+          "native": {
+            "mbps": {
+              "median": 149.99394637076114,
+              "min": 149.99392949698782,
+              "max": 149.99396324453443,
+              "samples": 2
+            },
+            "forwarderCPUPercent": {
+              "median": 12.407356299211418,
+              "min": 12.396631674327702,
+              "max": 12.418080924095134,
+              "samples": 2
+            },
+            "rssBytes": {
+              "median": 168196096.0,
+              "min": 167075840,
+              "max": 169316352,
+              "samples": 2
+            },
+            "testCoreCPUPercent": {
+              "median": 17.94247145553718,
+              "min": 17.295300642408815,
+              "max": 18.58964226866555,
+              "samples": 2
+            }
+          }
+        },
+        "latency/fresh_response": {
+          "baseline": {
+            "p50_us": {
+              "median": 233.0625,
+              "min": 222.75,
+              "max": 243.375,
+              "samples": 2
+            },
+            "p95_us": {
+              "median": 1182.1665,
+              "min": 981.417,
+              "max": 1382.916,
+              "samples": 2
+            },
+            "p99_us": {
+              "median": 7542.125,
+              "min": 7325.167,
+              "max": 7759.083,
+              "samples": 2
+            },
+            "lost": {
+              "median": 0.0,
+              "min": 0,
+              "max": 0,
+              "samples": 2
+            }
+          },
+          "native": {
+            "p50_us": {
+              "median": 272.0835,
+              "min": 255.792,
+              "max": 288.375,
+              "samples": 2
+            },
+            "p95_us": {
+              "median": 1929.375,
+              "min": 1772.875,
+              "max": 2085.875,
+              "samples": 2
+            },
+            "p99_us": {
+              "median": 8936.145499999999,
+              "min": 8792.166,
+              "max": 9080.125,
+              "samples": 2
+            },
+            "lost": {
+              "median": 0.0,
+              "min": 0,
+              "max": 0,
+              "samples": 2
+            }
+          }
+        },
+        "latency/tcp_persistent": {
+          "baseline": {
+            "p50_us": {
+              "median": 62.5,
+              "min": 61.333,
+              "max": 63.667,
+              "samples": 2
+            },
+            "p95_us": {
+              "median": 316.1245,
+              "min": 255.083,
+              "max": 377.166,
+              "samples": 2
+            },
+            "p99_us": {
+              "median": 1790.8955,
+              "min": 903.875,
+              "max": 2677.916,
+              "samples": 2
+            },
+            "lost": {
+              "median": 0.0,
+              "min": 0,
+              "max": 0,
+              "samples": 2
+            }
+          },
+          "native": {
+            "p50_us": {
+              "median": 60.5,
+              "min": 54.75,
+              "max": 66.25,
+              "samples": 2
+            },
+            "p95_us": {
+              "median": 257.95849999999996,
+              "min": 255.125,
+              "max": 260.792,
+              "samples": 2
+            },
+            "p99_us": {
+              "median": 997.3125,
+              "min": 903.458,
+              "max": 1091.167,
+              "samples": 2
+            },
+            "lost": {
+              "median": 0.0,
+              "min": 0,
+              "max": 0,
+              "samples": 2
+            }
+          }
+        },
+        "latency/udp_persistent": {
+          "baseline": {
+            "p50_us": {
+              "median": 59.0625,
+              "min": 47.25,
+              "max": 70.875,
+              "samples": 2
+            },
+            "p95_us": {
+              "median": 289.209,
+              "min": 219.709,
+              "max": 358.709,
+              "samples": 2
+            },
+            "p99_us": {
+              "median": 1171.0005,
+              "min": 728.042,
+              "max": 1613.959,
+              "samples": 2
+            },
+            "lost": {
+              "median": 0.0,
+              "min": 0,
+              "max": 0,
+              "samples": 2
+            }
+          },
+          "native": {
+            "p50_us": {
+              "median": 56.333,
+              "min": 53.333,
+              "max": 59.333,
+              "samples": 2
+            },
+            "p95_us": {
+              "median": 299.20849999999996,
+              "min": 291.625,
+              "max": 306.792,
+              "samples": 2
+            },
+            "p99_us": {
+              "median": 1482.125,
+              "min": 1200.875,
+              "max": 1763.375,
+              "samples": 2
+            },
+            "lost": {
+              "median": 0.0,
+              "min": 0,
+              "max": 0,
+              "samples": 2
+            }
+          }
+        }
+      },
+      "rawFile": "/Users/vinsec/Documents/Codex/2026-10-23/ssh/work/native-only-20261101/confirmation-10000.json",
+      "rawSHA256": "f2bb00117fce8ae6949eade16a9d79a816e6d61c96ef6d983b14fd0daa7f16a5"
+    }
+  },
+  "coldConfirmation": {
+    "success": true,
+    "logicalRules": 10000,
+    "artifactSHA256": {
+      "/build/flux-agent-v55-baseline": "150b81c5937ddd54692970210e92830cad510f5ce0f00d4c29948933083fe1f9",
+      "/build/flux-agent-native": "8dab89cdfc84e6b2f5a0bb78a630773d0ffdab16f8c285ad01f1e558bdde5963",
+      "/build/bench-peer": "06c514f1046fdfc3023a558f905474000404b87894088c6ed5fb11c2e99f3dd9"
+    },
+    "identicalNativeProgram": true,
+    "programSHA256": [
+      "6fb4c36cf4d3e7d5a99ff1ad2f2a71c49f450882a95cece12f97cb84816529f0"
+    ],
+    "policyChecks": 20,
+    "metrics": {
+      "continuous/connections": {
+        "baseline": {
+          "cps": {
+            "median": 7972.057122228098,
+            "min": 6946.106924710997,
+            "max": 8998.007319745198,
+            "samples": 2
+          },
+          "p50_us": {
+            "median": 86.1875,
+            "min": 82.875,
+            "max": 89.5,
+            "samples": 2
+          },
+          "p95_us": {
+            "median": 188.9375,
+            "min": 149.708,
+            "max": 228.167,
+            "samples": 2
+          },
+          "p99_us": {
+            "median": 405.83299999999997,
+            "min": 273.833,
+            "max": 537.833,
+            "samples": 2
+          },
+          "forwarderCPUSecondsPer1000": {
+            "median": 0.0527,
+            "min": 0.0446,
+            "max": 0.0608,
+            "samples": 2
+          }
+        },
+        "native": {
+          "cps": {
+            "median": 9606.873279149717,
+            "min": 9204.182132216029,
+            "max": 10009.564426083407,
+            "samples": 2
+          },
+          "p50_us": {
+            "median": 78.6665,
+            "min": 78.458,
+            "max": 78.875,
+            "samples": 2
+          },
+          "p95_us": {
+            "median": 124.146,
+            "min": 111.25,
+            "max": 137.042,
+            "samples": 2
+          },
+          "p99_us": {
+            "median": 222.7705,
+            "min": 185.416,
+            "max": 260.125,
+            "samples": 2
+          },
+          "forwarderCPUSecondsPer1000": {
+            "median": 0.041150000000000006,
+            "min": 0.0384,
+            "max": 0.04390000000000001,
+            "samples": 2
+          }
+        }
+      }
+    },
+    "rawFile": "/Users/vinsec/Documents/Codex/2026-10-23/ssh/work/native-only-20261101/cold-confirmation.json",
+    "rawSHA256": "b5b4ac070649f8c58a87af7b368b46bd6c4ebcbb79302ed13db28dd871b851be"
+  }
+}

@@ -61,7 +61,7 @@ export const pauseForwardService = (forwardId: number) => Network.post("/forward
 export const resumeForwardService = (forwardId: number) => Network.post("/forward/resume", { id: forwardId });
 
 // 转发诊断操作
-export const diagnoseForward = (forwardId: number) => Network.post("/forward/diagnose", { forwardId });
+export const diagnoseForward = (forwardId: number, options?: { clientIP?: string; ingressInterface?: string; probe?: boolean }) => Network.post("/forward/diagnose", { forwardId, ...options });
 
 // 转发排序操作
 export const updateForwardOrder = (data: { forwards: Array<{ id: number; inx: number }> }) => Network.post("/forward/update-order", data);
@@ -88,4 +88,10 @@ export const updateConfig = (name: string, value: string) => Network.post("/conf
 // 验证码相关接口
 export const checkCaptcha = () => Network.post("/captcha/check");
 export const generateCaptcha = () => Network.post(`/captcha/generate`);
-export const verifyCaptcha = (data: { captchaId: string; trackData: string }) => Network.post("/captcha/verify", data); 
+export const verifyCaptcha = (data: { captchaId: string; trackData: string }) => Network.post("/captcha/verify", data);
+export const getTunnelCapabilities = (data: {tunnelId:number}) => Network.post("/engine/tunnel-capabilities", data);
+export const getForwardStates = (data: {ids:number[]}) => Network.post("/engine/forward-states", data);
+export const getBandwidthGroups = (data: {nodeId:number}) => Network.post("/engine/bandwidth-groups", data);
+export const setBandwidthGroup = (data: any) => Network.post("/engine/set-bandwidth-group", data);
+
+export const getEngineSocketTicket = () => Network.post("/engine/socket-ticket", {});

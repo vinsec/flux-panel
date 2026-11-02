@@ -1,0 +1,2169 @@
+{
+  "commit": "a08e3d8",
+  "http": [
+    {
+      "path": "/api/v1/captcha/check",
+      "method": "POST",
+      "admin": false,
+      "public": true,
+      "readOnly": true,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/CaptchaController.java"
+    },
+    {
+      "path": "/api/v1/captcha/generate",
+      "method": "POST",
+      "admin": false,
+      "public": true,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/CaptchaController.java"
+    },
+    {
+      "path": "/api/v1/captcha/verify",
+      "method": "POST",
+      "admin": false,
+      "public": true,
+      "readOnly": false,
+      "dto": "CaptchaVerifyDto",
+      "source": "springboot-backend/src/main/java/com/admin/controller/CaptchaController.java"
+    },
+    {
+      "path": "/error",
+      "method": "ANY",
+      "admin": false,
+      "public": true,
+      "readOnly": true,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/CustomErrorController.java"
+    },
+    {
+      "path": "/api/v1/engine/capabilities",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/EngineControlController.java"
+    },
+    {
+      "path": "/api/v1/engine/reconcile",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/EngineControlController.java"
+    },
+    {
+      "path": "/api/v1/engine/batch-status",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/EngineControlController.java"
+    },
+    {
+      "path": "/api/v1/engine/collect",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/EngineControlController.java"
+    },
+    {
+      "path": "/flow/engine/v3/session",
+      "method": "POST",
+      "admin": false,
+      "public": true,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/EngineSessionController.java"
+    },
+    {
+      "path": "/api/v1/engine/socket-ticket",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/EngineSessionController.java"
+    },
+    {
+      "path": "/api/v1/engine/revoke-sessions",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/EngineSessionController.java"
+    },
+    {
+      "path": "/api/v1/engine/tunnel-capabilities",
+      "method": "POST",
+      "admin": false,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/EngineStateController.java"
+    },
+    {
+      "path": "/api/v1/engine/forward-states",
+      "method": "POST",
+      "admin": false,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/EngineStateController.java"
+    },
+    {
+      "path": "/api/v1/engine/bandwidth-groups",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": true,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/EngineStateController.java"
+    },
+    {
+      "path": "/api/v1/engine/set-bandwidth-group",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/EngineStateController.java"
+    },
+    {
+      "path": "/api/v1/engine/audit",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": true,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/EngineStateController.java"
+    },
+    {
+      "path": "/flow/engine/v1/traffic",
+      "method": "POST",
+      "admin": false,
+      "public": true,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/EngineTrafficController.java"
+    },
+    {
+      "path": "/flow/engine/v2/traffic",
+      "method": "POST",
+      "admin": false,
+      "public": true,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/EngineTrafficController.java"
+    },
+    {
+      "path": "/flow/engine/v2/maintenance",
+      "method": "POST",
+      "admin": false,
+      "public": true,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/EngineTrafficController.java"
+    },
+    {
+      "path": "/flow/config",
+      "method": "POST",
+      "admin": false,
+      "public": true,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/FlowController.java"
+    },
+    {
+      "path": "/flow/test",
+      "method": "ANY",
+      "admin": false,
+      "public": true,
+      "readOnly": true,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/FlowController.java"
+    },
+    {
+      "path": "/flow/upload",
+      "method": "ANY",
+      "admin": false,
+      "public": true,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/FlowController.java"
+    },
+    {
+      "path": "/api/v1/forward/create",
+      "method": "POST",
+      "admin": false,
+      "public": false,
+      "readOnly": false,
+      "dto": "ForwardDto",
+      "source": "springboot-backend/src/main/java/com/admin/controller/ForwardController.java"
+    },
+    {
+      "path": "/api/v1/forward/list",
+      "method": "POST",
+      "admin": false,
+      "public": false,
+      "readOnly": true,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/ForwardController.java"
+    },
+    {
+      "path": "/api/v1/forward/update",
+      "method": "POST",
+      "admin": false,
+      "public": false,
+      "readOnly": false,
+      "dto": "ForwardUpdateDto",
+      "source": "springboot-backend/src/main/java/com/admin/controller/ForwardController.java"
+    },
+    {
+      "path": "/api/v1/forward/delete",
+      "method": "POST",
+      "admin": false,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/ForwardController.java"
+    },
+    {
+      "path": "/api/v1/forward/force-delete",
+      "method": "POST",
+      "admin": false,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/ForwardController.java"
+    },
+    {
+      "path": "/api/v1/forward/pause",
+      "method": "POST",
+      "admin": false,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/ForwardController.java"
+    },
+    {
+      "path": "/api/v1/forward/resume",
+      "method": "POST",
+      "admin": false,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/ForwardController.java"
+    },
+    {
+      "path": "/api/v1/forward/diagnose",
+      "method": "POST",
+      "admin": false,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/ForwardController.java"
+    },
+    {
+      "path": "/api/v1/forward/update-order",
+      "method": "POST",
+      "admin": false,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/ForwardController.java"
+    },
+    {
+      "path": "/api/v1/node/create",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "NodeDto",
+      "source": "springboot-backend/src/main/java/com/admin/controller/NodeController.java"
+    },
+    {
+      "path": "/api/v1/node/list",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": true,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/NodeController.java"
+    },
+    {
+      "path": "/api/v1/node/update",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "NodeUpdateDto",
+      "source": "springboot-backend/src/main/java/com/admin/controller/NodeController.java"
+    },
+    {
+      "path": "/api/v1/node/delete",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/NodeController.java"
+    },
+    {
+      "path": "/api/v1/node/install",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/NodeController.java"
+    },
+    {
+      "path": "/api/v1/open_api/sub_store",
+      "method": "GET",
+      "admin": false,
+      "public": true,
+      "readOnly": true,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/OpenApiController.java"
+    },
+    {
+      "path": "/api/v1/speed-limit/create",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "SpeedLimitDto",
+      "source": "springboot-backend/src/main/java/com/admin/controller/SpeedLimitController.java"
+    },
+    {
+      "path": "/api/v1/speed-limit/list",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": true,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/SpeedLimitController.java"
+    },
+    {
+      "path": "/api/v1/speed-limit/update",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "SpeedLimitUpdateDto",
+      "source": "springboot-backend/src/main/java/com/admin/controller/SpeedLimitController.java"
+    },
+    {
+      "path": "/api/v1/speed-limit/delete",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/SpeedLimitController.java"
+    },
+    {
+      "path": "/api/v1/speed-limit/tunnels",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": true,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/SpeedLimitController.java"
+    },
+    {
+      "path": "/api/v1/tunnel/create",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "TunnelDto",
+      "source": "springboot-backend/src/main/java/com/admin/controller/TunnelController.java"
+    },
+    {
+      "path": "/api/v1/tunnel/list",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": true,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/TunnelController.java"
+    },
+    {
+      "path": "/api/v1/tunnel/update",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "TunnelUpdateDto",
+      "source": "springboot-backend/src/main/java/com/admin/controller/TunnelController.java"
+    },
+    {
+      "path": "/api/v1/tunnel/delete",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/TunnelController.java"
+    },
+    {
+      "path": "/api/v1/tunnel/user/assign",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "UserTunnelDto",
+      "source": "springboot-backend/src/main/java/com/admin/controller/TunnelController.java"
+    },
+    {
+      "path": "/api/v1/tunnel/user/list",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": true,
+      "dto": "UserTunnelQueryDto",
+      "source": "springboot-backend/src/main/java/com/admin/controller/TunnelController.java"
+    },
+    {
+      "path": "/api/v1/tunnel/user/remove",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/TunnelController.java"
+    },
+    {
+      "path": "/api/v1/tunnel/user/update",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "UserTunnelUpdateDto",
+      "source": "springboot-backend/src/main/java/com/admin/controller/TunnelController.java"
+    },
+    {
+      "path": "/api/v1/tunnel/user/tunnel",
+      "method": "POST",
+      "admin": false,
+      "public": false,
+      "readOnly": true,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/TunnelController.java"
+    },
+    {
+      "path": "/api/v1/tunnel/diagnose",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/TunnelController.java"
+    },
+    {
+      "path": "/api/v1/user/login",
+      "method": "POST",
+      "admin": false,
+      "public": true,
+      "readOnly": false,
+      "dto": "LoginDto",
+      "source": "springboot-backend/src/main/java/com/admin/controller/UserController.java"
+    },
+    {
+      "path": "/api/v1/user/create",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "UserDto",
+      "source": "springboot-backend/src/main/java/com/admin/controller/UserController.java"
+    },
+    {
+      "path": "/api/v1/user/list",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": true,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/UserController.java"
+    },
+    {
+      "path": "/api/v1/user/update",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "UserUpdateDto",
+      "source": "springboot-backend/src/main/java/com/admin/controller/UserController.java"
+    },
+    {
+      "path": "/api/v1/user/delete",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/UserController.java"
+    },
+    {
+      "path": "/api/v1/user/package",
+      "method": "POST",
+      "admin": false,
+      "public": false,
+      "readOnly": true,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/UserController.java"
+    },
+    {
+      "path": "/api/v1/user/updatePassword",
+      "method": "POST",
+      "admin": false,
+      "public": false,
+      "readOnly": false,
+      "dto": "ChangePasswordDto",
+      "source": "springboot-backend/src/main/java/com/admin/controller/UserController.java"
+    },
+    {
+      "path": "/api/v1/user/reset",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "ResetFlowDto",
+      "source": "springboot-backend/src/main/java/com/admin/controller/UserController.java"
+    },
+    {
+      "path": "/api/v1/config/list",
+      "method": "POST",
+      "admin": false,
+      "public": false,
+      "readOnly": true,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/ViteConfigController.java"
+    },
+    {
+      "path": "/api/v1/config/get",
+      "method": "POST",
+      "admin": false,
+      "public": true,
+      "readOnly": true,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/ViteConfigController.java"
+    },
+    {
+      "path": "/api/v1/config/update",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/ViteConfigController.java"
+    },
+    {
+      "path": "/api/v1/config/update-single",
+      "method": "POST",
+      "admin": true,
+      "public": false,
+      "readOnly": false,
+      "dto": "",
+      "source": "springboot-backend/src/main/java/com/admin/controller/ViteConfigController.java"
+    }
+  ],
+  "dto": {
+    "CaptchaVerifyDto": [
+      {
+        "name": "id",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "data",
+        "type": "ImageCaptchaTrack",
+        "rules": []
+      }
+    ],
+    "ChangePasswordDto": [
+      {
+        "name": "newUsername",
+        "type": "String",
+        "rules": [
+          {
+            "kind": "NotBlank",
+            "message": "新用户名不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "currentPassword",
+        "type": "String",
+        "rules": [
+          {
+            "kind": "NotBlank",
+            "message": "当前密码不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "newPassword",
+        "type": "String",
+        "rules": [
+          {
+            "kind": "NotBlank",
+            "message": "新密码不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "confirmPassword",
+        "type": "String",
+        "rules": [
+          {
+            "kind": "NotBlank",
+            "message": "确认密码不能为空",
+            "value": ""
+          }
+        ]
+      }
+    ],
+    "ConfigItem": [
+      {
+        "name": "name",
+        "type": "String",
+        "rules": []
+      }
+    ],
+    "FlowDto": [
+      {
+        "name": "n",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "u",
+        "type": "Long",
+        "rules": []
+      },
+      {
+        "name": "d",
+        "type": "Long",
+        "rules": []
+      }
+    ],
+    "ForwardDto": [
+      {
+        "name": "name",
+        "type": "String",
+        "rules": [
+          {
+            "kind": "NotBlank",
+            "message": "转发名称不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "tunnelId",
+        "type": "Integer",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "隧道ID不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "remoteAddr",
+        "type": "String",
+        "rules": [
+          {
+            "kind": "NotBlank",
+            "message": "远程地址不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "engineOptions",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "strategy",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "inPort",
+        "type": "Integer",
+        "rules": [
+          {
+            "kind": "Min",
+            "message": "端口号不能小于1",
+            "value": "1"
+          },
+          {
+            "kind": "Max",
+            "message": "端口号不能大于65535",
+            "value": "65535"
+          }
+        ]
+      },
+      {
+        "name": "interfaceName",
+        "type": "String",
+        "rules": []
+      }
+    ],
+    "ForwardUpdateDto": [
+      {
+        "name": "id",
+        "type": "Long",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "ID不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "userId",
+        "type": "Integer",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "用户ID不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "name",
+        "type": "String",
+        "rules": [
+          {
+            "kind": "NotBlank",
+            "message": "转发名称不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "tunnelId",
+        "type": "Integer",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "隧道ID不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "remoteAddr",
+        "type": "String",
+        "rules": [
+          {
+            "kind": "NotBlank",
+            "message": "远程地址不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "engineOptions",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "strategy",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "inPort",
+        "type": "Integer",
+        "rules": [
+          {
+            "kind": "Min",
+            "message": "端口号不能小于1",
+            "value": "1"
+          },
+          {
+            "kind": "Max",
+            "message": "端口号不能大于65535",
+            "value": "65535"
+          }
+        ]
+      },
+      {
+        "name": "interfaceName",
+        "type": "String",
+        "rules": []
+      }
+    ],
+    "ForwardWithTunnelDto": [
+      {
+        "name": "id",
+        "type": "Long",
+        "rules": []
+      },
+      {
+        "name": "name",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "inPort",
+        "type": "Integer",
+        "rules": []
+      },
+      {
+        "name": "remoteAddr",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "engineOptions",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "engine",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "status",
+        "type": "Integer",
+        "rules": []
+      },
+      {
+        "name": "createdTime",
+        "type": "Long",
+        "rules": []
+      },
+      {
+        "name": "updatedTime",
+        "type": "Long",
+        "rules": []
+      },
+      {
+        "name": "tunnelName",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "inIp",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "userName",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "userId",
+        "type": "Integer",
+        "rules": []
+      },
+      {
+        "name": "tunnelId",
+        "type": "Integer",
+        "rules": []
+      },
+      {
+        "name": "inFlow",
+        "type": "Long",
+        "rules": []
+      },
+      {
+        "name": "outFlow",
+        "type": "Long",
+        "rules": []
+      },
+      {
+        "name": "strategy",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "inx",
+        "type": "Integer",
+        "rules": []
+      },
+      {
+        "name": "interfaceName",
+        "type": "String",
+        "rules": []
+      }
+    ],
+    "GostConfigDto": [],
+    "GostDto": [
+      {
+        "name": "code",
+        "type": "Integer",
+        "rules": []
+      },
+      {
+        "name": "msg",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "data",
+        "type": "Object",
+        "rules": []
+      }
+    ],
+    "LoginDto": [
+      {
+        "name": "username",
+        "type": "String",
+        "rules": [
+          {
+            "kind": "NotBlank",
+            "message": "用户名不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "password",
+        "type": "String",
+        "rules": [
+          {
+            "kind": "NotBlank",
+            "message": "密码不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "captchaId",
+        "type": "String",
+        "rules": []
+      }
+    ],
+    "NodeDto": [
+      {
+        "name": "name",
+        "type": "String",
+        "rules": [
+          {
+            "kind": "NotBlank",
+            "message": "节点名称不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "engine",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "kernelBackend",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "ip",
+        "type": "String",
+        "rules": [
+          {
+            "kind": "NotBlank",
+            "message": "入口IP不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "serverIp",
+        "type": "String",
+        "rules": [
+          {
+            "kind": "NotBlank",
+            "message": "服务器ip不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "portSta",
+        "type": "Integer",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "起始端口不能为空",
+            "value": ""
+          },
+          {
+            "kind": "Min",
+            "message": "起始端口必须大于0",
+            "value": "1"
+          },
+          {
+            "kind": "Max",
+            "message": "起始端口不能超过65535",
+            "value": "65535"
+          }
+        ]
+      },
+      {
+        "name": "portEnd",
+        "type": "Integer",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "结束端口不能为空",
+            "value": ""
+          },
+          {
+            "kind": "Min",
+            "message": "结束端口必须大于0",
+            "value": "1"
+          },
+          {
+            "kind": "Max",
+            "message": "结束端口不能超过65535",
+            "value": "65535"
+          }
+        ]
+      }
+    ],
+    "NodeUpdateDto": [
+      {
+        "name": "id",
+        "type": "Long",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "节点ID不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "name",
+        "type": "String",
+        "rules": [
+          {
+            "kind": "NotBlank",
+            "message": "节点名称不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "engine",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "kernelBackend",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "ip",
+        "type": "String",
+        "rules": [
+          {
+            "kind": "NotBlank",
+            "message": "入口IP不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "serverIp",
+        "type": "String",
+        "rules": [
+          {
+            "kind": "NotBlank",
+            "message": "服务器ip不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "portSta",
+        "type": "Integer",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "起始端口不能为空",
+            "value": ""
+          },
+          {
+            "kind": "Min",
+            "message": "起始端口必须大于0",
+            "value": "1"
+          },
+          {
+            "kind": "Max",
+            "message": "起始端口不能超过65535",
+            "value": "65535"
+          }
+        ]
+      },
+      {
+        "name": "portEnd",
+        "type": "Integer",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "结束端口不能为空",
+            "value": ""
+          },
+          {
+            "kind": "Min",
+            "message": "结束端口必须大于0",
+            "value": "1"
+          },
+          {
+            "kind": "Max",
+            "message": "结束端口不能超过65535",
+            "value": "65535"
+          }
+        ]
+      },
+      {
+        "name": "http",
+        "type": "Integer",
+        "rules": []
+      },
+      {
+        "name": "tls",
+        "type": "Integer",
+        "rules": []
+      },
+      {
+        "name": "socks",
+        "type": "Integer",
+        "rules": []
+      }
+    ],
+    "ResetFlowDto": [
+      {
+        "name": "id",
+        "type": "Integer",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "重置账号id不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "type",
+        "type": "Integer",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "重置类型不能为空",
+            "value": ""
+          }
+        ]
+      }
+    ],
+    "SpeedLimitDto": [
+      {
+        "name": "name",
+        "type": "String",
+        "rules": [
+          {
+            "kind": "NotBlank",
+            "message": "限速规则名称不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "speed",
+        "type": "Integer",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "速度限制不能为空",
+            "value": ""
+          },
+          {
+            "kind": "Min",
+            "message": "速度限制必须大于0",
+            "value": "1"
+          }
+        ]
+      },
+      {
+        "name": "tunnelId",
+        "type": "Long",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "隧道ID不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "tunnelName",
+        "type": "String",
+        "rules": [
+          {
+            "kind": "NotBlank",
+            "message": "隧道名称不能为空",
+            "value": ""
+          }
+        ]
+      }
+    ],
+    "SpeedLimitUpdateDto": [
+      {
+        "name": "id",
+        "type": "Long",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "ID不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "name",
+        "type": "String",
+        "rules": [
+          {
+            "kind": "NotBlank",
+            "message": "限速规则名称不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "speed",
+        "type": "Integer",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "速度限制不能为空",
+            "value": ""
+          },
+          {
+            "kind": "Min",
+            "message": "速度限制必须大于0",
+            "value": "1"
+          }
+        ]
+      },
+      {
+        "name": "tunnelId",
+        "type": "Long",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "隧道ID不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "tunnelName",
+        "type": "String",
+        "rules": [
+          {
+            "kind": "NotBlank",
+            "message": "隧道名称不能为空",
+            "value": ""
+          }
+        ]
+      }
+    ],
+    "SystemInfoDto": [
+      {
+        "name": "hostIp",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "uptime",
+        "type": "Long",
+        "rules": []
+      },
+      {
+        "name": "bytesReceived",
+        "type": "Long",
+        "rules": []
+      },
+      {
+        "name": "bytesTransmitted",
+        "type": "Long",
+        "rules": []
+      },
+      {
+        "name": "cpuUsage",
+        "type": "Double",
+        "rules": []
+      },
+      {
+        "name": "memoryUsage",
+        "type": "Double",
+        "rules": []
+      },
+      {
+        "name": "timestamp",
+        "type": "Long",
+        "rules": []
+      }
+    ],
+    "TunnelDto": [
+      {
+        "name": "name",
+        "type": "String",
+        "rules": [
+          {
+            "kind": "NotBlank",
+            "message": "隧道名称不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "engine",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "inNodeId",
+        "type": "Long",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "入口节点不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "outNodeId",
+        "type": "Long",
+        "rules": []
+      },
+      {
+        "name": "type",
+        "type": "Integer",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "隧道类型不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "flow",
+        "type": "Integer",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "流量计算类型不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "trafficRatio",
+        "type": "BigDecimal",
+        "rules": [
+          {
+            "kind": "DecimalMin",
+            "message": "流量倍率必须大于0.0",
+            "value": "0.0"
+          }
+        ]
+      },
+      {
+        "name": "interfaceName",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "protocol",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "tcpListenAddr",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "udpListenAddr",
+        "type": "String",
+        "rules": []
+      }
+    ],
+    "TunnelListDto": [
+      {
+        "name": "id",
+        "type": "Integer",
+        "rules": []
+      },
+      {
+        "name": "name",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "ip",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "inNodePortSta",
+        "type": "Integer",
+        "rules": []
+      },
+      {
+        "name": "inNodePortEnd",
+        "type": "Integer",
+        "rules": []
+      },
+      {
+        "name": "type",
+        "type": "Integer",
+        "rules": []
+      },
+      {
+        "name": "protocol",
+        "type": "String",
+        "rules": []
+      }
+    ],
+    "TunnelUpdateDto": [
+      {
+        "name": "id",
+        "type": "Long",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "隧道ID不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "name",
+        "type": "String",
+        "rules": [
+          {
+            "kind": "NotBlank",
+            "message": "隧道名称不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "engine",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "flow",
+        "type": "Integer",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "流量计算类型不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "trafficRatio",
+        "type": "BigDecimal",
+        "rules": [
+          {
+            "kind": "DecimalMin",
+            "message": "流量倍率必须大于0.0",
+            "value": "0.0"
+          }
+        ]
+      },
+      {
+        "name": "protocol",
+        "type": "String",
+        "rules": [
+          {
+            "kind": "NotBlank",
+            "message": "protocol参数无效",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "tcpListenAddr",
+        "type": "String",
+        "rules": [
+          {
+            "kind": "NotBlank",
+            "message": "tcpListenAddr参数无效",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "udpListenAddr",
+        "type": "String",
+        "rules": [
+          {
+            "kind": "NotBlank",
+            "message": "udpListenAddr参数无效",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "interfaceName",
+        "type": "String",
+        "rules": []
+      }
+    ],
+    "UserDto": [
+      {
+        "name": "user",
+        "type": "String",
+        "rules": [
+          {
+            "kind": "NotBlank",
+            "message": "用户名不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "pwd",
+        "type": "String",
+        "rules": [
+          {
+            "kind": "NotBlank",
+            "message": "密码不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "flow",
+        "type": "Long",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "流量不能为空",
+            "value": ""
+          },
+          {
+            "kind": "Min",
+            "message": "流量不能小于0",
+            "value": "0"
+          }
+        ]
+      },
+      {
+        "name": "num",
+        "type": "Integer",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "转发数量不能为空",
+            "value": ""
+          },
+          {
+            "kind": "Min",
+            "message": "转发数量不能小于0",
+            "value": "0"
+          }
+        ]
+      },
+      {
+        "name": "expTime",
+        "type": "Long",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "过期时间不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "flowResetTime",
+        "type": "Long",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "流量重置时间不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "status",
+        "type": "Integer",
+        "rules": []
+      }
+    ],
+    "UserPackageDto": [
+      {
+        "name": "userInfo",
+        "type": "UserInfoDto",
+        "rules": []
+      },
+      {
+        "name": "id",
+        "type": "Long",
+        "rules": []
+      },
+      {
+        "name": "name",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "user",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "status",
+        "type": "Integer",
+        "rules": []
+      },
+      {
+        "name": "flow",
+        "type": "Long",
+        "rules": []
+      },
+      {
+        "name": "inFlow",
+        "type": "Long",
+        "rules": []
+      },
+      {
+        "name": "outFlow",
+        "type": "Long",
+        "rules": []
+      },
+      {
+        "name": "num",
+        "type": "Integer",
+        "rules": []
+      },
+      {
+        "name": "expTime",
+        "type": "Long",
+        "rules": []
+      },
+      {
+        "name": "flowResetTime",
+        "type": "Long",
+        "rules": []
+      },
+      {
+        "name": "createdTime",
+        "type": "Long",
+        "rules": []
+      },
+      {
+        "name": "updatedTime",
+        "type": "Long",
+        "rules": []
+      },
+      {
+        "name": "id",
+        "type": "Integer",
+        "rules": []
+      },
+      {
+        "name": "userId",
+        "type": "Integer",
+        "rules": []
+      },
+      {
+        "name": "tunnelId",
+        "type": "Integer",
+        "rules": []
+      },
+      {
+        "name": "tunnelName",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "tunnelFlow",
+        "type": "Integer",
+        "rules": []
+      },
+      {
+        "name": "flow",
+        "type": "Long",
+        "rules": []
+      },
+      {
+        "name": "inFlow",
+        "type": "Long",
+        "rules": []
+      },
+      {
+        "name": "outFlow",
+        "type": "Long",
+        "rules": []
+      },
+      {
+        "name": "num",
+        "type": "Integer",
+        "rules": []
+      },
+      {
+        "name": "flowResetTime",
+        "type": "Long",
+        "rules": []
+      },
+      {
+        "name": "expTime",
+        "type": "Long",
+        "rules": []
+      },
+      {
+        "name": "speedId",
+        "type": "Integer",
+        "rules": []
+      },
+      {
+        "name": "speedLimitName",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "speed",
+        "type": "Integer",
+        "rules": []
+      },
+      {
+        "name": "id",
+        "type": "Long",
+        "rules": []
+      },
+      {
+        "name": "name",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "tunnelId",
+        "type": "Integer",
+        "rules": []
+      },
+      {
+        "name": "tunnelName",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "inIp",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "inPort",
+        "type": "Integer",
+        "rules": []
+      },
+      {
+        "name": "remoteAddr",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "inFlow",
+        "type": "Long",
+        "rules": []
+      },
+      {
+        "name": "outFlow",
+        "type": "Long",
+        "rules": []
+      },
+      {
+        "name": "status",
+        "type": "Integer",
+        "rules": []
+      },
+      {
+        "name": "createdTime",
+        "type": "Long",
+        "rules": []
+      }
+    ],
+    "UserTunnelDto": [
+      {
+        "name": "userId",
+        "type": "Integer",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "用户ID不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "tunnelId",
+        "type": "Integer",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "隧道ID不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "flow",
+        "type": "Long",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "流量限制不能为空",
+            "value": ""
+          },
+          {
+            "kind": "Min",
+            "message": "流量限制不能小于0",
+            "value": "0"
+          }
+        ]
+      },
+      {
+        "name": "num",
+        "type": "Integer",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "转发数量不能为空",
+            "value": ""
+          },
+          {
+            "kind": "Min",
+            "message": "转发数量不能小于0",
+            "value": "0"
+          }
+        ]
+      },
+      {
+        "name": "flowResetTime",
+        "type": "Long",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "流量重置时间不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "expTime",
+        "type": "Long",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "到期时间不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "speedId",
+        "type": "Integer",
+        "rules": []
+      }
+    ],
+    "UserTunnelQueryDto": [
+      {
+        "name": "userId",
+        "type": "Integer",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "userId参数无效",
+            "value": ""
+          }
+        ]
+      }
+    ],
+    "UserTunnelUpdateDto": [
+      {
+        "name": "id",
+        "type": "Integer",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "用户隧道权限ID不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "flow",
+        "type": "Long",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "流量限制不能为空",
+            "value": ""
+          },
+          {
+            "kind": "Min",
+            "message": "流量限制不能小于0",
+            "value": "0"
+          }
+        ]
+      },
+      {
+        "name": "num",
+        "type": "Integer",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "转发数量不能为空",
+            "value": ""
+          },
+          {
+            "kind": "Min",
+            "message": "转发数量不能小于0",
+            "value": "0"
+          }
+        ]
+      },
+      {
+        "name": "flowResetTime",
+        "type": "Long",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "流量重置时间不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "expTime",
+        "type": "Long",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "到期时间不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "status",
+        "type": "Integer",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "状态必选",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "speedId",
+        "type": "Integer",
+        "rules": []
+      }
+    ],
+    "UserTunnelWithDetailDto": [
+      {
+        "name": "id",
+        "type": "Integer",
+        "rules": []
+      },
+      {
+        "name": "userId",
+        "type": "Integer",
+        "rules": []
+      },
+      {
+        "name": "tunnelId",
+        "type": "Integer",
+        "rules": []
+      },
+      {
+        "name": "flow",
+        "type": "Integer",
+        "rules": []
+      },
+      {
+        "name": "num",
+        "type": "Integer",
+        "rules": []
+      },
+      {
+        "name": "flowResetTime",
+        "type": "Long",
+        "rules": []
+      },
+      {
+        "name": "expTime",
+        "type": "Long",
+        "rules": []
+      },
+      {
+        "name": "speedId",
+        "type": "Integer",
+        "rules": []
+      },
+      {
+        "name": "speedLimitName",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "speed",
+        "type": "Integer",
+        "rules": []
+      },
+      {
+        "name": "tunnelName",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "tunnelFlow",
+        "type": "Integer",
+        "rules": []
+      },
+      {
+        "name": "inFlow",
+        "type": "Long",
+        "rules": []
+      },
+      {
+        "name": "outFlow",
+        "type": "Long",
+        "rules": []
+      },
+      {
+        "name": "status",
+        "type": "Integer",
+        "rules": []
+      }
+    ],
+    "UserUpdateDto": [
+      {
+        "name": "id",
+        "type": "Long",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "用户ID不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "user",
+        "type": "String",
+        "rules": [
+          {
+            "kind": "NotBlank",
+            "message": "用户名不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "pwd",
+        "type": "String",
+        "rules": []
+      },
+      {
+        "name": "flow",
+        "type": "Long",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "流量不能为空",
+            "value": ""
+          },
+          {
+            "kind": "Min",
+            "message": "流量不能小于0",
+            "value": "0"
+          }
+        ]
+      },
+      {
+        "name": "num",
+        "type": "Integer",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "转发数量不能为空",
+            "value": ""
+          },
+          {
+            "kind": "Min",
+            "message": "转发数量不能小于0",
+            "value": "0"
+          }
+        ]
+      },
+      {
+        "name": "expTime",
+        "type": "Long",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "过期时间不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "flowResetTime",
+        "type": "Long",
+        "rules": [
+          {
+            "kind": "NotNull",
+            "message": "流量重置时间不能为空",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "status",
+        "type": "Integer",
+        "rules": []
+      }
+    ]
+  }
+}

@@ -1,0 +1,3104 @@
+{
+  "success": true,
+  "baseCommit": "5d5211a",
+  "agentVersion": "iptables-v5.5",
+  "buildSHA256": {
+    "flux-agent": "150b81c5937ddd54692970210e92830cad510f5ce0f00d4c29948933083fe1f9",
+    "flux-agent-amd64": "a754f1b982ec40cf0e805430a9e46f295c7f16227ed9ec1a2ae5c0858b61a124",
+    "flux-agent-v54-baseline": "82482e5a2d6f473e7968bc9c2feff6caba0a95a02bf74ebab932feaa477cea0b"
+  },
+  "productionChanges": false,
+  "externalForwardTestTargets": [],
+  "linuxUnitTests": 61,
+  "functionalSuites": [
+    {
+      "suite": "cold-functional-v55/p1-kernel-native",
+      "count": 43,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "advanced IPv4 data path forwards actual TCP and UDP",
+        "IPv6 direct DNAT/SNAT forwards real TCP and UDP",
+        "real ICMPv6 Packet Too Big crosses NAT from an intermediate router",
+        "IPv6 source fragments and TCP segments survive the smaller PMTU",
+        "two families share one business ledger",
+        "one pause blocks both families",
+        "one resume restores both families",
+        "dual-stack state and counters survive process restart",
+        "concurrent IPv4/IPv6 share one 64KiB admitted-byte budget",
+        "one quota object covers both address families",
+        "exhausted shared quota blocks both families without disabling statistics",
+        "node-side CNAME/TTL resolution drives actual TCP forwarding",
+        "DNS rotation changes new connections while an old TCP connection drains",
+        "truncated UDP DNS response falls back to TCP",
+        "a foreign route in an otherwise reserved table is preserved and rejected",
+        "a foreign rule referencing an empty reserved table is rejected",
+        "owned policy routing and explicit SNAT select the requested source",
+        "IPv6 policy routing and explicit SNAT select the requested IPv6 source",
+        "owned HTB/fq_codel smoothly shapes both directions through IFB",
+        "pause flushes owned shaping queues and blocks TCP/UDP",
+        "IPv6 TCP uses the same bidirectional smooth shaping path",
+        "two forwarding peers cannot multiply one 6 Mbps shared user ceiling",
+        "a recreated same-name interface receives fresh owned shaping classifiers",
+        "DNS outage closes new admission after finite stale grace without a control request",
+        "NXDOMAIN has distinct failure status and cannot reuse stale targets",
+        "DNS recovery reopens new connections",
+        "separate business IDs can use TCP and UDP on the same listen port",
+        "pausing the TCP business leaves its same-port UDP peer working",
+        "new wildcard address forwards UDP without resuming paused TCP",
+        "deleted local address leaves no wildcard binding",
+        "IPv6 tentative addresses stay out of wildcard bindings until DAD completes",
+        "usable IPv6 address is added and removed by netlink without business revision",
+        "weighted new-connection selection retains the configured 1:3 distribution",
+        "health fall removes a failed target from new selection",
+        "health rise restores recovered targets",
+        "all unhealthy targets close new admission and report a failed state",
+        "source-IP hash is stable across fresh connections and distributes sources",
+        "egress source loss fails closed and address restoration recovers",
+        "restart restores dual-stack, policy routing, health and shaping ownership",
+        "advanced uninstall preserves epoch and monotonic cumulative ledger",
+        "advanced uninstall removes owned IPv4/IPv6/nft/IFB/routing resources",
+        "advanced uninstall preserves unrelated firewall policy"
+      ]
+    },
+    {
+      "suite": "cold-functional-v55/protocol-unavailable-iptables",
+      "count": 7,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "unfiltered forward works with queue owned by another process",
+        "queue conflict surfaces a failed rule with explanation",
+        "unavailable classifier closes filtered TCP and UDP",
+        "no global queue unbind or unrelated-forward outage",
+        "new revision recovers after queue is released",
+        "recovered classifier is ready"
+      ]
+    },
+    {
+      "suite": "cold-functional-v55/foundation-nft",
+      "count": 39,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "negotiated legacy/advanced protocols and explicit cross-family limit",
+        "structured endpoint forwards real TCP and UDP",
+        "unimplemented target capabilities rejected without modifying live forwarding",
+        "PMTU ICMP error from an intermediate router reaches the client",
+        "fragmented UDP survives DNAT/SNAT over an intermediate lower MTU",
+        "pause blocks TCP and fragmented UDP despite external RELATED ACCEPT",
+        "resume recovers the fragmented data path",
+        "10k forwarding cold delta completes as one asynchronous job",
+        "10k configuration retains constant regular-packet classifier/filter paths",
+        "duplicate batch identity returns the same committed generation",
+        "generation-consistent paginated snapshot includes all 10k rules",
+        "10000-forward atomic pause blocks existing data paths",
+        "10000-forward atomic resume restores TCP and UDP",
+        "1000-forward atomic pause blocks existing data paths",
+        "1000-forward atomic resume restores TCP and UDP",
+        "bulk delete reconciles without leaving a live orphan dispatch",
+        "compressed bulk conntrack cleanup removes revoked flows and preserves the survivor",
+        "native batched GC reclaims 9999 retired tokens while other traffic continues",
+        "native crash recovery at prepared",
+        "native crash recovery at quiesced",
+        "native crash recovery at kernel",
+        "native crash recovery at credits",
+        "native crash recovery at conntrack",
+        "native crash recovery at counters",
+        "native crash recovery at checkpoint",
+        "native crash recovery at committed",
+        "native crash recovery at activated",
+        "PMTU survives complete filter replacement and transaction recovery",
+        "reserved credit allows bidirectional data",
+        "real TTL-only renewal preserves the permanent byte budget",
+        "native TTL recovery preserves byte budget at renewal-prepared",
+        "native TTL recovery preserves byte budget at renewal-checkpoint",
+        "native TTL recovery preserves byte budget at renewal-kernel",
+        "kernel credit exhausts while business desired state is still enabled",
+        "duplicate grant cannot reopen exhausted credit",
+        "denied attempts do not overrun or inflate billed credit",
+        "removing the final limited forward preserves survivor PMTU control",
+        "foreign firewall policy and chain survive all transitions"
+      ]
+    },
+    {
+      "suite": "cold-functional-v55/protocol-unavailable-native",
+      "count": 7,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "unfiltered forward works with queue owned by another process",
+        "queue conflict surfaces a failed rule with explanation",
+        "unavailable classifier closes filtered TCP and UDP",
+        "no global queue unbind or unrelated-forward outage",
+        "new revision recovers after queue is released",
+        "recovered classifier is ready"
+      ]
+    },
+    {
+      "suite": "cold-functional-v55/sequence-legacy",
+      "count": 3,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "SYN carrying HTTP data is inspected and blocked",
+        "SYN sequence tracking still blocks an out-of-order HTTP prefix"
+      ]
+    },
+    {
+      "suite": "cold-functional-v55/p1-faults-nft",
+      "count": 13,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "advanced multi-target/shaping baseline forwards TCP/UDP",
+        "advanced crash recovery at prepared",
+        "advanced crash recovery at quiesced",
+        "advanced crash recovery at kernel",
+        "advanced crash recovery at credits",
+        "advanced crash recovery at conntrack",
+        "advanced crash recovery at counters",
+        "advanced crash recovery at checkpoint",
+        "advanced crash recovery at committed",
+        "advanced crash recovery at activated",
+        "unavailable typed egress is rejected before touching the live generation",
+        "crash transitions preserve unrelated firewall policy"
+      ]
+    },
+    {
+      "suite": "cold-functional-v55/native-nft-native",
+      "count": 24,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "native mode initializes without ipset or owned iptables chains",
+        "native IPv4 TCP/UDP sockets pass",
+        "irrelevant addressless link events do not rebuild rules or fence traffic",
+        "exact network accounting once per direction",
+        "pause stops TCP and UDP",
+        "pause preserves named counters",
+        "resume restores flow",
+        "wrong-backend maintenance refuses before touching live rules",
+        "pause blocks already confirmed connections",
+        "restart preserves kernel and cumulative counts",
+        "lost checkpoint cannot reset the existing accounting epoch",
+        "restored checkpoint resumes the original cumulative ledger",
+        "concurrent directions share one finite 8KiB budget",
+        "exhausted credit remains closed",
+        "quota uses a shared stateful nft object",
+        "invalid native batch is atomic",
+        "unrelated host firewall preserved",
+        "frozen v5.2 refuses native checkpoint even after kernel rules disappear",
+        "kernel resource loss rotates its instance without resetting the ledger",
+        "kernel loss cannot recreate an old credit reservation",
+        "settled uninstall retains epoch and monotonic ledger",
+        "uninstall removes native and quota resources",
+        "uninstall leaves external firewall"
+      ]
+    },
+    {
+      "suite": "cold-functional-v55/native-scale-native",
+      "count": 14,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "native scale baseline passes real TCP/UDP",
+        "10k forwarding cold delta completes as one asynchronous job",
+        "10k configuration retains constant regular-packet classifier/filter paths",
+        "duplicate batch identity returns the same committed generation",
+        "generation-consistent paginated snapshot includes all 10k rules",
+        "10000-forward atomic pause blocks existing data paths",
+        "10000-forward atomic resume restores TCP and UDP",
+        "1000-forward atomic pause blocks existing data paths",
+        "1000-forward atomic resume restores TCP and UDP",
+        "bulk delete reconciles without leaving a live orphan dispatch",
+        "compressed bulk conntrack cleanup removes revoked flows and preserves the survivor",
+        "crash after native GC restores every retired counter byte and packet",
+        "native batched GC reclaims 9999 retired tokens while other traffic continues"
+      ]
+    },
+    {
+      "suite": "cold-functional-v55/foundation-legacy",
+      "count": 39,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "negotiated legacy/advanced protocols and explicit cross-family limit",
+        "structured endpoint forwards real TCP and UDP",
+        "unimplemented target capabilities rejected without modifying live forwarding",
+        "PMTU ICMP error from an intermediate router reaches the client",
+        "fragmented UDP survives DNAT/SNAT over an intermediate lower MTU",
+        "pause blocks TCP and fragmented UDP despite external RELATED ACCEPT",
+        "resume recovers the fragmented data path",
+        "10k forwarding cold delta completes as one asynchronous job",
+        "10k configuration retains constant regular-packet classifier/filter paths",
+        "duplicate batch identity returns the same committed generation",
+        "generation-consistent paginated snapshot includes all 10k rules",
+        "10000-forward atomic pause blocks existing data paths",
+        "10000-forward atomic resume restores TCP and UDP",
+        "1000-forward atomic pause blocks existing data paths",
+        "1000-forward atomic resume restores TCP and UDP",
+        "bulk delete reconciles without leaving a live orphan dispatch",
+        "compressed bulk conntrack cleanup removes revoked flows and preserves the survivor",
+        "native batched GC reclaims 9999 retired tokens while other traffic continues",
+        "native crash recovery at prepared",
+        "native crash recovery at quiesced",
+        "native crash recovery at kernel",
+        "native crash recovery at credits",
+        "native crash recovery at conntrack",
+        "native crash recovery at counters",
+        "native crash recovery at checkpoint",
+        "native crash recovery at committed",
+        "native crash recovery at activated",
+        "PMTU survives complete filter replacement and transaction recovery",
+        "reserved credit allows bidirectional data",
+        "real TTL-only renewal preserves the permanent byte budget",
+        "native TTL recovery preserves byte budget at renewal-prepared",
+        "native TTL recovery preserves byte budget at renewal-checkpoint",
+        "native TTL recovery preserves byte budget at renewal-kernel",
+        "kernel credit exhausts while business desired state is still enabled",
+        "duplicate grant cannot reopen exhausted credit",
+        "denied attempts do not overrun or inflate billed credit",
+        "removing the final limited forward preserves survivor PMTU control",
+        "foreign firewall policy and chain survive all transitions"
+      ]
+    },
+    {
+      "suite": "cold-functional-v55/maintenance-native",
+      "count": 26,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "unfinished prepare cannot silently start an Agent",
+        "maintenance retry resumes prepare with durable accounting and paused data",
+        "backup checksum and protected config at prepare",
+        "unfinished quiesced cannot silently start an Agent",
+        "maintenance retry resumes quiesced with durable accounting and paused data",
+        "backup checksum and protected config at quiesced",
+        "unfinished checkpoint cannot silently start an Agent",
+        "maintenance retry resumes checkpoint with durable accounting and paused data",
+        "backup checksum and protected config at checkpoint",
+        "unfinished backedup cannot silently start an Agent",
+        "maintenance retry resumes backedup with durable accounting and paused data",
+        "backup checksum and protected config at backedup",
+        "unfinished settled cannot silently start an Agent",
+        "maintenance retry resumes settled with durable accounting and paused data",
+        "backup checksum and protected config at settled",
+        "unfinished cleanup cannot silently start an Agent",
+        "maintenance retry resumes cleanup with durable accounting and paused data",
+        "backup checksum and protected config at cleanup",
+        "unfinished installed cannot silently start an Agent",
+        "maintenance retry resumes installed with durable accounting and paused data",
+        "backup checksum and protected config at installed",
+        "rollback preserves all later cumulative usage",
+        "offline upgrade retains a closed guard",
+        "offline upgrade only completes after panel maintenance acknowledgement",
+        "uninstall removes only owned chains and preserves unrelated policy"
+      ]
+    },
+    {
+      "suite": "cold-functional-v55/protocol-helper",
+      "count": 29,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "classifier helper retains only NET_ADMIN NET_RAW NET_BIND_SERVICE",
+        "SYN and first data are queued, empty ACK and cached packets stay in kernel",
+        "HTTP detected and blocked",
+        "HTTP2 detected and blocked",
+        "TLS detected and blocked",
+        "SOCKS5 detected and blocked",
+        "SOCKS4 detected and blocked",
+        "large coalesced HTTP payload cannot bypass prefix recognition",
+        "segmented TCP prefix is classified before release",
+        "opaque traffic allowed without alteration",
+        "unknown SOCKS5 authentication methods are allowed and labelled UNKNOWN",
+        "bounded incomplete prefix timeout is allowed UNKNOWN",
+        "UDP preserved and marked UNKNOWN",
+        "blocked and UNKNOWN decisions separately observable",
+        "UNKNOWN conntrack decision cached in reserved low bits",
+        "all classified TCP flows preserve the complete forwarding token",
+        "pause remains authoritative for classified flows",
+        "independent switch permits HTTP while TLS/SOCKS remain blocked",
+        "policy survives restart and enabled state is not silently weakened",
+        "provider-NAT simulation reaches IPv4 wildcard over TCP and UDP",
+        "IPv6 shares classification and UNKNOWN allow contract",
+        "locally initiated OUTPUT traffic respects protocol policy",
+        "blocked request body is excluded from billed bytes",
+        "classified UNKNOWN TCP cannot bypass finite credit or billing",
+        "finite quota still closes UNKNOWN traffic with DPI enabled",
+        "pausing one rule retires its diagnostic object without affecting peers",
+        "owned classifier table removed on uninstall",
+        "maintenance discovers and backs up classifier before initialization"
+      ]
+    },
+    {
+      "suite": "cold-functional-v55/p1-faults-legacy",
+      "count": 13,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "advanced multi-target/shaping baseline forwards TCP/UDP",
+        "advanced crash recovery at prepared",
+        "advanced crash recovery at quiesced",
+        "advanced crash recovery at kernel",
+        "advanced crash recovery at credits",
+        "advanced crash recovery at conntrack",
+        "advanced crash recovery at counters",
+        "advanced crash recovery at checkpoint",
+        "advanced crash recovery at committed",
+        "advanced crash recovery at activated",
+        "unavailable typed egress is rejected before touching the live generation",
+        "crash transitions preserve unrelated firewall policy"
+      ]
+    },
+    {
+      "suite": "cold-functional-v55/protocol-sequence-native",
+      "count": 3,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "SYN carrying HTTP data is inspected and blocked",
+        "SYN sequence tracking still blocks an out-of-order HTTP prefix"
+      ]
+    },
+    {
+      "suite": "cold-functional-v55/protocol-nft",
+      "count": 29,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "SYN and first data are queued, empty ACK and cached packets stay in kernel",
+        "HTTP detected and blocked",
+        "HTTP2 detected and blocked",
+        "TLS detected and blocked",
+        "SOCKS5 detected and blocked",
+        "SOCKS4 detected and blocked",
+        "large coalesced HTTP payload cannot bypass prefix recognition",
+        "segmented TCP prefix is classified before release",
+        "opaque traffic allowed without alteration",
+        "unknown SOCKS5 authentication methods are allowed and labelled UNKNOWN",
+        "bounded incomplete prefix timeout is allowed UNKNOWN",
+        "UDP preserved and marked UNKNOWN",
+        "blocked and UNKNOWN decisions separately observable",
+        "UNKNOWN conntrack decision cached in reserved low bits",
+        "all classified TCP flows preserve the complete forwarding token",
+        "pause remains authoritative for classified flows",
+        "independent switch permits HTTP while TLS/SOCKS remain blocked",
+        "absent queue listener never silently opens filtered TCP",
+        "policy survives restart and enabled state is not silently weakened",
+        "provider-NAT simulation reaches IPv4 wildcard over TCP and UDP",
+        "IPv6 shares classification and UNKNOWN allow contract",
+        "locally initiated OUTPUT traffic respects protocol policy",
+        "blocked request body is excluded from billed bytes",
+        "classified UNKNOWN TCP cannot bypass finite credit or billing",
+        "finite quota still closes UNKNOWN traffic with DPI enabled",
+        "pausing one rule retires its diagnostic object without affecting peers",
+        "owned classifier table removed on uninstall",
+        "maintenance discovers and backs up classifier before initialization"
+      ]
+    },
+    {
+      "suite": "cold-functional-v55/p1-faults-native",
+      "count": 13,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "advanced multi-target/shaping baseline forwards TCP/UDP",
+        "advanced crash recovery at prepared",
+        "advanced crash recovery at quiesced",
+        "advanced crash recovery at kernel",
+        "advanced crash recovery at credits",
+        "advanced crash recovery at conntrack",
+        "advanced crash recovery at counters",
+        "advanced crash recovery at checkpoint",
+        "advanced crash recovery at committed",
+        "advanced crash recovery at activated",
+        "unavailable typed egress is rejected before touching the live generation",
+        "crash transitions preserve unrelated firewall policy"
+      ]
+    },
+    {
+      "suite": "cold-functional-v55/p2-faults-native",
+      "count": 13,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "schema4 local target/OUTPUT SNAT baseline forwards TCP/UDP",
+        "schema4 local-path crash recovery at prepared",
+        "schema4 local-path crash recovery at quiesced",
+        "schema4 local-path crash recovery at kernel",
+        "schema4 local-path crash recovery at credits",
+        "schema4 local-path crash recovery at conntrack",
+        "schema4 local-path crash recovery at counters",
+        "schema4 local-path crash recovery at checkpoint",
+        "schema4 local-path crash recovery at committed",
+        "schema4 local-path crash recovery at activated",
+        "unavailable typed egress is rejected before touching the live generation",
+        "crash transitions preserve unrelated firewall policy"
+      ]
+    },
+    {
+      "suite": "cold-functional-v55/protocol-blocking-native",
+      "count": 29,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "SYN and first data are queued, empty ACK and cached packets stay in kernel",
+        "HTTP detected and blocked",
+        "HTTP2 detected and blocked",
+        "TLS detected and blocked",
+        "SOCKS5 detected and blocked",
+        "SOCKS4 detected and blocked",
+        "large coalesced HTTP payload cannot bypass prefix recognition",
+        "segmented TCP prefix is classified before release",
+        "opaque traffic allowed without alteration",
+        "unknown SOCKS5 authentication methods are allowed and labelled UNKNOWN",
+        "bounded incomplete prefix timeout is allowed UNKNOWN",
+        "UDP preserved and marked UNKNOWN",
+        "blocked and UNKNOWN decisions separately observable",
+        "UNKNOWN conntrack decision cached in reserved low bits",
+        "all classified TCP flows preserve the complete forwarding token",
+        "pause remains authoritative for classified flows",
+        "independent switch permits HTTP while TLS/SOCKS remain blocked",
+        "absent queue listener never silently opens filtered TCP",
+        "policy survives restart and enabled state is not silently weakened",
+        "provider-NAT simulation reaches IPv4 wildcard over TCP and UDP",
+        "IPv6 shares classification and UNKNOWN allow contract",
+        "locally initiated OUTPUT traffic respects protocol policy",
+        "blocked request body is excluded from billed bytes",
+        "classified UNKNOWN TCP cannot bypass finite credit or billing",
+        "finite quota still closes UNKNOWN traffic with DPI enabled",
+        "pausing one rule retires its diagnostic object without affecting peers",
+        "owned classifier table removed on uninstall",
+        "maintenance discovers and backs up classifier before initialization"
+      ]
+    },
+    {
+      "suite": "cold-functional-v55/sequence-nft",
+      "count": 3,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "SYN carrying HTTP data is inspected and blocked",
+        "SYN sequence tracking still blocks an out-of-order HTTP prefix"
+      ]
+    },
+    {
+      "suite": "cold-functional-v55/protocol-legacy",
+      "count": 29,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "SYN and first data are queued, empty ACK and cached packets stay in kernel",
+        "HTTP detected and blocked",
+        "HTTP2 detected and blocked",
+        "TLS detected and blocked",
+        "SOCKS5 detected and blocked",
+        "SOCKS4 detected and blocked",
+        "large coalesced HTTP payload cannot bypass prefix recognition",
+        "segmented TCP prefix is classified before release",
+        "opaque traffic allowed without alteration",
+        "unknown SOCKS5 authentication methods are allowed and labelled UNKNOWN",
+        "bounded incomplete prefix timeout is allowed UNKNOWN",
+        "UDP preserved and marked UNKNOWN",
+        "blocked and UNKNOWN decisions separately observable",
+        "UNKNOWN conntrack decision cached in reserved low bits",
+        "all classified TCP flows preserve the complete forwarding token",
+        "pause remains authoritative for classified flows",
+        "independent switch permits HTTP while TLS/SOCKS remain blocked",
+        "absent queue listener never silently opens filtered TCP",
+        "policy survives restart and enabled state is not silently weakened",
+        "provider-NAT simulation reaches IPv4 wildcard over TCP and UDP",
+        "IPv6 shares classification and UNKNOWN allow contract",
+        "locally initiated OUTPUT traffic respects protocol policy",
+        "blocked request body is excluded from billed bytes",
+        "classified UNKNOWN TCP cannot bypass finite credit or billing",
+        "finite quota still closes UNKNOWN traffic with DPI enabled",
+        "pausing one rule retires its diagnostic object without affecting peers",
+        "owned classifier table removed on uninstall",
+        "maintenance discovers and backs up classifier before initialization"
+      ]
+    },
+    {
+      "suite": "cold-upgrade-native",
+      "count": 7,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "frozen v5.4 forwards TCP/UDP before upgrade",
+        "v5.5 takes over old protocol table and checkpoint",
+        "upgrade preserves epoch and monotonic ledger",
+        "upgraded table still blocks HTTP",
+        "unchanged checkpoint format remains readable by v5.4",
+        "second takeover restores optimized mode"
+      ]
+    },
+    {
+      "suite": "cold-upgrade-iptables",
+      "count": 7,
+      "passed": [
+        "four private netns including an intermediate PMTU router; no external route",
+        "frozen v5.4 forwards TCP/UDP before upgrade",
+        "v5.5 takes over old protocol table and checkpoint",
+        "upgrade preserves epoch and monotonic ledger",
+        "upgraded table still blocks HTTP",
+        "unchanged checkpoint format remains readable by v5.4",
+        "second takeover restores optimized mode"
+      ]
+    }
+  ],
+  "functionalAssertions": 390,
+  "performance": {
+    "success": true,
+    "sources": {
+      "nftables": {
+        "path": "outputs/p2-cold-validation/raw/cold-native-performance-final/protocol-window.json",
+        "sha256": "196eaaa9f05737092088bc8305e99049b1efcb2afd3c774c024245e416a49365",
+        "artifactSHA256": {
+          "/build/flux-agent-v54-baseline": "82482e5a2d6f473e7968bc9c2feff6caba0a95a02bf74ebab932feaa477cea0b",
+          "/build/flux-agent-native": "150b81c5937ddd54692970210e92830cad510f5ce0f00d4c29948933083fe1f9",
+          "/build/bench-peer": "06c514f1046fdfc3023a558f905474000404b87894088c6ed5fb11c2e99f3dd9"
+        },
+        "forwardProgramSHA256": {},
+        "payloadBytes": 315988770816,
+        "rounds": 3
+      },
+      "iptables-nft": {
+        "path": "outputs/p2-cold-validation/raw/cold-retained-performance-final/protocol-window.json",
+        "sha256": "e2cecf197e12be2b3d0a78c36273a244165b866aac472c6ddb994868339f8ce5",
+        "artifactSHA256": {
+          "/build/flux-agent-v54-baseline": "82482e5a2d6f473e7968bc9c2feff6caba0a95a02bf74ebab932feaa477cea0b",
+          "/build/flux-agent-native": "150b81c5937ddd54692970210e92830cad510f5ce0f00d4c29948933083fe1f9",
+          "/build/bench-peer": "06c514f1046fdfc3023a558f905474000404b87894088c6ed5fb11c2e99f3dd9"
+        },
+        "forwardProgramSHA256": {
+          "iptables-10000": "b026f1be39d5a2cf8cbb13e3a5eb59954d302addc84c9256da66df5733a56f58",
+          "iptables_v2-10000": "b026f1be39d5a2cf8cbb13e3a5eb59954d302addc84c9256da66df5733a56f58",
+          "iptables_p1-10000": "b026f1be39d5a2cf8cbb13e3a5eb59954d302addc84c9256da66df5733a56f58"
+        },
+        "payloadBytes": 157993926656,
+        "rounds": 3
+      }
+    },
+    "measurements": [
+      {
+        "backend": "nftables",
+        "forwards": 3,
+        "release": "baseline_v54_dpi_on",
+        "profile": "window_up",
+        "metrics": {
+          "gbps": {
+            "median": 51.74235183411322,
+            "min": 51.41186351788905,
+            "max": 52.549539052879716,
+            "samples": 3
+          },
+          "coreCPUSecondsPerGiB": {
+            "median": 0.165,
+            "min": 0.1625,
+            "max": 0.16625,
+            "samples": 3
+          },
+          "vmCPUSecondsPerGiB": {
+            "median": 0.1725,
+            "min": 0.169,
+            "max": 0.1725,
+            "samples": 3
+          },
+          "agentCPUPercent": {
+            "median": 0.0,
+            "min": 0.0,
+            "max": 0.7646964375872588,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 3,
+        "release": "baseline_v54_dpi_on",
+        "profile": "window_down",
+        "metrics": {
+          "gbps": {
+            "median": 55.894143871141196,
+            "min": 55.234378356832515,
+            "max": 58.04106058595021,
+            "samples": 3
+          },
+          "coreCPUSecondsPerGiB": {
+            "median": 0.1525,
+            "min": 0.1475,
+            "max": 0.15625,
+            "samples": 3
+          },
+          "vmCPUSecondsPerGiB": {
+            "median": 0.158,
+            "min": 0.1505,
+            "max": 0.1585,
+            "samples": 3
+          },
+          "agentCPUPercent": {
+            "median": 0.0,
+            "min": 0.0,
+            "max": 0.0,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 3,
+        "release": "candidate_dpi_off",
+        "profile": "window_up",
+        "metrics": {
+          "gbps": {
+            "median": 51.68231047365627,
+            "min": 51.650879674798574,
+            "max": 53.90576397449599,
+            "samples": 3
+          },
+          "coreCPUSecondsPerGiB": {
+            "median": 0.165,
+            "min": 0.1575,
+            "max": 0.16625,
+            "samples": 3
+          },
+          "vmCPUSecondsPerGiB": {
+            "median": 0.171,
+            "min": 0.161,
+            "max": 0.1715,
+            "samples": 3
+          },
+          "agentCPUPercent": {
+            "median": 0.0,
+            "min": 0.0,
+            "max": 0.0,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 3,
+        "release": "candidate_dpi_off",
+        "profile": "window_down",
+        "metrics": {
+          "gbps": {
+            "median": 58.84030059213313,
+            "min": 55.18975255278379,
+            "max": 60.124718352878745,
+            "samples": 3
+          },
+          "coreCPUSecondsPerGiB": {
+            "median": 0.145,
+            "min": 0.14125,
+            "max": 0.1525,
+            "samples": 3
+          },
+          "vmCPUSecondsPerGiB": {
+            "median": 0.149,
+            "min": 0.1445,
+            "max": 0.162,
+            "samples": 3
+          },
+          "agentCPUPercent": {
+            "median": 0.0,
+            "min": 0.0,
+            "max": 0.0,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 3,
+        "release": "candidate_dpi_on",
+        "profile": "window_up",
+        "metrics": {
+          "gbps": {
+            "median": 51.718252091902706,
+            "min": 50.98036249600299,
+            "max": 52.526210609373074,
+            "samples": 3
+          },
+          "coreCPUSecondsPerGiB": {
+            "median": 0.1625,
+            "min": 0.16125,
+            "max": 0.16625,
+            "samples": 3
+          },
+          "vmCPUSecondsPerGiB": {
+            "median": 0.1705,
+            "min": 0.1675,
+            "max": 0.171,
+            "samples": 3
+          },
+          "agentCPUPercent": {
+            "median": 0.0,
+            "min": 0.0,
+            "max": 0.0,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 3,
+        "release": "candidate_dpi_on",
+        "profile": "window_down",
+        "metrics": {
+          "gbps": {
+            "median": 57.85934716687029,
+            "min": 56.50823345497077,
+            "max": 58.506887395193345,
+            "samples": 3
+          },
+          "coreCPUSecondsPerGiB": {
+            "median": 0.1475,
+            "min": 0.14625,
+            "max": 0.15,
+            "samples": 3
+          },
+          "vmCPUSecondsPerGiB": {
+            "median": 0.1515,
+            "min": 0.151,
+            "max": 0.1625,
+            "samples": 3
+          },
+          "agentCPUPercent": {
+            "median": 0.0,
+            "min": 0.0,
+            "max": 0.0,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 10000,
+        "release": "baseline_v54_dpi_on",
+        "profile": "window_up",
+        "metrics": {
+          "gbps": {
+            "median": 46.83138761986366,
+            "min": 46.64081622456989,
+            "max": 47.99227223553289,
+            "samples": 3
+          },
+          "coreCPUSecondsPerGiB": {
+            "median": 0.18125,
+            "min": 0.1775,
+            "max": 0.18375,
+            "samples": 3
+          },
+          "vmCPUSecondsPerGiB": {
+            "median": 0.1875,
+            "min": 0.1835,
+            "max": 0.188,
+            "samples": 3
+          },
+          "agentCPUPercent": {
+            "median": 9.777312680634504,
+            "min": 9.540809357394629,
+            "max": 10.18069805822667,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 10000,
+        "release": "baseline_v54_dpi_on",
+        "profile": "window_down",
+        "metrics": {
+          "gbps": {
+            "median": 51.58332439363033,
+            "min": 51.22294885726962,
+            "max": 53.65492963873238,
+            "samples": 3
+          },
+          "coreCPUSecondsPerGiB": {
+            "median": 0.165,
+            "min": 0.16,
+            "max": 0.1675,
+            "samples": 3
+          },
+          "vmCPUSecondsPerGiB": {
+            "median": 0.1705,
+            "min": 0.1635,
+            "max": 0.1735,
+            "samples": 3
+          },
+          "agentCPUPercent": {
+            "median": 8.944704114215499,
+            "min": 7.807819876868215,
+            "max": 9.007633965281487,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 10000,
+        "release": "candidate_dpi_off",
+        "profile": "window_up",
+        "metrics": {
+          "gbps": {
+            "median": 45.82503390838459,
+            "min": 43.062049190741064,
+            "max": 47.25554259405152,
+            "samples": 3
+          },
+          "coreCPUSecondsPerGiB": {
+            "median": 0.1875,
+            "min": 0.17875,
+            "max": 0.1975,
+            "samples": 3
+          },
+          "vmCPUSecondsPerGiB": {
+            "median": 0.192,
+            "min": 0.189,
+            "max": 0.2055,
+            "samples": 3
+          },
+          "agentCPUPercent": {
+            "median": 12.532705787668549,
+            "min": 12.377855698184105,
+            "max": 12.669998166665136,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 10000,
+        "release": "candidate_dpi_off",
+        "profile": "window_down",
+        "metrics": {
+          "gbps": {
+            "median": 53.06442879808066,
+            "min": 44.688732644709965,
+            "max": 54.527119430820036,
+            "samples": 3
+          },
+          "coreCPUSecondsPerGiB": {
+            "median": 0.1575,
+            "min": 0.1575,
+            "max": 0.1875,
+            "samples": 3
+          },
+          "vmCPUSecondsPerGiB": {
+            "median": 0.1645,
+            "min": 0.1615,
+            "max": 0.192,
+            "samples": 3
+          },
+          "agentCPUPercent": {
+            "median": 5.405323486579646,
+            "min": 5.202453192871755,
+            "max": 5.554318137230293,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 10000,
+        "release": "candidate_dpi_on",
+        "profile": "window_up",
+        "metrics": {
+          "gbps": {
+            "median": 48.70880403969455,
+            "min": 47.81061004508896,
+            "max": 48.816466367870234,
+            "samples": 3
+          },
+          "coreCPUSecondsPerGiB": {
+            "median": 0.17625,
+            "min": 0.175,
+            "max": 0.18,
+            "samples": 3
+          },
+          "vmCPUSecondsPerGiB": {
+            "median": 0.1815,
+            "min": 0.179,
+            "max": 0.185,
+            "samples": 3
+          },
+          "agentCPUPercent": {
+            "median": 8.348831332711669,
+            "min": 7.814103883670359,
+            "max": 8.505676647129215,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 10000,
+        "release": "candidate_dpi_on",
+        "profile": "window_down",
+        "metrics": {
+          "gbps": {
+            "median": 52.80745173285804,
+            "min": 52.13950020092155,
+            "max": 53.285644894437766,
+            "samples": 3
+          },
+          "coreCPUSecondsPerGiB": {
+            "median": 0.16,
+            "min": 0.15875,
+            "max": 0.16375,
+            "samples": 3
+          },
+          "vmCPUSecondsPerGiB": {
+            "median": 0.165,
+            "min": 0.1615,
+            "max": 0.1715,
+            "samples": 3
+          },
+          "agentCPUPercent": {
+            "median": 7.754081873927171,
+            "min": 6.147596488340993,
+            "max": 9.863484630651948,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 3,
+        "release": "baseline_v54_dpi_on",
+        "profile": "tcp_paced",
+        "metrics": {
+          "gbps": {
+            "median": 0.14998016926297755,
+            "min": 0.1499681208208861,
+            "max": 0.14998377592484113,
+            "samples": 3
+          },
+          "coreCPUSecondsPerGiB": {
+            "median": 3.894134917860888,
+            "min": 3.550534778049633,
+            "max": 4.151835022719329,
+            "samples": 3
+          },
+          "vmCPUSecondsPerGiB": {
+            "median": 4.432441803565187,
+            "min": 4.295001747640685,
+            "max": 4.535521845508564,
+            "samples": 3
+          },
+          "agentCPUPercent": {
+            "median": 0.6992184337023729,
+            "min": 0.6988833529726107,
+            "max": 0.7489041095568727,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 3,
+        "release": "candidate_dpi_off",
+        "profile": "tcp_paced",
+        "metrics": {
+          "gbps": {
+            "median": 0.1500206888887767,
+            "min": 0.149962588333047,
+            "max": 0.15002911130899302,
+            "samples": 3
+          },
+          "coreCPUSecondsPerGiB": {
+            "median": 3.778280922431866,
+            "min": 3.721034241788959,
+            "max": 3.779601537923803,
+            "samples": 3
+          },
+          "vmCPUSecondsPerGiB": {
+            "median": 4.6140824598183094,
+            "min": 4.146108353722474,
+            "max": 4.648430468204054,
+            "samples": 3
+          },
+          "agentCPUPercent": {
+            "median": 0.2996486025632117,
+            "min": 0.24964719275793135,
+            "max": 0.2996505199508369,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 3,
+        "release": "candidate_dpi_on",
+        "profile": "tcp_paced",
+        "metrics": {
+          "gbps": {
+            "median": 0.15003298158943876,
+            "min": 0.15001697672421385,
+            "max": 0.15003357415000126,
+            "samples": 3
+          },
+          "coreCPUSecondsPerGiB": {
+            "median": 3.4348008385744233,
+            "min": 3.2344374563242484,
+            "max": 4.236254367575122,
+            "samples": 3
+          },
+          "vmCPUSecondsPerGiB": {
+            "median": 3.9271222921034243,
+            "min": 3.663787561146052,
+            "max": 4.980461215932914,
+            "samples": 3
+          },
+          "agentCPUPercent": {
+            "median": 0.6492993083591964,
+            "min": 0.5993101076455807,
+            "max": 0.6988670589930168,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 10000,
+        "release": "baseline_v54_dpi_on",
+        "profile": "tcp_paced",
+        "metrics": {
+          "gbps": {
+            "median": 0.1499919271697356,
+            "min": 0.1499868653448618,
+            "max": 0.1500470617940352,
+            "samples": 3
+          },
+          "coreCPUSecondsPerGiB": {
+            "median": 10.733752620545074,
+            "min": 10.479804264243272,
+            "max": 10.823404404054525,
+            "samples": 3
+          },
+          "vmCPUSecondsPerGiB": {
+            "median": 11.11730538085255,
+            "min": 10.937937783991611,
+            "max": 11.17845788185949,
+            "samples": 3
+          },
+          "agentCPUPercent": {
+            "median": 13.793698485404674,
+            "min": 13.583923250242325,
+            "max": 14.845040759541764,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 10000,
+        "release": "candidate_dpi_off",
+        "profile": "tcp_paced",
+        "metrics": {
+          "gbps": {
+            "median": 0.1500344817518365,
+            "min": 0.1500217238280092,
+            "max": 0.15004343084376767,
+            "samples": 3
+          },
+          "coreCPUSecondsPerGiB": {
+            "median": 9.016352201257861,
+            "min": 8.9304821802935,
+            "max": 9.560195667365479,
+            "samples": 3
+          },
+          "vmCPUSecondsPerGiB": {
+            "median": 9.617442348008385,
+            "min": 9.525847658979734,
+            "max": 10.109763801537387,
+            "samples": 3
+          },
+          "agentCPUPercent": {
+            "median": 10.089104833702379,
+            "min": 9.94342720370451,
+            "max": 10.73975820357315,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 10000,
+        "release": "candidate_dpi_on",
+        "profile": "tcp_paced",
+        "metrics": {
+          "gbps": {
+            "median": 0.15001861905314878,
+            "min": 0.15001835657807375,
+            "max": 0.1500365595263063,
+            "samples": 3
+          },
+          "coreCPUSecondsPerGiB": {
+            "median": 9.073598881900768,
+            "min": 8.644248777078966,
+            "max": 9.24533892382949,
+            "samples": 3
+          },
+          "vmCPUSecondsPerGiB": {
+            "median": 9.617442348008385,
+            "min": 9.228164919636619,
+            "max": 9.640341020265549,
+            "samples": 3
+          },
+          "agentCPUPercent": {
+            "median": 10.38396775501799,
+            "min": 10.235163166837244,
+            "max": 11.2878343429505,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 3,
+        "release": "baseline_v54_dpi_on",
+        "profile": "tcp_persistent",
+        "metrics": {
+          "p50_us": {
+            "median": 108.583,
+            "min": 100.459,
+            "max": 120.708,
+            "samples": 3
+          },
+          "p95_us": {
+            "median": 321.458,
+            "min": 289.541,
+            "max": 324.125,
+            "samples": 3
+          },
+          "p99_us": {
+            "median": 898.458,
+            "min": 813.541,
+            "max": 1555.75,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 3,
+        "release": "baseline_v54_dpi_on",
+        "profile": "tcp_first_response",
+        "metrics": {
+          "p50_us": {
+            "median": 525.166,
+            "min": 480.25,
+            "max": 526.708,
+            "samples": 3
+          },
+          "p95_us": {
+            "median": 1349.375,
+            "min": 1337.417,
+            "max": 1600.167,
+            "samples": 3
+          },
+          "p99_us": {
+            "median": 3928.125,
+            "min": 3904,
+            "max": 4086.791,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 3,
+        "release": "baseline_v54_dpi_on",
+        "profile": "udp_persistent",
+        "metrics": {
+          "p50_us": {
+            "median": 93.833,
+            "min": 89.708,
+            "max": 102.875,
+            "samples": 3
+          },
+          "p95_us": {
+            "median": 261.25,
+            "min": 234.042,
+            "max": 275.083,
+            "samples": 3
+          },
+          "p99_us": {
+            "median": 704.708,
+            "min": 652.75,
+            "max": 733.166,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 3,
+        "release": "candidate_dpi_off",
+        "profile": "tcp_persistent",
+        "metrics": {
+          "p50_us": {
+            "median": 105.917,
+            "min": 102,
+            "max": 109.375,
+            "samples": 3
+          },
+          "p95_us": {
+            "median": 273.75,
+            "min": 265,
+            "max": 305.667,
+            "samples": 3
+          },
+          "p99_us": {
+            "median": 766.958,
+            "min": 650.25,
+            "max": 888.5,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 3,
+        "release": "candidate_dpi_off",
+        "profile": "tcp_first_response",
+        "metrics": {
+          "p50_us": {
+            "median": 349.084,
+            "min": 346.292,
+            "max": 386.834,
+            "samples": 3
+          },
+          "p95_us": {
+            "median": 1247.875,
+            "min": 1136.375,
+            "max": 1366.5,
+            "samples": 3
+          },
+          "p99_us": {
+            "median": 3571.958,
+            "min": 3210.417,
+            "max": 3729.625,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 3,
+        "release": "candidate_dpi_off",
+        "profile": "udp_persistent",
+        "metrics": {
+          "p50_us": {
+            "median": 93.708,
+            "min": 93,
+            "max": 96.042,
+            "samples": 3
+          },
+          "p95_us": {
+            "median": 247.875,
+            "min": 215.334,
+            "max": 253.416,
+            "samples": 3
+          },
+          "p99_us": {
+            "median": 603.542,
+            "min": 563.125,
+            "max": 669.292,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 3,
+        "release": "candidate_dpi_on",
+        "profile": "tcp_persistent",
+        "metrics": {
+          "p50_us": {
+            "median": 103.958,
+            "min": 102.958,
+            "max": 106.667,
+            "samples": 3
+          },
+          "p95_us": {
+            "median": 267.375,
+            "min": 265.167,
+            "max": 322.542,
+            "samples": 3
+          },
+          "p99_us": {
+            "median": 736.375,
+            "min": 687.583,
+            "max": 1047.458,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 3,
+        "release": "candidate_dpi_on",
+        "profile": "tcp_first_response",
+        "metrics": {
+          "p50_us": {
+            "median": 491.625,
+            "min": 483.583,
+            "max": 518.209,
+            "samples": 3
+          },
+          "p95_us": {
+            "median": 1732.875,
+            "min": 1646.875,
+            "max": 1885.292,
+            "samples": 3
+          },
+          "p99_us": {
+            "median": 5181.25,
+            "min": 3839.375,
+            "max": 5436.667,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 3,
+        "release": "candidate_dpi_on",
+        "profile": "udp_persistent",
+        "metrics": {
+          "p50_us": {
+            "median": 94.042,
+            "min": 83.292,
+            "max": 94.166,
+            "samples": 3
+          },
+          "p95_us": {
+            "median": 267.833,
+            "min": 257.083,
+            "max": 276.041,
+            "samples": 3
+          },
+          "p99_us": {
+            "median": 762.5,
+            "min": 725.333,
+            "max": 787.833,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 10000,
+        "release": "baseline_v54_dpi_on",
+        "profile": "tcp_persistent",
+        "metrics": {
+          "p50_us": {
+            "median": 62.208,
+            "min": 60.208,
+            "max": 78.375,
+            "samples": 3
+          },
+          "p95_us": {
+            "median": 258.416,
+            "min": 224.625,
+            "max": 310.916,
+            "samples": 3
+          },
+          "p99_us": {
+            "median": 763.917,
+            "min": 706.709,
+            "max": 1182.583,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 10000,
+        "release": "baseline_v54_dpi_on",
+        "profile": "tcp_first_response",
+        "metrics": {
+          "p50_us": {
+            "median": 327.708,
+            "min": 237,
+            "max": 329.667,
+            "samples": 3
+          },
+          "p95_us": {
+            "median": 1621.541,
+            "min": 1553.083,
+            "max": 1855.625,
+            "samples": 3
+          },
+          "p99_us": {
+            "median": 9468.166,
+            "min": 8865.958,
+            "max": 11019.917,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 10000,
+        "release": "baseline_v54_dpi_on",
+        "profile": "udp_persistent",
+        "metrics": {
+          "p50_us": {
+            "median": 56.375,
+            "min": 55.25,
+            "max": 73.875,
+            "samples": 3
+          },
+          "p95_us": {
+            "median": 240.209,
+            "min": 204.583,
+            "max": 264.334,
+            "samples": 3
+          },
+          "p99_us": {
+            "median": 695.583,
+            "min": 592.75,
+            "max": 880.709,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 10000,
+        "release": "candidate_dpi_off",
+        "profile": "tcp_persistent",
+        "metrics": {
+          "p50_us": {
+            "median": 81.084,
+            "min": 73.375,
+            "max": 97.084,
+            "samples": 3
+          },
+          "p95_us": {
+            "median": 251.25,
+            "min": 241.084,
+            "max": 265.708,
+            "samples": 3
+          },
+          "p99_us": {
+            "median": 691.5,
+            "min": 649.5,
+            "max": 742.208,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 10000,
+        "release": "candidate_dpi_off",
+        "profile": "tcp_first_response",
+        "metrics": {
+          "p50_us": {
+            "median": 193.791,
+            "min": 122.792,
+            "max": 222.916,
+            "samples": 3
+          },
+          "p95_us": {
+            "median": 871.208,
+            "min": 690.792,
+            "max": 998.084,
+            "samples": 3
+          },
+          "p99_us": {
+            "median": 3193.875,
+            "min": 1808.167,
+            "max": 3473.625,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 10000,
+        "release": "candidate_dpi_off",
+        "profile": "udp_persistent",
+        "metrics": {
+          "p50_us": {
+            "median": 60.416,
+            "min": 59.208,
+            "max": 82,
+            "samples": 3
+          },
+          "p95_us": {
+            "median": 215.458,
+            "min": 211.083,
+            "max": 217.959,
+            "samples": 3
+          },
+          "p99_us": {
+            "median": 642.75,
+            "min": 567.75,
+            "max": 711.542,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 10000,
+        "release": "candidate_dpi_on",
+        "profile": "tcp_persistent",
+        "metrics": {
+          "p50_us": {
+            "median": 71.125,
+            "min": 66.375,
+            "max": 90.208,
+            "samples": 3
+          },
+          "p95_us": {
+            "median": 272.917,
+            "min": 226.209,
+            "max": 285.417,
+            "samples": 3
+          },
+          "p99_us": {
+            "median": 731.875,
+            "min": 718.292,
+            "max": 1083.459,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 10000,
+        "release": "candidate_dpi_on",
+        "profile": "tcp_first_response",
+        "metrics": {
+          "p50_us": {
+            "median": 410.875,
+            "min": 378.834,
+            "max": 414.458,
+            "samples": 3
+          },
+          "p95_us": {
+            "median": 1546.208,
+            "min": 1529.75,
+            "max": 1836.666,
+            "samples": 3
+          },
+          "p99_us": {
+            "median": 7635.208,
+            "min": 7136.833,
+            "max": 9639.834,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 10000,
+        "release": "candidate_dpi_on",
+        "profile": "udp_persistent",
+        "metrics": {
+          "p50_us": {
+            "median": 64,
+            "min": 61.667,
+            "max": 88.75,
+            "samples": 3
+          },
+          "p95_us": {
+            "median": 260.041,
+            "min": 216.25,
+            "max": 267.334,
+            "samples": 3
+          },
+          "p99_us": {
+            "median": 760.792,
+            "min": 746.542,
+            "max": 854.625,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 10000,
+        "release": "baseline_v54_dpi_on",
+        "profile": "fresh_tcp_burst",
+        "metrics": {
+          "p50_us": {
+            "median": 77.417,
+            "min": 76.25,
+            "max": 78.541,
+            "samples": 3
+          },
+          "p95_us": {
+            "median": 110.5,
+            "min": 99.333,
+            "max": 111.25,
+            "samples": 3
+          },
+          "p99_us": {
+            "median": 193.125,
+            "min": 182.167,
+            "max": 195.541,
+            "samples": 3
+          },
+          "connectionsPerSecond": {
+            "median": 11081.47943210947,
+            "min": 8766.14083432503,
+            "max": 11476.52472964382,
+            "samples": 3
+          },
+          "agentCPUSecondsPer1000": {
+            "median": 0.027999999999999935,
+            "min": 0.027999999999999935,
+            "max": 0.05,
+            "samples": 3
+          },
+          "coreCPUSecondsPer1000": {
+            "median": 0.088,
+            "min": 0.086,
+            "max": 0.11599999999999999,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 10000,
+        "release": "candidate_dpi_off",
+        "profile": "fresh_tcp_burst",
+        "metrics": {
+          "p50_us": {
+            "median": 48.875,
+            "min": 48.834,
+            "max": 49.333,
+            "samples": 3
+          },
+          "p95_us": {
+            "median": 74.875,
+            "min": 73.75,
+            "max": 76.875,
+            "samples": 3
+          },
+          "p99_us": {
+            "median": 160.167,
+            "min": 143.208,
+            "max": 180.583,
+            "samples": 3
+          },
+          "connectionsPerSecond": {
+            "median": 13971.95737616447,
+            "min": 13595.453680295346,
+            "max": 16366.049612050572,
+            "samples": 3
+          },
+          "agentCPUSecondsPer1000": {
+            "median": 0.010000000000000142,
+            "min": 0.0019999999999999575,
+            "max": 0.016000000000000014,
+            "samples": 3
+          },
+          "coreCPUSecondsPer1000": {
+            "median": 0.068,
+            "min": 0.06,
+            "max": 0.072,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "nftables",
+        "forwards": 10000,
+        "release": "candidate_dpi_on",
+        "profile": "fresh_tcp_burst",
+        "metrics": {
+          "p50_us": {
+            "median": 74.625,
+            "min": 73.709,
+            "max": 75.583,
+            "samples": 3
+          },
+          "p95_us": {
+            "median": 112.208,
+            "min": 101.125,
+            "max": 121.375,
+            "samples": 3
+          },
+          "p99_us": {
+            "median": 188.5,
+            "min": 175.875,
+            "max": 216.292,
+            "samples": 3
+          },
+          "connectionsPerSecond": {
+            "median": 10162.41744252734,
+            "min": 9827.893110310035,
+            "max": 11418.183048186298,
+            "samples": 3
+          },
+          "agentCPUSecondsPer1000": {
+            "median": 0.03599999999999994,
+            "min": 0.02400000000000002,
+            "max": 0.040000000000000036,
+            "samples": 3
+          },
+          "coreCPUSecondsPer1000": {
+            "median": 0.098,
+            "min": 0.086,
+            "max": 0.1,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "iptables-nft",
+        "forwards": 10000,
+        "release": "baseline_v54_dpi_on",
+        "profile": "window_up",
+        "metrics": {
+          "gbps": {
+            "median": 44.43160106678283,
+            "min": 43.403753041461776,
+            "max": 44.71595793783071,
+            "samples": 3
+          },
+          "coreCPUSecondsPerGiB": {
+            "median": 0.1925,
+            "min": 0.19125,
+            "max": 0.19875,
+            "samples": 3
+          },
+          "vmCPUSecondsPerGiB": {
+            "median": 0.204,
+            "min": 0.197,
+            "max": 0.2045,
+            "samples": 3
+          },
+          "agentCPUPercent": {
+            "median": 10.991603167135446,
+            "min": 8.459136780464895,
+            "max": 12.000546962194116,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "iptables-nft",
+        "forwards": 10000,
+        "release": "baseline_v54_dpi_on",
+        "profile": "window_down",
+        "metrics": {
+          "gbps": {
+            "median": 49.311437871160585,
+            "min": 48.170223808695816,
+            "max": 49.3786511596867,
+            "samples": 3
+          },
+          "coreCPUSecondsPerGiB": {
+            "median": 0.17125,
+            "min": 0.17,
+            "max": 0.17875,
+            "samples": 3
+          },
+          "vmCPUSecondsPerGiB": {
+            "median": 0.177,
+            "min": 0.175,
+            "max": 0.1835,
+            "samples": 3
+          },
+          "agentCPUPercent": {
+            "median": 9.3284862279701,
+            "min": 7.185539457668592,
+            "max": 11.215504214329606,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "iptables-nft",
+        "forwards": 10000,
+        "release": "candidate_dpi_off",
+        "profile": "window_up",
+        "metrics": {
+          "gbps": {
+            "median": 49.523242403547876,
+            "min": 48.747865978698904,
+            "max": 49.72262021919251,
+            "samples": 3
+          },
+          "coreCPUSecondsPerGiB": {
+            "median": 0.17375,
+            "min": 0.1725,
+            "max": 0.175,
+            "samples": 3
+          },
+          "vmCPUSecondsPerGiB": {
+            "median": 0.18,
+            "min": 0.175,
+            "max": 0.1805,
+            "samples": 3
+          },
+          "agentCPUPercent": {
+            "median": 5.044606177032044,
+            "min": 4.965623693000708,
+            "max": 5.064915480533779,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "iptables-nft",
+        "forwards": 10000,
+        "release": "candidate_dpi_off",
+        "profile": "window_down",
+        "metrics": {
+          "gbps": {
+            "median": 51.73438913084076,
+            "min": 51.330912065953406,
+            "max": 52.22106965116801,
+            "samples": 3
+          },
+          "coreCPUSecondsPerGiB": {
+            "median": 0.165,
+            "min": 0.1625,
+            "max": 0.1675,
+            "samples": 3
+          },
+          "vmCPUSecondsPerGiB": {
+            "median": 0.1705,
+            "min": 0.165,
+            "max": 0.171,
+            "samples": 3
+          },
+          "agentCPUPercent": {
+            "median": 4.559499472190622,
+            "min": 4.517006670140033,
+            "max": 5.228741566849546,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "iptables-nft",
+        "forwards": 10000,
+        "release": "candidate_dpi_on",
+        "profile": "window_up",
+        "metrics": {
+          "gbps": {
+            "median": 44.63253209395767,
+            "min": 40.94962296655579,
+            "max": 48.278805694991526,
+            "samples": 3
+          },
+          "coreCPUSecondsPerGiB": {
+            "median": 0.19,
+            "min": 0.1775,
+            "max": 0.20875,
+            "samples": 3
+          },
+          "vmCPUSecondsPerGiB": {
+            "median": 0.1955,
+            "min": 0.183,
+            "max": 0.214,
+            "samples": 3
+          },
+          "agentCPUPercent": {
+            "median": 8.443354704962253,
+            "min": 7.0254908780031124,
+            "max": 9.53432707268647,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "iptables-nft",
+        "forwards": 10000,
+        "release": "candidate_dpi_on",
+        "profile": "window_down",
+        "metrics": {
+          "gbps": {
+            "median": 51.352064983596584,
+            "min": 49.38630742084495,
+            "max": 52.31805936259773,
+            "samples": 3
+          },
+          "coreCPUSecondsPerGiB": {
+            "median": 0.16625,
+            "min": 0.1625,
+            "max": 0.17375,
+            "samples": 3
+          },
+          "vmCPUSecondsPerGiB": {
+            "median": 0.1705,
+            "min": 0.1675,
+            "max": 0.175,
+            "samples": 3
+          },
+          "agentCPUPercent": {
+            "median": 5.0306575132114,
+            "min": 4.5679677885431245,
+            "max": 5.978167171543063,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "iptables-nft",
+        "forwards": 10000,
+        "release": "baseline_v54_dpi_on",
+        "profile": "tcp_paced",
+        "metrics": {
+          "gbps": {
+            "median": 0.14997769493832216,
+            "min": 0.1499769076703255,
+            "max": 0.15003334912645158,
+            "samples": 3
+          },
+          "coreCPUSecondsPerGiB": {
+            "median": 11.134479385045424,
+            "min": 10.737504369101712,
+            "max": 11.224271233834324,
+            "samples": 3
+          },
+          "vmCPUSecondsPerGiB": {
+            "median": 11.510604683677034,
+            "min": 11.460785464709991,
+            "max": 11.85420482348829,
+            "samples": 3
+          },
+          "agentCPUPercent": {
+            "median": 10.739709361919274,
+            "min": 10.487587301734388,
+            "max": 10.98868055521519,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "iptables-nft",
+        "forwards": 10000,
+        "release": "candidate_dpi_off",
+        "profile": "tcp_paced",
+        "metrics": {
+          "gbps": {
+            "median": 0.14997740252353,
+            "min": 0.14997115711574358,
+            "max": 0.14998133897214364,
+            "samples": 3
+          },
+          "coreCPUSecondsPerGiB": {
+            "median": 9.907137364557848,
+            "min": 9.821237329605033,
+            "max": 10.42253757427473,
+            "samples": 3
+          },
+          "vmCPUSecondsPerGiB": {
+            "median": 10.800497728067109,
+            "min": 10.296550856343936,
+            "max": 11.144097867878363,
+            "samples": 3
+          },
+          "agentCPUPercent": {
+            "median": 8.29189130352406,
+            "min": 8.135580256333647,
+            "max": 8.439847791068694,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "iptables-nft",
+        "forwards": 10000,
+        "release": "candidate_dpi_on",
+        "profile": "tcp_paced",
+        "metrics": {
+          "gbps": {
+            "median": 0.14998728527585506,
+            "min": 0.14997088721788873,
+            "max": 0.15001987894629418,
+            "samples": 3
+          },
+          "coreCPUSecondsPerGiB": {
+            "median": 10.046792452830188,
+            "min": 9.993037399510662,
+            "max": 10.336637539321915,
+            "samples": 3
+          },
+          "vmCPUSecondsPerGiB": {
+            "median": 10.62498392732355,
+            "min": 10.399630898287313,
+            "max": 10.754684376092275,
+            "samples": 3
+          },
+          "agentCPUPercent": {
+            "median": 8.64256343024187,
+            "min": 8.239863333722598,
+            "max": 8.686428302270176,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "iptables-nft",
+        "forwards": 10000,
+        "release": "baseline_v54_dpi_on",
+        "profile": "tcp_persistent",
+        "metrics": {
+          "p50_us": {
+            "median": 71.417,
+            "min": 62.875,
+            "max": 84.375,
+            "samples": 3
+          },
+          "p95_us": {
+            "median": 308.167,
+            "min": 265.792,
+            "max": 335.625,
+            "samples": 3
+          },
+          "p99_us": {
+            "median": 865.291,
+            "min": 820.042,
+            "max": 948.209,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "iptables-nft",
+        "forwards": 10000,
+        "release": "baseline_v54_dpi_on",
+        "profile": "tcp_first_response",
+        "metrics": {
+          "p50_us": {
+            "median": 362.458,
+            "min": 355.792,
+            "max": 411.792,
+            "samples": 3
+          },
+          "p95_us": {
+            "median": 1846.417,
+            "min": 1532.584,
+            "max": 2326.792,
+            "samples": 3
+          },
+          "p99_us": {
+            "median": 10249.208,
+            "min": 8934.042,
+            "max": 10252.25,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "iptables-nft",
+        "forwards": 10000,
+        "release": "baseline_v54_dpi_on",
+        "profile": "udp_persistent",
+        "metrics": {
+          "p50_us": {
+            "median": 58.25,
+            "min": 58.083,
+            "max": 78.792,
+            "samples": 3
+          },
+          "p95_us": {
+            "median": 263.542,
+            "min": 253.125,
+            "max": 270.208,
+            "samples": 3
+          },
+          "p99_us": {
+            "median": 726.167,
+            "min": 630.083,
+            "max": 942.75,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "iptables-nft",
+        "forwards": 10000,
+        "release": "candidate_dpi_off",
+        "profile": "tcp_persistent",
+        "metrics": {
+          "p50_us": {
+            "median": 66.833,
+            "min": 62.958,
+            "max": 98.042,
+            "samples": 3
+          },
+          "p95_us": {
+            "median": 292.917,
+            "min": 252,
+            "max": 293.209,
+            "samples": 3
+          },
+          "p99_us": {
+            "median": 948.125,
+            "min": 723,
+            "max": 977.042,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "iptables-nft",
+        "forwards": 10000,
+        "release": "candidate_dpi_off",
+        "profile": "tcp_first_response",
+        "metrics": {
+          "p50_us": {
+            "median": 177.334,
+            "min": 128.625,
+            "max": 255.917,
+            "samples": 3
+          },
+          "p95_us": {
+            "median": 920.875,
+            "min": 801.458,
+            "max": 984.125,
+            "samples": 3
+          },
+          "p99_us": {
+            "median": 3113.834,
+            "min": 2632.584,
+            "max": 3212.542,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "iptables-nft",
+        "forwards": 10000,
+        "release": "candidate_dpi_off",
+        "profile": "udp_persistent",
+        "metrics": {
+          "p50_us": {
+            "median": 64.75,
+            "min": 39.875,
+            "max": 66.542,
+            "samples": 3
+          },
+          "p95_us": {
+            "median": 247.167,
+            "min": 246.375,
+            "max": 260.417,
+            "samples": 3
+          },
+          "p99_us": {
+            "median": 706.875,
+            "min": 682.875,
+            "max": 803.958,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "iptables-nft",
+        "forwards": 10000,
+        "release": "candidate_dpi_on",
+        "profile": "tcp_persistent",
+        "metrics": {
+          "p50_us": {
+            "median": 73.209,
+            "min": 72.167,
+            "max": 113.5,
+            "samples": 3
+          },
+          "p95_us": {
+            "median": 300.209,
+            "min": 276.708,
+            "max": 437.208,
+            "samples": 3
+          },
+          "p99_us": {
+            "median": 864.834,
+            "min": 780.25,
+            "max": 1713.208,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "iptables-nft",
+        "forwards": 10000,
+        "release": "candidate_dpi_on",
+        "profile": "tcp_first_response",
+        "metrics": {
+          "p50_us": {
+            "median": 344.208,
+            "min": 266.375,
+            "max": 373.584,
+            "samples": 3
+          },
+          "p95_us": {
+            "median": 1740,
+            "min": 1366.542,
+            "max": 2171.083,
+            "samples": 3
+          },
+          "p99_us": {
+            "median": 8550.5,
+            "min": 7019.791,
+            "max": 8910.583,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "iptables-nft",
+        "forwards": 10000,
+        "release": "candidate_dpi_on",
+        "profile": "udp_persistent",
+        "metrics": {
+          "p50_us": {
+            "median": 63.917,
+            "min": 63.833,
+            "max": 119.167,
+            "samples": 3
+          },
+          "p95_us": {
+            "median": 279.208,
+            "min": 271.333,
+            "max": 509.917,
+            "samples": 3
+          },
+          "p99_us": {
+            "median": 1043.5,
+            "min": 870.208,
+            "max": 2159.167,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "iptables-nft",
+        "forwards": 10000,
+        "release": "baseline_v54_dpi_on",
+        "profile": "fresh_tcp_burst",
+        "metrics": {
+          "p50_us": {
+            "median": 79.167,
+            "min": 77.583,
+            "max": 79.916,
+            "samples": 3
+          },
+          "p95_us": {
+            "median": 118.5,
+            "min": 110.084,
+            "max": 137.916,
+            "samples": 3
+          },
+          "p99_us": {
+            "median": 193.625,
+            "min": 180.042,
+            "max": 244.708,
+            "samples": 3
+          },
+          "connectionsPerSecond": {
+            "median": 10735.972378487117,
+            "min": 8816.57922456568,
+            "max": 10917.830119954297,
+            "samples": 3
+          },
+          "agentCPUSecondsPer1000": {
+            "median": 0.028000000000000115,
+            "min": 0.026000000000000155,
+            "max": 0.04600000000000008,
+            "samples": 3
+          },
+          "coreCPUSecondsPer1000": {
+            "median": 0.094,
+            "min": 0.092,
+            "max": 0.11200000000000002,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "iptables-nft",
+        "forwards": 10000,
+        "release": "candidate_dpi_off",
+        "profile": "fresh_tcp_burst",
+        "metrics": {
+          "p50_us": {
+            "median": 50.042,
+            "min": 49.125,
+            "max": 50.208,
+            "samples": 3
+          },
+          "p95_us": {
+            "median": 78.041,
+            "min": 70.916,
+            "max": 81.292,
+            "samples": 3
+          },
+          "p99_us": {
+            "median": 154.208,
+            "min": 141.625,
+            "max": 198.5,
+            "samples": 3
+          },
+          "connectionsPerSecond": {
+            "median": 14874.227238154428,
+            "min": 13614.047440298622,
+            "max": 16577.518738786068,
+            "samples": 3
+          },
+          "agentCPUSecondsPer1000": {
+            "median": 0.005999999999999961,
+            "min": 0.0,
+            "max": 0.01200000000000001,
+            "samples": 3
+          },
+          "coreCPUSecondsPer1000": {
+            "median": 0.068,
+            "min": 0.06,
+            "max": 0.074,
+            "samples": 3
+          }
+        }
+      },
+      {
+        "backend": "iptables-nft",
+        "forwards": 10000,
+        "release": "candidate_dpi_on",
+        "profile": "fresh_tcp_burst",
+        "metrics": {
+          "p50_us": {
+            "median": 76.959,
+            "min": 76.792,
+            "max": 77.875,
+            "samples": 3
+          },
+          "p95_us": {
+            "median": 129.667,
+            "min": 121.167,
+            "max": 131.5,
+            "samples": 3
+          },
+          "p99_us": {
+            "median": 254.459,
+            "min": 212.125,
+            "max": 264.792,
+            "samples": 3
+          },
+          "connectionsPerSecond": {
+            "median": 9277.890207769422,
+            "min": 9260.968525352368,
+            "max": 10856.946966798865,
+            "samples": 3
+          },
+          "agentCPUSecondsPer1000": {
+            "median": 0.0379999999999999,
+            "min": 0.02400000000000002,
+            "max": 0.0379999999999999,
+            "samples": 3
+          },
+          "coreCPUSecondsPer1000": {
+            "median": 0.10800000000000001,
+            "min": 0.092,
+            "max": 0.11000000000000001,
+            "samples": 3
+          }
+        }
+      }
+    ],
+    "method": "within each build: median per variant; min/max are observed between-case ranges, not confidence intervals; rounds are explicit per source",
+    "rawLatencyLoss": 0,
+    "externalForwardTestTargets": []
+  },
+  "continuous": {
+    "nftables": {
+      "raw": {
+        "success": true,
+        "artifactSHA256": {
+          "/build/flux-agent-v54-baseline": "82482e5a2d6f473e7968bc9c2feff6caba0a95a02bf74ebab932feaa477cea0b",
+          "/build/flux-agent-native": "150b81c5937ddd54692970210e92830cad510f5ce0f00d4c29948933083fe1f9",
+          "/build/bench-peer": "06c514f1046fdfc3023a558f905474000404b87894088c6ed5fb11c2e99f3dd9"
+        },
+        "kernelBackend": "nftables",
+        "cases": [
+          {
+            "release": "baseline_v54_dpi_on",
+            "round": 0,
+            "samples": 100000,
+            "lost": 0,
+            "cps": 8437.410723968187,
+            "p50_us": 84.709,
+            "p95_us": 146.875,
+            "p99_us": 260.042,
+            "agentCPUSecondsPer1000": 0.053599999999999995,
+            "cpu": {
+              "wall_seconds": 11.851977255999827,
+              "cgroup_cpu_seconds": 12.236,
+              "test_core_cpu_seconds": 11.73,
+              "softirq_seconds": 2.77,
+              "steal_seconds": 0.0,
+              "throttled_seconds": 0.0
+            },
+            "sourceIPs": [
+              40,
+              59
+            ]
+          },
+          {
+            "release": "candidate_dpi_off",
+            "round": 0,
+            "samples": 100000,
+            "lost": 0,
+            "cps": 13436.378781805537,
+            "p50_us": 54.875,
+            "p95_us": 90.833,
+            "p99_us": 170,
+            "agentCPUSecondsPer1000": 0.0055000000000000005,
+            "cpu": {
+              "wall_seconds": 7.44248146200016,
+              "cgroup_cpu_seconds": 7.54,
+              "test_core_cpu_seconds": 7.34,
+              "softirq_seconds": 3.0,
+              "steal_seconds": 0.0,
+              "throttled_seconds": 0.0
+            },
+            "sourceIPs": [
+              60,
+              79
+            ]
+          },
+          {
+            "release": "candidate_dpi_on",
+            "round": 0,
+            "samples": 100000,
+            "lost": 0,
+            "cps": 9463.213297497647,
+            "p50_us": 80.25,
+            "p95_us": 125.625,
+            "p99_us": 218.541,
+            "agentCPUSecondsPer1000": 0.0426,
+            "cpu": {
+              "wall_seconds": 10.567235129999972,
+              "cgroup_cpu_seconds": 10.78,
+              "test_core_cpu_seconds": 10.44,
+              "softirq_seconds": 2.62,
+              "steal_seconds": 0.0,
+              "throttled_seconds": 0.0
+            },
+            "sourceIPs": [
+              80,
+              99
+            ]
+          },
+          {
+            "release": "candidate_dpi_on",
+            "round": 1,
+            "samples": 100000,
+            "lost": 0,
+            "cps": 9677.822345292787,
+            "p50_us": 80.709,
+            "p95_us": 122.125,
+            "p99_us": 206.583,
+            "agentCPUSecondsPer1000": 0.040999999999999995,
+            "cpu": {
+              "wall_seconds": 10.332903046999945,
+              "cgroup_cpu_seconds": 10.532,
+              "test_core_cpu_seconds": 10.21,
+              "softirq_seconds": 2.62,
+              "steal_seconds": 0.0,
+              "throttled_seconds": 0.0
+            },
+            "sourceIPs": [
+              100,
+              119
+            ]
+          },
+          {
+            "release": "baseline_v54_dpi_on",
+            "round": 1,
+            "samples": 100000,
+            "lost": 0,
+            "cps": 9061.333032515773,
+            "p50_us": 83.292,
+            "p95_us": 124.542,
+            "p99_us": 208.667,
+            "agentCPUSecondsPer1000": 0.048499999999999995,
+            "cpu": {
+              "wall_seconds": 11.035903839000184,
+              "cgroup_cpu_seconds": 11.252,
+              "test_core_cpu_seconds": 10.93,
+              "softirq_seconds": 2.86,
+              "steal_seconds": 0.0,
+              "throttled_seconds": 0.0
+            },
+            "sourceIPs": [
+              120,
+              139
+            ]
+          },
+          {
+            "release": "candidate_dpi_off",
+            "round": 1,
+            "samples": 100000,
+            "lost": 0,
+            "cps": 13137.855898872405,
+            "p50_us": 55.541,
+            "p95_us": 95.208,
+            "p99_us": 179.167,
+            "agentCPUSecondsPer1000": 0.005900000000000001,
+            "cpu": {
+              "wall_seconds": 7.611592086999735,
+              "cgroup_cpu_seconds": 7.872,
+              "test_core_cpu_seconds": 7.51,
+              "softirq_seconds": 2.83,
+              "steal_seconds": 0.0,
+              "throttled_seconds": 0.0
+            },
+            "sourceIPs": [
+              140,
+              159
+            ]
+          },
+          {
+            "release": "candidate_dpi_off",
+            "round": 2,
+            "samples": 100000,
+            "lost": 0,
+            "cps": 13221.777080201566,
+            "p50_us": 55.167,
+            "p95_us": 95.084,
+            "p99_us": 175.583,
+            "agentCPUSecondsPer1000": 0.0057,
+            "cpu": {
+              "wall_seconds": 7.563279837000209,
+              "cgroup_cpu_seconds": 7.68,
+              "test_core_cpu_seconds": 7.45,
+              "softirq_seconds": 2.85,
+              "steal_seconds": 0.0,
+              "throttled_seconds": 0.0
+            },
+            "sourceIPs": [
+              160,
+              179
+            ]
+          },
+          {
+            "release": "candidate_dpi_on",
+            "round": 2,
+            "samples": 100000,
+            "lost": 0,
+            "cps": 9501.995502245465,
+            "p50_us": 81.25,
+            "p95_us": 124.208,
+            "p99_us": 214.375,
+            "agentCPUSecondsPer1000": 0.041999999999999996,
+            "cpu": {
+              "wall_seconds": 10.524105170999974,
+              "cgroup_cpu_seconds": 10.772,
+              "test_core_cpu_seconds": 10.42,
+              "softirq_seconds": 2.61,
+              "steal_seconds": 0.0,
+              "throttled_seconds": 0.0
+            },
+            "sourceIPs": [
+              180,
+              199
+            ]
+          },
+          {
+            "release": "baseline_v54_dpi_on",
+            "round": 2,
+            "samples": 100000,
+            "lost": 0,
+            "cps": 9005.883314369301,
+            "p50_us": 83.792,
+            "p95_us": 125.834,
+            "p99_us": 207.209,
+            "agentCPUSecondsPer1000": 0.0487,
+            "cpu": {
+              "wall_seconds": 11.103852505000305,
+              "cgroup_cpu_seconds": 11.424,
+              "test_core_cpu_seconds": 10.99,
+              "softirq_seconds": 2.8,
+              "steal_seconds": 0.0,
+              "throttled_seconds": 0.0
+            },
+            "sourceIPs": [
+              200,
+              219
+            ]
+          }
+        ],
+        "externalForwardTestTargets": []
+      },
+      "metrics": {
+        "baseline_v54_dpi_on": {
+          "cps": {
+            "median": 9005.883314369301,
+            "min": 8437.410723968187,
+            "max": 9061.333032515773
+          },
+          "p50_us": {
+            "median": 83.792,
+            "min": 83.292,
+            "max": 84.709
+          },
+          "p95_us": {
+            "median": 125.834,
+            "min": 124.542,
+            "max": 146.875
+          },
+          "p99_us": {
+            "median": 208.667,
+            "min": 207.209,
+            "max": 260.042
+          },
+          "agentCPUSecondsPer1000": {
+            "median": 0.0487,
+            "min": 0.048499999999999995,
+            "max": 0.053599999999999995
+          }
+        },
+        "candidate_dpi_off": {
+          "cps": {
+            "median": 13221.777080201566,
+            "min": 13137.855898872405,
+            "max": 13436.378781805537
+          },
+          "p50_us": {
+            "median": 55.167,
+            "min": 54.875,
+            "max": 55.541
+          },
+          "p95_us": {
+            "median": 95.084,
+            "min": 90.833,
+            "max": 95.208
+          },
+          "p99_us": {
+            "median": 175.583,
+            "min": 170,
+            "max": 179.167
+          },
+          "agentCPUSecondsPer1000": {
+            "median": 0.0057,
+            "min": 0.0055000000000000005,
+            "max": 0.005900000000000001
+          }
+        },
+        "candidate_dpi_on": {
+          "cps": {
+            "median": 9501.995502245465,
+            "min": 9463.213297497647,
+            "max": 9677.822345292787
+          },
+          "p50_us": {
+            "median": 80.709,
+            "min": 80.25,
+            "max": 81.25
+          },
+          "p95_us": {
+            "median": 124.208,
+            "min": 122.125,
+            "max": 125.625
+          },
+          "p99_us": {
+            "median": 214.375,
+            "min": 206.583,
+            "max": 218.541
+          },
+          "agentCPUSecondsPer1000": {
+            "median": 0.041999999999999996,
+            "min": 0.040999999999999995,
+            "max": 0.0426
+          }
+        }
+      }
+    },
+    "iptables-nft": {
+      "raw": {
+        "success": true,
+        "artifactSHA256": {
+          "/build/flux-agent-v54-baseline": "82482e5a2d6f473e7968bc9c2feff6caba0a95a02bf74ebab932feaa477cea0b",
+          "/build/flux-agent-native": "150b81c5937ddd54692970210e92830cad510f5ce0f00d4c29948933083fe1f9",
+          "/build/bench-peer": "06c514f1046fdfc3023a558f905474000404b87894088c6ed5fb11c2e99f3dd9"
+        },
+        "kernelBackend": "iptables",
+        "cases": [
+          {
+            "release": "baseline_v54_dpi_on",
+            "round": 0,
+            "samples": 100000,
+            "lost": 0,
+            "cps": 8829.822117203417,
+            "p50_us": 86.375,
+            "p95_us": 132.416,
+            "p99_us": 238.416,
+            "agentCPUSecondsPer1000": 0.047200000000000006,
+            "cpu": {
+              "wall_seconds": 11.325256463000187,
+              "cgroup_cpu_seconds": 11.6,
+              "test_core_cpu_seconds": 11.23,
+              "softirq_seconds": 2.86,
+              "steal_seconds": 0.0,
+              "throttled_seconds": 0.0
+            },
+            "sourceIPs": [
+              40,
+              59
+            ]
+          },
+          {
+            "release": "candidate_dpi_off",
+            "round": 0,
+            "samples": 100000,
+            "lost": 0,
+            "cps": 13491.715118953201,
+            "p50_us": 55.625,
+            "p95_us": 90.292,
+            "p99_us": 167.25,
+            "agentCPUSecondsPer1000": 0.0038000000000000013,
+            "cpu": {
+              "wall_seconds": 7.4119560870003625,
+              "cgroup_cpu_seconds": 7.6,
+              "test_core_cpu_seconds": 7.31,
+              "softirq_seconds": 2.81,
+              "steal_seconds": 0.0,
+              "throttled_seconds": 0.0
+            },
+            "sourceIPs": [
+              60,
+              79
+            ]
+          },
+          {
+            "release": "candidate_dpi_on",
+            "round": 0,
+            "samples": 100000,
+            "lost": 0,
+            "cps": 9559.33336767082,
+            "p50_us": 81.625,
+            "p95_us": 122.917,
+            "p99_us": 211.375,
+            "agentCPUSecondsPer1000": 0.039799999999999995,
+            "cpu": {
+              "wall_seconds": 10.460980504999952,
+              "cgroup_cpu_seconds": 10.664,
+              "test_core_cpu_seconds": 10.38,
+              "softirq_seconds": 2.78,
+              "steal_seconds": 0.0,
+              "throttled_seconds": 0.0
+            },
+            "sourceIPs": [
+              80,
+              99
+            ]
+          },
+          {
+            "release": "candidate_dpi_on",
+            "round": 1,
+            "samples": 100000,
+            "lost": 0,
+            "cps": 9447.069623180414,
+            "p50_us": 81.375,
+            "p95_us": 123.584,
+            "p99_us": 217,
+            "agentCPUSecondsPer1000": 0.0407,
+            "cpu": {
+              "wall_seconds": 10.58529300500004,
+              "cgroup_cpu_seconds": 10.8,
+              "test_core_cpu_seconds": 10.44,
+              "softirq_seconds": 2.79,
+              "steal_seconds": 0.0,
+              "throttled_seconds": 0.0
+            },
+            "sourceIPs": [
+              100,
+              119
+            ]
+          },
+          {
+            "release": "baseline_v54_dpi_on",
+            "round": 1,
+            "samples": 100000,
+            "lost": 0,
+            "cps": 8715.736194212686,
+            "p50_us": 85.292,
+            "p95_us": 136.791,
+            "p99_us": 244.083,
+            "agentCPUSecondsPer1000": 0.0486,
+            "cpu": {
+              "wall_seconds": 11.473500089000026,
+              "cgroup_cpu_seconds": 11.632,
+              "test_core_cpu_seconds": 11.36,
+              "softirq_seconds": 3.13,
+              "steal_seconds": 0.0,
+              "throttled_seconds": 0.0
+            },
+            "sourceIPs": [
+              120,
+              139
+            ]
+          },
+          {
+            "release": "candidate_dpi_off",
+            "round": 1,
+            "samples": 100000,
+            "lost": 0,
+            "cps": 13508.529953945268,
+            "p50_us": 55.542,
+            "p95_us": 91.042,
+            "p99_us": 167.417,
+            "agentCPUSecondsPer1000": 0.003700000000000001,
+            "cpu": {
+              "wall_seconds": 7.40273000399975,
+              "cgroup_cpu_seconds": 7.612,
+              "test_core_cpu_seconds": 7.27,
+              "softirq_seconds": 2.83,
+              "steal_seconds": 0.0,
+              "throttled_seconds": 0.0
+            },
+            "sourceIPs": [
+              140,
+              159
+            ]
+          },
+          {
+            "release": "candidate_dpi_off",
+            "round": 2,
+            "samples": 100000,
+            "lost": 0,
+            "cps": 13240.350098959141,
+            "p50_us": 56,
+            "p95_us": 93.916,
+            "p99_us": 172.167,
+            "agentCPUSecondsPer1000": 0.004200000000000001,
+            "cpu": {
+              "wall_seconds": 7.552670379000119,
+              "cgroup_cpu_seconds": 7.676,
+              "test_core_cpu_seconds": 7.44,
+              "softirq_seconds": 2.9,
+              "steal_seconds": 0.0,
+              "throttled_seconds": 0.0
+            },
+            "sourceIPs": [
+              160,
+              179
+            ]
+          },
+          {
+            "release": "candidate_dpi_on",
+            "round": 2,
+            "samples": 100000,
+            "lost": 0,
+            "cps": 9438.461111091503,
+            "p50_us": 82.333,
+            "p95_us": 125.166,
+            "p99_us": 216.291,
+            "agentCPUSecondsPer1000": 0.0405,
+            "cpu": {
+              "wall_seconds": 10.594947505000164,
+              "cgroup_cpu_seconds": 10.764,
+              "test_core_cpu_seconds": 10.48,
+              "softirq_seconds": 2.84,
+              "steal_seconds": 0.0,
+              "throttled_seconds": 0.0
+            },
+            "sourceIPs": [
+              180,
+              199
+            ]
+          },
+          {
+            "release": "baseline_v54_dpi_on",
+            "round": 2,
+            "samples": 100000,
+            "lost": 0,
+            "cps": 8949.665266208376,
+            "p50_us": 84.5,
+            "p95_us": 128.75,
+            "p99_us": 222.5,
+            "agentCPUSecondsPer1000": 0.0467,
+            "cpu": {
+              "wall_seconds": 11.173602254999878,
+              "cgroup_cpu_seconds": 11.48,
+              "test_core_cpu_seconds": 11.08,
+              "softirq_seconds": 2.77,
+              "steal_seconds": 0.0,
+              "throttled_seconds": 0.0
+            },
+            "sourceIPs": [
+              200,
+              219
+            ]
+          }
+        ],
+        "externalForwardTestTargets": []
+      },
+      "metrics": {
+        "baseline_v54_dpi_on": {
+          "cps": {
+            "median": 8829.822117203417,
+            "min": 8715.736194212686,
+            "max": 8949.665266208376
+          },
+          "p50_us": {
+            "median": 85.292,
+            "min": 84.5,
+            "max": 86.375
+          },
+          "p95_us": {
+            "median": 132.416,
+            "min": 128.75,
+            "max": 136.791
+          },
+          "p99_us": {
+            "median": 238.416,
+            "min": 222.5,
+            "max": 244.083
+          },
+          "agentCPUSecondsPer1000": {
+            "median": 0.047200000000000006,
+            "min": 0.0467,
+            "max": 0.0486
+          }
+        },
+        "candidate_dpi_off": {
+          "cps": {
+            "median": 13491.715118953201,
+            "min": 13240.350098959141,
+            "max": 13508.529953945268
+          },
+          "p50_us": {
+            "median": 55.625,
+            "min": 55.542,
+            "max": 56
+          },
+          "p95_us": {
+            "median": 91.042,
+            "min": 90.292,
+            "max": 93.916
+          },
+          "p99_us": {
+            "median": 167.417,
+            "min": 167.25,
+            "max": 172.167
+          },
+          "agentCPUSecondsPer1000": {
+            "median": 0.0038000000000000013,
+            "min": 0.003700000000000001,
+            "max": 0.004200000000000001
+          }
+        },
+        "candidate_dpi_on": {
+          "cps": {
+            "median": 9447.069623180414,
+            "min": 9438.461111091503,
+            "max": 9559.33336767082
+          },
+          "p50_us": {
+            "median": 81.625,
+            "min": 81.375,
+            "max": 82.333
+          },
+          "p95_us": {
+            "median": 123.584,
+            "min": 122.917,
+            "max": 125.166
+          },
+          "p99_us": {
+            "median": 216.291,
+            "min": 211.375,
+            "max": 217
+          },
+          "agentCPUSecondsPer1000": {
+            "median": 0.0405,
+            "min": 0.039799999999999995,
+            "max": 0.0407
+          }
+        }
+      }
+    }
+  },
+  "longWindow": [
+    {
+      "release": "baseline_v54_dpi_on",
+      "gbps": 44.8616633041279,
+      "coreSecondsPerGiB": 0.1903125,
+      "rangeGbps": [
+        44.44618825082668,
+        46.286394805348785
+      ]
+    },
+    {
+      "release": "candidate_dpi_off",
+      "gbps": 46.53079008368146,
+      "coreSecondsPerGiB": 0.183125,
+      "rangeGbps": [
+        44.17077265528445,
+        46.58151394216819
+      ]
+    },
+    {
+      "release": "candidate_dpi_on",
+      "gbps": 44.90133733855095,
+      "coreSecondsPerGiB": 0.19,
+      "rangeGbps": [
+        44.69169210651799,
+        46.24501827669119
+      ]
+    }
+  ],
+  "cpuProfile": {
+    "baseline_v54_dpi_on": {
+      "sampleCount": 292,
+      "symbols": {
+        "github.com/vinsec/flux-panel/node-agent/internal/engine.(*Manager).Report": {
+          "inclusive": 76.71,
+          "self": 0.68
+        },
+        "github.com/vinsec/flux-panel/node-agent/internal/engine.(*Manager).capture": {
+          "inclusive": 44.18,
+          "self": 1.03
+        },
+        "github.com/vinsec/flux-panel/node-agent/internal/engine.(*NativeNFT).counters": {
+          "inclusive": 32.88,
+          "self": 0.34
+        },
+        "encoding/json.Marshal": {
+          "inclusive": 26.71,
+          "self": 0.0
+        },
+        "github.com/vinsec/flux-panel/node-agent/internal/engine.(*protocolSocket).loop": {
+          "inclusive": 1.03,
+          "self": 0.0
+        }
+      }
+    },
+    "candidate_dpi_on": {
+      "sampleCount": 216,
+      "symbols": {
+        "github.com/vinsec/flux-panel/node-agent/internal/engine.(*Manager).Report": {
+          "inclusive": 72.22,
+          "self": 0.0
+        },
+        "github.com/vinsec/flux-panel/node-agent/internal/engine.(*Manager).capture": {
+          "inclusive": 47.22,
+          "self": 0.93
+        },
+        "github.com/vinsec/flux-panel/node-agent/internal/engine.(*NativeNFT).counters": {
+          "inclusive": 34.26,
+          "self": 0.0
+        },
+        "encoding/json.Marshal": {
+          "inclusive": 14.35,
+          "self": 0.0
+        },
+        "github.com/vinsec/flux-panel/node-agent/internal/engine.(*protocolSocket).loop": {
+          "inclusive": 1.39,
+          "self": 0.0
+        }
+      }
+    }
+  },
+  "environment": {
+    "platform": "Linux-6.12.113+deb13-arm64-aarch64-with-glibc2.41",
+    "cpuCount": 4,
+    "configuredMemoryMiB": 4096,
+    "nft": "nftables v1.1.3 (Commodore Bullmoose #4)",
+    "testCore": 1,
+    "fixtureCore": 0,
+    "GOMAXPROCS": 1,
+    "statisticsIntervalSeconds": 1,
+    "checkpointStorage": "private tmpfs",
+    "network": "private veth namespaces; no default routes",
+    "externalForwardTestTargets": []
+  }
+}

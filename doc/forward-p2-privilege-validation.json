@@ -1,0 +1,424 @@
+{
+  "date": "2026-10-28",
+  "baseSourceCommit": "2a036af6ec5e419d8fb1b4a2d7c27b1390e8c6d2",
+  "functional": {
+    "success": true,
+    "suites": [
+      {
+        "suite": "p1-kernel-nft",
+        "checks": 43,
+        "success": true,
+        "resultSHA256": "359bc46971dab7802796423582264a95563086b9801761f097c41184fb748932"
+      },
+      {
+        "suite": "p2-udp-source-legacy",
+        "checks": 34,
+        "success": true,
+        "resultSHA256": "bcf8585cc7717b0f92681dfaa14be9f440b0009e231fcb363f3d234b085d3860"
+      },
+      {
+        "suite": "p2-udp-source-nft",
+        "checks": 34,
+        "success": true,
+        "resultSHA256": "bcf8585cc7717b0f92681dfaa14be9f440b0009e231fcb363f3d234b085d3860"
+      },
+      {
+        "suite": "p2-shaping-faults-legacy",
+        "checks": 13,
+        "success": true,
+        "resultSHA256": "60832933625996fc3daac0650855c927022427d3907fdf1c237caa086a47497c"
+      },
+      {
+        "suite": "p2-local-combinations-nft",
+        "checks": 15,
+        "success": true,
+        "resultSHA256": "989a436e322815b559f8fefe65dff6fc95e21ee98b0428c21858eb2b35e0398c"
+      },
+      {
+        "suite": "p1-faults-legacy",
+        "checks": 13,
+        "success": true,
+        "resultSHA256": "7d6fc871718dfc1e87079e79e28b5cb334b3ec2060824ed09681062303649b72"
+      },
+      {
+        "suite": "p2-local-preparation-helper-nft",
+        "checks": 19,
+        "success": true,
+        "resultSHA256": "cd94147939acfb9a36a8602415f36e65db4c4c0a5707f0193d3191681d3e0db0"
+      },
+      {
+        "suite": "p1-faults-nft",
+        "checks": 13,
+        "success": true,
+        "resultSHA256": "52e24f775314c3f63acc08c44f6737b7f3494833b163d519f44510d2bdb0f442"
+      },
+      {
+        "suite": "p2-return-diagnostics-helper-legacy",
+        "checks": 17,
+        "success": true,
+        "resultSHA256": "cf9b7fe3847b9f14fb811e3ce7f57e567c777ece93f5552456c1953b046ddf06"
+      },
+      {
+        "suite": "p2-faults-legacy",
+        "checks": 13,
+        "success": true,
+        "resultSHA256": "5720be00c823a7350c0b75217d779bc59fbbbd056c7621c7c96f09d5eb7dac5e"
+      },
+      {
+        "suite": "p2-traffic-helper-legacy",
+        "checks": 47,
+        "success": true,
+        "resultSHA256": "81c434468fec8c08a1bda4cce1f410fa81c54b85de6bd8b53512662bee6b117f"
+      },
+      {
+        "suite": "p2-local-preparation-helper-legacy",
+        "checks": 19,
+        "success": true,
+        "resultSHA256": "cd94147939acfb9a36a8602415f36e65db4c4c0a5707f0193d3191681d3e0db0"
+      },
+      {
+        "suite": "p2-traffic-helper-nft",
+        "checks": 47,
+        "success": true,
+        "resultSHA256": "2730b275b2b68a5f38fb0cbceee4b9030c04ba678afb0a7571cc27f52b01ef3b"
+      },
+      {
+        "suite": "p2-return-diagnostics-helper-nft",
+        "checks": 17,
+        "success": true,
+        "resultSHA256": "cf9b7fe3847b9f14fb811e3ce7f57e567c777ece93f5552456c1953b046ddf06"
+      },
+      {
+        "suite": "p2-traffic-legacy",
+        "checks": 46,
+        "success": true,
+        "resultSHA256": "f3a044a2101a5ff400ba5c723abed53235c9c18ead9f3b07274732214676dbf3"
+      },
+      {
+        "suite": "p2-local-shaping-helper-nft",
+        "checks": 58,
+        "success": true,
+        "resultSHA256": "719e5f6eb963d5ed09e06340d08016a42acccd4f6e9ea4af1becc3af0b1027f4"
+      },
+      {
+        "suite": "p2-udp-source-helper-nft",
+        "checks": 35,
+        "success": true,
+        "resultSHA256": "bf85a0a27564f67b033596d12aa39e9f9013ae09a8782a3677309dbbcbdc2fc8"
+      },
+      {
+        "suite": "p2-local-combinations-legacy",
+        "checks": 15,
+        "success": true,
+        "resultSHA256": "989a436e322815b559f8fefe65dff6fc95e21ee98b0428c21858eb2b35e0398c"
+      },
+      {
+        "suite": "p2-faults-nft",
+        "checks": 13,
+        "success": true,
+        "resultSHA256": "9f075ce458af787ad6628ef2919b28af84f1ae3aa206b5ba4f48b5b21404e7d9"
+      },
+      {
+        "suite": "p1-kernel-legacy",
+        "checks": 43,
+        "success": true,
+        "resultSHA256": "c907306571a0ef98708e11b4447508a6c726fdb03ed329e2994a899181617909"
+      },
+      {
+        "suite": "p2-local-no-bpf-helper-legacy",
+        "checks": 7,
+        "success": true,
+        "resultSHA256": "14acc51d89b76056aa522c8df71e901e9249dde420d79fd5a228b0728afdb0f3"
+      },
+      {
+        "suite": "p2-traffic-nft",
+        "checks": 46,
+        "success": true,
+        "resultSHA256": "1f9d9a57220050532dffd6029c87600268188fed6aceea5ce8f486996ff19ec7"
+      },
+      {
+        "suite": "p2-local-shaping-legacy",
+        "checks": 56,
+        "success": true,
+        "resultSHA256": "0aac32a183fea74094c99c0b6b943cc1db71fabbf626a15e4947d64ec4d0a163"
+      },
+      {
+        "suite": "p2-udp-source-helper-legacy",
+        "checks": 35,
+        "success": true,
+        "resultSHA256": "bf85a0a27564f67b033596d12aa39e9f9013ae09a8782a3677309dbbcbdc2fc8"
+      },
+      {
+        "suite": "p2-local-shaping-nft",
+        "checks": 56,
+        "success": true,
+        "resultSHA256": "0aac32a183fea74094c99c0b6b943cc1db71fabbf626a15e4947d64ec4d0a163"
+      },
+      {
+        "suite": "p2-shaping-faults-nft",
+        "checks": 13,
+        "success": true,
+        "resultSHA256": "79ef196468fe771c7333feaed704331789ce4957eaefb0db12457509cef51e0a"
+      },
+      {
+        "suite": "p2-local-shaping-helper-legacy",
+        "checks": 58,
+        "success": true,
+        "resultSHA256": "719e5f6eb963d5ed09e06340d08016a42acccd4f6e9ea4af1becc3af0b1027f4"
+      },
+      {
+        "suite": "p2-local-no-bpf-helper-nft",
+        "checks": 7,
+        "success": true,
+        "resultSHA256": "14acc51d89b76056aa522c8df71e901e9249dde420d79fd5a228b0728afdb0f3"
+      }
+    ],
+    "checkExecutions": 832,
+    "architecture": "aarch64",
+    "kernel": "6.12.113+deb13-arm64",
+    "vCPUs": 4,
+    "tcVersion": "tc utility, iproute2-6.15.0, libbpf 1.5.0",
+    "agentSHA256": "ff1441efc744054500e96c296a87a534288864bef7328c5268500799a926a933",
+    "systemd": {
+      "success": true,
+      "preparerMainPID": 0,
+      "helperCaps": {
+        "CapPrm": 13312,
+        "CapEff": 13312,
+        "CapBnd": 13312,
+        "CapAmb": 13312
+      },
+      "helperUnit": "ReadOnlyPaths=/sys/fs/bpf /run/flux-agent-bpf\nProtectKernelTunables=yes\nProtectSystem=strict",
+      "pinAttached": true
+    },
+    "unprivilegedBPFDisabled": "2",
+    "linuxEngineUnitChecks": 41,
+    "externalForwardTestTargets": []
+  },
+  "panel": {
+    "success": true,
+    "count": 62,
+    "artifact_sha256": {
+      "agent": "ff1441efc744054500e96c296a87a534288864bef7328c5268500799a926a933",
+      "panel": "7648f8f1433bd205a01f2ef5341f3a3352aff80cd168d42b6822a0b6e9352f32"
+    },
+    "external_forward_test_targets": []
+  },
+  "performance": {
+    "applicationGiB": 196.191650390625,
+    "artifactSHA256": {
+      "/build/flux-agent-v51-baseline": "6bdeda101c326012ec49387ae3010fd0341e9a594bb3d2d6ee27d04376ed5ef9",
+      "/build/flux-agent-v52": "ff1441efc744054500e96c296a87a534288864bef7328c5268500799a926a933",
+      "/build/bench-peer": "06c514f1046fdfc3023a558f905474000404b87894088c6ed5fb11c2e99f3dd9"
+    },
+    "rows": [
+      {
+        "forwards": 3,
+        "window_up": {
+          "baselineMedian": 51707.487220261966,
+          "candidateMedian": 54287.864501925884,
+          "deltaPercent": 4.990335868908313,
+          "baselineRange": [
+            51499.80943913032,
+            52808.965080485636
+          ],
+          "candidateRange": [
+            52133.151589562294,
+            54319.499608617516
+          ]
+        },
+        "window_down": {
+          "baselineMedian": 57777.42640824221,
+          "candidateMedian": 60583.63699568122,
+          "deltaPercent": 4.856932476727094,
+          "baselineRange": [
+            56000.70411478431,
+            59278.3327464308
+          ],
+          "candidateRange": [
+            59569.876261311205,
+            60980.10083032564
+          ]
+        },
+        "tcp_paced": {
+          "baselineMedian": 1.308,
+          "candidateMedian": 1.384,
+          "deltaPercent": 5.8103975535167995,
+          "baselineRange": [
+            1.24,
+            1.316
+          ],
+          "candidateRange": [
+            1.308,
+            1.7
+          ]
+        },
+        "tcp_persistent": {
+          "baselineMedian": 236.625,
+          "candidateMedian": 232.75,
+          "deltaPercent": -1.637612255678822,
+          "baselineRange": [
+            227.833,
+            279.958
+          ],
+          "candidateRange": [
+            223.792,
+            246.5
+          ]
+        },
+        "udp_persistent": {
+          "baselineMedian": 220.583,
+          "candidateMedian": 221.167,
+          "deltaPercent": 0.2647529501366819,
+          "baselineRange": [
+            207.333,
+            232.625
+          ],
+          "candidateRange": [
+            206.417,
+            295.208
+          ]
+        },
+        "programSHA256": "2adb6478920865c6c811eb89eca7a63f398158ee9d003f738cfdc64639e68c34",
+        "ownedSets": [
+          "FP4_ALLOW",
+          "FP4_ANEW",
+          "FP4_BIND",
+          "FP4_BNEW",
+          "FP4_DOWN",
+          "FP4_RNEW",
+          "FP4_ROUTES",
+          "FP4_UP",
+          "FPV2_ALLOW",
+          "FPV2_ALLOW_NEW",
+          "FPV2_BIND",
+          "FPV2_BIND_NEW",
+          "FPV2_DOWN",
+          "FPV2_UP",
+          "FPV3_CREDIT",
+          "FPV3_LIMITED",
+          "FPV3_LIVE",
+          "FPV3_META"
+        ]
+      },
+      {
+        "forwards": 10000,
+        "window_up": {
+          "baselineMedian": 46623.90366553268,
+          "candidateMedian": 49499.44906268717,
+          "deltaPercent": 6.167534614396253,
+          "baselineRange": [
+            46162.7015461247,
+            47394.28831674526
+          ],
+          "candidateRange": [
+            46441.29389527331,
+            49648.75337323811
+          ]
+        },
+        "window_down": {
+          "baselineMedian": 53944.36117226334,
+          "candidateMedian": 53626.40010821927,
+          "deltaPercent": -0.5894240975969911,
+          "baselineRange": [
+            52551.12807427226,
+            55319.359833019684
+          ],
+          "candidateRange": [
+            52572.18941124052,
+            53782.66922184688
+          ]
+        },
+        "tcp_paced": {
+          "baselineMedian": 4.036,
+          "candidateMedian": 3.844,
+          "deltaPercent": -4.757185332011882,
+          "baselineRange": [
+            3.944,
+            4.16
+          ],
+          "candidateRange": [
+            3.82,
+            3.976
+          ]
+        },
+        "tcp_persistent": {
+          "baselineMedian": 188.833,
+          "candidateMedian": 193.166,
+          "deltaPercent": 2.294620114069046,
+          "baselineRange": [
+            185.458,
+            190.958
+          ],
+          "candidateRange": [
+            192.209,
+            201.292
+          ]
+        },
+        "udp_persistent": {
+          "baselineMedian": 186.708,
+          "candidateMedian": 195.875,
+          "deltaPercent": 4.909805685883839,
+          "baselineRange": [
+            182.458,
+            192.042
+          ],
+          "candidateRange": [
+            187.042,
+            210.666
+          ]
+        },
+        "programSHA256": "aa47b640b47545c44180b8649ec4a478bfc01dbffb24149a7d35f246df2ddc46",
+        "ownedSets": [
+          "FP4_ALLOW",
+          "FP4_ANEW",
+          "FP4_BIND",
+          "FP4_BNEW",
+          "FP4_DOWN",
+          "FP4_RNEW",
+          "FP4_ROUTES",
+          "FP4_UP",
+          "FPV2_ALLOW",
+          "FPV2_ALLOW_NEW",
+          "FPV2_BIND",
+          "FPV2_BIND_NEW",
+          "FPV2_DOWN",
+          "FPV2_UP",
+          "FPV3_CREDIT",
+          "FPV3_LIMITED",
+          "FPV3_LIVE",
+          "FPV3_META"
+        ]
+      }
+    ]
+  },
+  "localProfile": [
+    {
+      "phase": "baseline_v51",
+      "receivedMbpsMean": 149.99170840172928,
+      "cpu1PercentMean": 8.932298155826182,
+      "tcpP95usMean": 109.1875,
+      "udpP95usMean": 146.5625,
+      "programTag": "17e0a0dfa7d78963"
+    },
+    {
+      "phase": "candidate_v52",
+      "receivedMbpsMean": 149.98520070214636,
+      "cpu1PercentMean": 8.433026345539833,
+      "tcpP95usMean": 106.104,
+      "udpP95usMean": 141.4375,
+      "programTag": "17e0a0dfa7d78963"
+    }
+  ],
+  "sourceInputsSHA256": "87c3937b0042a54ce8828478eabed2a68072d189b18cb98659276648900f96b1",
+  "bpfSHA256": "3e24ed639ff08a8e164f07dbf61ce2648994f8fe8eaedd01f1d3c7e33944c58f",
+  "packaging": {
+    "success": true,
+    "checks": 11,
+    "sourceCommit": "02587e7931ab85abde4e00ee11fdb51c1d057bb6",
+    "sourceDirty": false,
+    "manifestSHA256": "871bcd98220111820488e9d1b676504a2f9a28ad076c4d48f05aa4cc0779b213",
+    "arm64SHA256": "ff1441efc744054500e96c296a87a534288864bef7328c5268500799a926a933",
+    "amd64SHA256": "c19d7ed8a564a0f925539dc5dca1e02b6354ffb04253f1a81e790e74d28bb3de"
+  }
+}

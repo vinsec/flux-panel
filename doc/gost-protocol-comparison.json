@@ -1,0 +1,1958 @@
+{
+  "success": true,
+  "sources": {
+    "3": {
+      "sha256": "90e3cc53c66746f4ef020a7c873d5a839563e0343bb7238237825b3a31b7e9bd",
+      "artifactSHA256": {
+        "/build/gost": "f1980886fd8214b1797d5e19208fd0ea9656a31436887e0b2e872932ff12ad22",
+        "/build/flux-agent-native": "150b81c5937ddd54692970210e92830cad510f5ce0f00d4c29948933083fe1f9",
+        "/build/bench-peer": "06c514f1046fdfc3023a558f905474000404b87894088c6ed5fb11c2e99f3dd9"
+      },
+      "payloadBytes": 32929218560,
+      "path": "outputs/gost-dpi-comparison/raw/gost-dpi-final-3/comparison.json"
+    },
+    "20": {
+      "sha256": "db52bf95fa9a4171119d577a98400dc0c4c9322356259aed5853ed3adaa5ef23",
+      "artifactSHA256": {
+        "/build/gost": "f1980886fd8214b1797d5e19208fd0ea9656a31436887e0b2e872932ff12ad22",
+        "/build/flux-agent-native": "150b81c5937ddd54692970210e92830cad510f5ce0f00d4c29948933083fe1f9",
+        "/build/bench-peer": "06c514f1046fdfc3023a558f905474000404b87894088c6ed5fb11c2e99f3dd9"
+      },
+      "payloadBytes": 22702718976,
+      "path": "outputs/gost-dpi-comparison/raw/gost-dpi-final-20/comparison.json"
+    }
+  },
+  "policyProof": [
+    {
+      "engine": "gost",
+      "ruleCount": 3,
+      "protocol": "HTTP",
+      "blocked": true
+    },
+    {
+      "engine": "gost",
+      "ruleCount": 3,
+      "protocol": "TLS",
+      "blocked": true
+    },
+    {
+      "engine": "gost",
+      "ruleCount": 3,
+      "protocol": "SOCKS5",
+      "blocked": true
+    },
+    {
+      "engine": "gost",
+      "ruleCount": 3,
+      "protocol": "SOCKS4",
+      "blocked": true
+    },
+    {
+      "engine": "gost",
+      "ruleCount": 3,
+      "opaqueTCPAndUDPAllowed": true
+    },
+    {
+      "engine": "native",
+      "ruleCount": 3,
+      "protocol": "HTTP",
+      "blocked": true
+    },
+    {
+      "engine": "native",
+      "ruleCount": 3,
+      "protocol": "TLS",
+      "blocked": true
+    },
+    {
+      "engine": "native",
+      "ruleCount": 3,
+      "protocol": "SOCKS5",
+      "blocked": true
+    },
+    {
+      "engine": "native",
+      "ruleCount": 3,
+      "protocol": "SOCKS4",
+      "blocked": true
+    },
+    {
+      "engine": "native",
+      "ruleCount": 3,
+      "opaqueTCPAndUDPAllowed": true
+    },
+    {
+      "engine": "iptables",
+      "ruleCount": 3,
+      "protocol": "HTTP",
+      "blocked": true
+    },
+    {
+      "engine": "iptables",
+      "ruleCount": 3,
+      "protocol": "TLS",
+      "blocked": true
+    },
+    {
+      "engine": "iptables",
+      "ruleCount": 3,
+      "protocol": "SOCKS5",
+      "blocked": true
+    },
+    {
+      "engine": "iptables",
+      "ruleCount": 3,
+      "protocol": "SOCKS4",
+      "blocked": true
+    },
+    {
+      "engine": "iptables",
+      "ruleCount": 3,
+      "opaqueTCPAndUDPAllowed": true
+    },
+    {
+      "engine": "iptables",
+      "ruleCount": 3,
+      "protocol": "HTTP",
+      "blocked": true
+    },
+    {
+      "engine": "iptables",
+      "ruleCount": 3,
+      "protocol": "TLS",
+      "blocked": true
+    },
+    {
+      "engine": "iptables",
+      "ruleCount": 3,
+      "protocol": "SOCKS5",
+      "blocked": true
+    },
+    {
+      "engine": "iptables",
+      "ruleCount": 3,
+      "protocol": "SOCKS4",
+      "blocked": true
+    },
+    {
+      "engine": "iptables",
+      "ruleCount": 3,
+      "opaqueTCPAndUDPAllowed": true
+    },
+    {
+      "engine": "gost",
+      "ruleCount": 3,
+      "protocol": "HTTP",
+      "blocked": true
+    },
+    {
+      "engine": "gost",
+      "ruleCount": 3,
+      "protocol": "TLS",
+      "blocked": true
+    },
+    {
+      "engine": "gost",
+      "ruleCount": 3,
+      "protocol": "SOCKS5",
+      "blocked": true
+    },
+    {
+      "engine": "gost",
+      "ruleCount": 3,
+      "protocol": "SOCKS4",
+      "blocked": true
+    },
+    {
+      "engine": "gost",
+      "ruleCount": 3,
+      "opaqueTCPAndUDPAllowed": true
+    },
+    {
+      "engine": "native",
+      "ruleCount": 3,
+      "protocol": "HTTP",
+      "blocked": true
+    },
+    {
+      "engine": "native",
+      "ruleCount": 3,
+      "protocol": "TLS",
+      "blocked": true
+    },
+    {
+      "engine": "native",
+      "ruleCount": 3,
+      "protocol": "SOCKS5",
+      "blocked": true
+    },
+    {
+      "engine": "native",
+      "ruleCount": 3,
+      "protocol": "SOCKS4",
+      "blocked": true
+    },
+    {
+      "engine": "native",
+      "ruleCount": 3,
+      "opaqueTCPAndUDPAllowed": true
+    },
+    {
+      "engine": "native",
+      "ruleCount": 3,
+      "protocol": "HTTP",
+      "blocked": true
+    },
+    {
+      "engine": "native",
+      "ruleCount": 3,
+      "protocol": "TLS",
+      "blocked": true
+    },
+    {
+      "engine": "native",
+      "ruleCount": 3,
+      "protocol": "SOCKS5",
+      "blocked": true
+    },
+    {
+      "engine": "native",
+      "ruleCount": 3,
+      "protocol": "SOCKS4",
+      "blocked": true
+    },
+    {
+      "engine": "native",
+      "ruleCount": 3,
+      "opaqueTCPAndUDPAllowed": true
+    },
+    {
+      "engine": "iptables",
+      "ruleCount": 3,
+      "protocol": "HTTP",
+      "blocked": true
+    },
+    {
+      "engine": "iptables",
+      "ruleCount": 3,
+      "protocol": "TLS",
+      "blocked": true
+    },
+    {
+      "engine": "iptables",
+      "ruleCount": 3,
+      "protocol": "SOCKS5",
+      "blocked": true
+    },
+    {
+      "engine": "iptables",
+      "ruleCount": 3,
+      "protocol": "SOCKS4",
+      "blocked": true
+    },
+    {
+      "engine": "iptables",
+      "ruleCount": 3,
+      "opaqueTCPAndUDPAllowed": true
+    },
+    {
+      "engine": "gost",
+      "ruleCount": 3,
+      "protocol": "HTTP",
+      "blocked": true
+    },
+    {
+      "engine": "gost",
+      "ruleCount": 3,
+      "protocol": "TLS",
+      "blocked": true
+    },
+    {
+      "engine": "gost",
+      "ruleCount": 3,
+      "protocol": "SOCKS5",
+      "blocked": true
+    },
+    {
+      "engine": "gost",
+      "ruleCount": 3,
+      "protocol": "SOCKS4",
+      "blocked": true
+    },
+    {
+      "engine": "gost",
+      "ruleCount": 3,
+      "opaqueTCPAndUDPAllowed": true
+    },
+    {
+      "engine": "gost",
+      "ruleCount": 20,
+      "protocol": "HTTP",
+      "blocked": true
+    },
+    {
+      "engine": "gost",
+      "ruleCount": 20,
+      "protocol": "TLS",
+      "blocked": true
+    },
+    {
+      "engine": "gost",
+      "ruleCount": 20,
+      "protocol": "SOCKS5",
+      "blocked": true
+    },
+    {
+      "engine": "gost",
+      "ruleCount": 20,
+      "protocol": "SOCKS4",
+      "blocked": true
+    },
+    {
+      "engine": "gost",
+      "ruleCount": 20,
+      "opaqueTCPAndUDPAllowed": true
+    },
+    {
+      "engine": "native",
+      "ruleCount": 20,
+      "protocol": "HTTP",
+      "blocked": true
+    },
+    {
+      "engine": "native",
+      "ruleCount": 20,
+      "protocol": "TLS",
+      "blocked": true
+    },
+    {
+      "engine": "native",
+      "ruleCount": 20,
+      "protocol": "SOCKS5",
+      "blocked": true
+    },
+    {
+      "engine": "native",
+      "ruleCount": 20,
+      "protocol": "SOCKS4",
+      "blocked": true
+    },
+    {
+      "engine": "native",
+      "ruleCount": 20,
+      "opaqueTCPAndUDPAllowed": true
+    },
+    {
+      "engine": "iptables",
+      "ruleCount": 20,
+      "protocol": "HTTP",
+      "blocked": true
+    },
+    {
+      "engine": "iptables",
+      "ruleCount": 20,
+      "protocol": "TLS",
+      "blocked": true
+    },
+    {
+      "engine": "iptables",
+      "ruleCount": 20,
+      "protocol": "SOCKS5",
+      "blocked": true
+    },
+    {
+      "engine": "iptables",
+      "ruleCount": 20,
+      "protocol": "SOCKS4",
+      "blocked": true
+    },
+    {
+      "engine": "iptables",
+      "ruleCount": 20,
+      "opaqueTCPAndUDPAllowed": true
+    },
+    {
+      "engine": "iptables",
+      "ruleCount": 20,
+      "protocol": "HTTP",
+      "blocked": true
+    },
+    {
+      "engine": "iptables",
+      "ruleCount": 20,
+      "protocol": "TLS",
+      "blocked": true
+    },
+    {
+      "engine": "iptables",
+      "ruleCount": 20,
+      "protocol": "SOCKS5",
+      "blocked": true
+    },
+    {
+      "engine": "iptables",
+      "ruleCount": 20,
+      "protocol": "SOCKS4",
+      "blocked": true
+    },
+    {
+      "engine": "iptables",
+      "ruleCount": 20,
+      "opaqueTCPAndUDPAllowed": true
+    },
+    {
+      "engine": "gost",
+      "ruleCount": 20,
+      "protocol": "HTTP",
+      "blocked": true
+    },
+    {
+      "engine": "gost",
+      "ruleCount": 20,
+      "protocol": "TLS",
+      "blocked": true
+    },
+    {
+      "engine": "gost",
+      "ruleCount": 20,
+      "protocol": "SOCKS5",
+      "blocked": true
+    },
+    {
+      "engine": "gost",
+      "ruleCount": 20,
+      "protocol": "SOCKS4",
+      "blocked": true
+    },
+    {
+      "engine": "gost",
+      "ruleCount": 20,
+      "opaqueTCPAndUDPAllowed": true
+    },
+    {
+      "engine": "native",
+      "ruleCount": 20,
+      "protocol": "HTTP",
+      "blocked": true
+    },
+    {
+      "engine": "native",
+      "ruleCount": 20,
+      "protocol": "TLS",
+      "blocked": true
+    },
+    {
+      "engine": "native",
+      "ruleCount": 20,
+      "protocol": "SOCKS5",
+      "blocked": true
+    },
+    {
+      "engine": "native",
+      "ruleCount": 20,
+      "protocol": "SOCKS4",
+      "blocked": true
+    },
+    {
+      "engine": "native",
+      "ruleCount": 20,
+      "opaqueTCPAndUDPAllowed": true
+    },
+    {
+      "engine": "native",
+      "ruleCount": 20,
+      "protocol": "HTTP",
+      "blocked": true
+    },
+    {
+      "engine": "native",
+      "ruleCount": 20,
+      "protocol": "TLS",
+      "blocked": true
+    },
+    {
+      "engine": "native",
+      "ruleCount": 20,
+      "protocol": "SOCKS5",
+      "blocked": true
+    },
+    {
+      "engine": "native",
+      "ruleCount": 20,
+      "protocol": "SOCKS4",
+      "blocked": true
+    },
+    {
+      "engine": "native",
+      "ruleCount": 20,
+      "opaqueTCPAndUDPAllowed": true
+    },
+    {
+      "engine": "iptables",
+      "ruleCount": 20,
+      "protocol": "HTTP",
+      "blocked": true
+    },
+    {
+      "engine": "iptables",
+      "ruleCount": 20,
+      "protocol": "TLS",
+      "blocked": true
+    },
+    {
+      "engine": "iptables",
+      "ruleCount": 20,
+      "protocol": "SOCKS5",
+      "blocked": true
+    },
+    {
+      "engine": "iptables",
+      "ruleCount": 20,
+      "protocol": "SOCKS4",
+      "blocked": true
+    },
+    {
+      "engine": "iptables",
+      "ruleCount": 20,
+      "opaqueTCPAndUDPAllowed": true
+    },
+    {
+      "engine": "gost",
+      "ruleCount": 20,
+      "protocol": "HTTP",
+      "blocked": true
+    },
+    {
+      "engine": "gost",
+      "ruleCount": 20,
+      "protocol": "TLS",
+      "blocked": true
+    },
+    {
+      "engine": "gost",
+      "ruleCount": 20,
+      "protocol": "SOCKS5",
+      "blocked": true
+    },
+    {
+      "engine": "gost",
+      "ruleCount": 20,
+      "protocol": "SOCKS4",
+      "blocked": true
+    },
+    {
+      "engine": "gost",
+      "ruleCount": 20,
+      "opaqueTCPAndUDPAllowed": true
+    }
+  ],
+  "measurements": [
+    {
+      "rules": 3,
+      "engine": "gost",
+      "profile": "continuous",
+      "metrics": {
+        "cps": {
+          "median": 1102.6388618592061,
+          "min": 1029.6214134865706,
+          "max": 1117.498146399651,
+          "cases": 3
+        },
+        "p50_us": {
+          "median": 1059.083,
+          "min": 1014.416,
+          "max": 1073.25,
+          "cases": 3
+        },
+        "p95_us": {
+          "median": 1674.333,
+          "min": 1525.292,
+          "max": 1679.833,
+          "cases": 3
+        },
+        "p99_us": {
+          "median": 2755.416,
+          "min": 2508.916,
+          "max": 2791.5,
+          "cases": 3
+        },
+        "forwarderCPUSecondsPer1000": {
+          "median": 0.8207,
+          "min": 0.8111,
+          "max": 0.8845999999999999,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 3,
+      "engine": "native",
+      "profile": "continuous",
+      "metrics": {
+        "cps": {
+          "median": 10047.385474350449,
+          "min": 9587.875091547172,
+          "max": 10136.345840829099,
+          "cases": 3
+        },
+        "p50_us": {
+          "median": 82.792,
+          "min": 82.25,
+          "max": 84.292,
+          "cases": 3
+        },
+        "p95_us": {
+          "median": 128.166,
+          "min": 126.917,
+          "max": 145.834,
+          "cases": 3
+        },
+        "p99_us": {
+          "median": 228.083,
+          "min": 218.167,
+          "max": 268.416,
+          "cases": 3
+        },
+        "forwarderCPUSecondsPer1000": {
+          "median": 0.035399999999999994,
+          "min": 0.0348,
+          "max": 0.0371,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 3,
+      "engine": "iptables",
+      "profile": "continuous",
+      "metrics": {
+        "cps": {
+          "median": 10015.774213392411,
+          "min": 9997.900393927144,
+          "max": 10099.034833847336,
+          "cases": 3
+        },
+        "p50_us": {
+          "median": 83.334,
+          "min": 83.209,
+          "max": 84.125,
+          "cases": 3
+        },
+        "p95_us": {
+          "median": 124.541,
+          "min": 122.5,
+          "max": 126.584,
+          "cases": 3
+        },
+        "p99_us": {
+          "median": 213.209,
+          "min": 204.292,
+          "max": 213.292,
+          "cases": 3
+        },
+        "forwarderCPUSecondsPer1000": {
+          "median": 0.0349,
+          "min": 0.0347,
+          "max": 0.035,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 3,
+      "engine": "gost",
+      "profile": "150Mbps_single_stream",
+      "metrics": {
+        "mbps": {
+          "median": 149.9883126169481,
+          "min": 149.98060415271627,
+          "max": 150.00003808700282,
+          "cases": 3
+        },
+        "forwarderCPUPercent": {
+          "median": 4.898298614672741,
+          "min": 4.893190908327375,
+          "max": 5.345362416753591,
+          "cases": 3
+        },
+        "coreCPUSecondsPerGiB": {
+          "median": 6.557036001398113,
+          "min": 6.098902481649772,
+          "max": 7.184458420684835,
+          "cases": 3
+        },
+        "coreCPUPercent": {
+          "median": 11.434088959254785,
+          "min": 10.646302091074427,
+          "max": 12.539121183225713,
+          "cases": 3
+        },
+        "forwarderRSSMiB": {
+          "median": 39.203125,
+          "min": 38.359375,
+          "max": 39.65234375,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 3,
+      "engine": "gost",
+      "profile": "25Mbps_single_stream",
+      "metrics": {
+        "mbps": {
+          "median": 25.002743214260093,
+          "min": 24.997999693229318,
+          "max": 25.003624387807793,
+          "cases": 3
+        },
+        "forwarderCPUPercent": {
+          "median": 1.3983293831650256,
+          "min": 1.2988151011788975,
+          "max": 1.6471824387637253,
+          "cases": 3
+        },
+        "coreCPUSecondsPerGiB": {
+          "median": 12.365283018867924,
+          "min": 11.334842767295598,
+          "max": 15.284863731656184,
+          "cases": 3
+        },
+        "coreCPUPercent": {
+          "median": 3.5957041281386397,
+          "min": 3.2969921799156627,
+          "max": 4.442401122726409,
+          "cases": 3
+        },
+        "forwarderRSSMiB": {
+          "median": 39.203125,
+          "min": 38.359375,
+          "max": 39.65234375,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 3,
+      "engine": "native",
+      "profile": "150Mbps_single_stream",
+      "metrics": {
+        "mbps": {
+          "median": 149.97111962987233,
+          "min": 149.96487582450027,
+          "max": 150.03463927062865,
+          "cases": 3
+        },
+        "forwarderCPUPercent": {
+          "median": 0.5994502700835301,
+          "min": 0.4497189160759519,
+          "max": 0.649218509678699,
+          "cases": 3
+        },
+        "coreCPUSecondsPerGiB": {
+          "median": 4.980461215932914,
+          "min": 4.636981132075472,
+          "max": 5.211268787137365,
+          "cases": 3
+        },
+        "coreCPUPercent": {
+          "median": 8.689540052622586,
+          "min": 8.094940489367135,
+          "max": 9.091662429600207,
+          "cases": 3
+        },
+        "forwarderRSSMiB": {
+          "median": 15.6015625,
+          "min": 15.0859375,
+          "max": 15.73828125,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 3,
+      "engine": "native",
+      "profile": "25Mbps_single_stream",
+      "metrics": {
+        "mbps": {
+          "median": 25.003710633662173,
+          "min": 25.00212580483735,
+          "max": 25.003779380783836,
+          "cases": 3
+        },
+        "forwarderCPUPercent": {
+          "median": 0.9984888594018889,
+          "min": 0.7987973785148721,
+          "max": 1.048333016788433,
+          "cases": 3
+        },
+        "coreCPUSecondsPerGiB": {
+          "median": 10.991362683438155,
+          "min": 9.445702306079665,
+          "max": 12.193542976939202,
+          "cases": 3
+        },
+        "coreCPUPercent": {
+          "median": 3.194919670212368,
+          "min": 2.7458659886448737,
+          "max": 3.5446354508767057,
+          "cases": 3
+        },
+        "forwarderRSSMiB": {
+          "median": 17.2109375,
+          "min": 14.87890625,
+          "max": 17.5703125,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 3,
+      "engine": "iptables",
+      "profile": "150Mbps_single_stream",
+      "metrics": {
+        "mbps": {
+          "median": 149.98636293051305,
+          "min": 149.96062432307858,
+          "max": 150.02263128647678,
+          "cases": 3
+        },
+        "forwarderCPUPercent": {
+          "median": 0.8990026984136865,
+          "min": 0.7992677970453801,
+          "max": 0.9994764591885572,
+          "cases": 3
+        },
+        "coreCPUSecondsPerGiB": {
+          "median": 5.726668996854246,
+          "min": 4.8659678546471,
+          "max": 6.2134358615868575,
+          "cases": 3
+        },
+        "coreCPUPercent": {
+          "median": 9.988918871263184,
+          "min": 8.492220343607165,
+          "max": 10.844319582195846,
+          "cases": 3
+        },
+        "forwarderRSSMiB": {
+          "median": 13.98828125,
+          "min": 13.98828125,
+          "max": 14.08203125,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 3,
+      "engine": "iptables",
+      "profile": "25Mbps_single_stream",
+      "metrics": {
+        "mbps": {
+          "median": 25.004160621683173,
+          "min": 24.995862198279255,
+          "max": 25.004486873126552,
+          "cases": 3
+        },
+        "forwarderCPUPercent": {
+          "median": 1.0484250357291458,
+          "min": 0.9986428812741336,
+          "max": 1.049292160100301,
+          "cases": 3
+        },
+        "coreCPUSecondsPerGiB": {
+          "median": 14.426163522012578,
+          "min": 13.22398322851153,
+          "max": 14.769643605870021,
+          "cases": 3
+        },
+        "coreCPUPercent": {
+          "median": 4.193700142916583,
+          "min": 3.8447750929054147,
+          "max": 4.297101227077423,
+          "cases": 3
+        },
+        "forwarderRSSMiB": {
+          "median": 14.20703125,
+          "min": 13.98828125,
+          "max": 14.86328125,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 3,
+      "engine": "gost",
+      "profile": "tcp_persistent",
+      "metrics": {
+        "p50_us": {
+          "median": 135.792,
+          "min": 129.917,
+          "max": 137.208,
+          "cases": 3
+        },
+        "p95_us": {
+          "median": 530.375,
+          "min": 498.875,
+          "max": 538.417,
+          "cases": 3
+        },
+        "p99_us": {
+          "median": 2061.625,
+          "min": 1737.292,
+          "max": 2147.208,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 3,
+      "engine": "gost",
+      "profile": "fresh_response",
+      "metrics": {
+        "p50_us": {
+          "median": 596.042,
+          "min": 560.416,
+          "max": 632,
+          "cases": 3
+        },
+        "p95_us": {
+          "median": 3411.959,
+          "min": 3014.875,
+          "max": 4041.167,
+          "cases": 3
+        },
+        "p99_us": {
+          "median": 9589.25,
+          "min": 8958.5,
+          "max": 9863.041,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 3,
+      "engine": "gost",
+      "profile": "udp_persistent",
+      "metrics": {
+        "p50_us": {
+          "median": 153,
+          "min": 136.292,
+          "max": 153.042,
+          "cases": 3
+        },
+        "p95_us": {
+          "median": 650.75,
+          "min": 537.25,
+          "max": 781.709,
+          "cases": 3
+        },
+        "p99_us": {
+          "median": 2277.125,
+          "min": 2226.167,
+          "max": 3362.458,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 3,
+      "engine": "native",
+      "profile": "tcp_persistent",
+      "metrics": {
+        "p50_us": {
+          "median": 112.5,
+          "min": 110.042,
+          "max": 123.541,
+          "cases": 3
+        },
+        "p95_us": {
+          "median": 472.333,
+          "min": 445.875,
+          "max": 495.958,
+          "cases": 3
+        },
+        "p99_us": {
+          "median": 1717.125,
+          "min": 1550.542,
+          "max": 2193.5,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 3,
+      "engine": "native",
+      "profile": "fresh_response",
+      "metrics": {
+        "p50_us": {
+          "median": 431,
+          "min": 416.625,
+          "max": 465.458,
+          "cases": 3
+        },
+        "p95_us": {
+          "median": 2706.459,
+          "min": 2454.625,
+          "max": 2921.916,
+          "cases": 3
+        },
+        "p99_us": {
+          "median": 6596.5,
+          "min": 5093.791,
+          "max": 7663.416,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 3,
+      "engine": "native",
+      "profile": "udp_persistent",
+      "metrics": {
+        "p50_us": {
+          "median": 94.167,
+          "min": 89.5,
+          "max": 102,
+          "cases": 3
+        },
+        "p95_us": {
+          "median": 392.791,
+          "min": 375.791,
+          "max": 463.375,
+          "cases": 3
+        },
+        "p99_us": {
+          "median": 1812.875,
+          "min": 1609.791,
+          "max": 2249.375,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 3,
+      "engine": "iptables",
+      "profile": "tcp_persistent",
+      "metrics": {
+        "p50_us": {
+          "median": 109.917,
+          "min": 108.792,
+          "max": 115.833,
+          "cases": 3
+        },
+        "p95_us": {
+          "median": 500.292,
+          "min": 413.875,
+          "max": 501.209,
+          "cases": 3
+        },
+        "p99_us": {
+          "median": 2053.5,
+          "min": 1449.208,
+          "max": 2081.5,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 3,
+      "engine": "iptables",
+      "profile": "fresh_response",
+      "metrics": {
+        "p50_us": {
+          "median": 479.875,
+          "min": 439.667,
+          "max": 511.584,
+          "cases": 3
+        },
+        "p95_us": {
+          "median": 2472.958,
+          "min": 2003.875,
+          "max": 3153.417,
+          "cases": 3
+        },
+        "p99_us": {
+          "median": 6134.917,
+          "min": 5269.708,
+          "max": 7392.625,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 3,
+      "engine": "iptables",
+      "profile": "udp_persistent",
+      "metrics": {
+        "p50_us": {
+          "median": 119.792,
+          "min": 104.416,
+          "max": 122.291,
+          "cases": 3
+        },
+        "p95_us": {
+          "median": 415.625,
+          "min": 368.542,
+          "max": 440.125,
+          "cases": 3
+        },
+        "p99_us": {
+          "median": 1789.167,
+          "min": 1175.125,
+          "max": 1827.75,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 3,
+      "engine": "gost",
+      "profile": "bulk_download_1stream",
+      "metrics": {
+        "gbps": {
+          "median": 32.69725207917281,
+          "min": 30.84837572817669,
+          "max": 33.5137942988872,
+          "cases": 3
+        },
+        "forwarderCPUSecondsPerGiB": {
+          "median": 0.15000000000000568,
+          "min": 0.14999999999999147,
+          "max": 0.1599999999999966,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 3,
+      "engine": "gost",
+      "profile": "bulk_upload_1stream",
+      "metrics": {
+        "gbps": {
+          "median": 31.40224365804195,
+          "min": 29.85502329223935,
+          "max": 32.753516779310196,
+          "cases": 3
+        },
+        "forwarderCPUSecondsPerGiB": {
+          "median": 0.15000000000000568,
+          "min": 0.14999999999999147,
+          "max": 0.1700000000000017,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 3,
+      "engine": "gost",
+      "profile": "bulk_download_4stream",
+      "metrics": {
+        "gbps": {
+          "median": 26.786832852320476,
+          "min": 25.45547954009439,
+          "max": 27.70838642440914,
+          "cases": 3
+        },
+        "forwarderCPUSecondsPerGiB": {
+          "median": 0.1700000000000017,
+          "min": 0.1700000000000017,
+          "max": 0.18999999999999773,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 3,
+      "engine": "native",
+      "profile": "bulk_download_1stream",
+      "metrics": {
+        "gbps": {
+          "median": 55.33619631293212,
+          "min": 52.33644298048869,
+          "max": 61.78036762475513,
+          "cases": 3
+        },
+        "forwarderCPUSecondsPerGiB": {
+          "median": 0.0,
+          "min": 0.0,
+          "max": 0.0,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 3,
+      "engine": "native",
+      "profile": "bulk_upload_1stream",
+      "metrics": {
+        "gbps": {
+          "median": 51.59201213832951,
+          "min": 50.11006764251448,
+          "max": 52.22758862450868,
+          "cases": 3
+        },
+        "forwarderCPUSecondsPerGiB": {
+          "median": 0.0,
+          "min": 0.0,
+          "max": 0.0,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 3,
+      "engine": "native",
+      "profile": "bulk_download_4stream",
+      "metrics": {
+        "gbps": {
+          "median": 48.247296563753075,
+          "min": 46.10425073801445,
+          "max": 50.40096172573456,
+          "cases": 3
+        },
+        "forwarderCPUSecondsPerGiB": {
+          "median": 0.010000000000000675,
+          "min": 0.0,
+          "max": 0.010000000000000675,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 3,
+      "engine": "iptables",
+      "profile": "bulk_download_1stream",
+      "metrics": {
+        "gbps": {
+          "median": 51.39619940939035,
+          "min": 49.61557738139026,
+          "max": 59.631652491684534,
+          "cases": 3
+        },
+        "forwarderCPUSecondsPerGiB": {
+          "median": 0.0,
+          "min": 0.0,
+          "max": 0.009999999999999787,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 3,
+      "engine": "iptables",
+      "profile": "bulk_upload_1stream",
+      "metrics": {
+        "gbps": {
+          "median": 51.75058152824294,
+          "min": 50.37338805836673,
+          "max": 51.96577869521636,
+          "cases": 3
+        },
+        "forwarderCPUSecondsPerGiB": {
+          "median": 0.0,
+          "min": 0.0,
+          "max": 0.0,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 3,
+      "engine": "iptables",
+      "profile": "bulk_download_4stream",
+      "metrics": {
+        "gbps": {
+          "median": 48.35119667730748,
+          "min": 47.31745886785645,
+          "max": 50.572608701027654,
+          "cases": 3
+        },
+        "forwarderCPUSecondsPerGiB": {
+          "median": 0.009999999999999787,
+          "min": 0.009999999999999787,
+          "max": 0.009999999999999787,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 20,
+      "engine": "gost",
+      "profile": "continuous",
+      "metrics": {
+        "cps": {
+          "median": 1161.7137732559343,
+          "min": 1073.392335000029,
+          "max": 1198.4488010013315,
+          "cases": 3
+        },
+        "p50_us": {
+          "median": 923.208,
+          "min": 856.584,
+          "max": 1176.667,
+          "cases": 3
+        },
+        "p95_us": {
+          "median": 1607.042,
+          "min": 1562.5,
+          "max": 1631.542,
+          "cases": 3
+        },
+        "p99_us": {
+          "median": 2255.417,
+          "min": 2233.083,
+          "max": 2314.417,
+          "cases": 3
+        },
+        "forwarderCPUSecondsPer1000": {
+          "median": 0.7847,
+          "min": 0.7578,
+          "max": 0.8533,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 20,
+      "engine": "native",
+      "profile": "continuous",
+      "metrics": {
+        "cps": {
+          "median": 10311.240803936436,
+          "min": 10099.314168067604,
+          "max": 10512.705887720438,
+          "cases": 3
+        },
+        "p50_us": {
+          "median": 81.291,
+          "min": 80.375,
+          "max": 82.667,
+          "cases": 3
+        },
+        "p95_us": {
+          "median": 118.875,
+          "min": 115.334,
+          "max": 122,
+          "cases": 3
+        },
+        "p99_us": {
+          "median": 195.584,
+          "min": 187.167,
+          "max": 208.25,
+          "cases": 3
+        },
+        "forwarderCPUSecondsPer1000": {
+          "median": 0.034300000000000004,
+          "min": 0.0336,
+          "max": 0.035199999999999995,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 20,
+      "engine": "iptables",
+      "profile": "continuous",
+      "metrics": {
+        "cps": {
+          "median": 10227.743416857813,
+          "min": 10015.006940078725,
+          "max": 10301.779906887372,
+          "cases": 3
+        },
+        "p50_us": {
+          "median": 82.541,
+          "min": 81.834,
+          "max": 83.625,
+          "cases": 3
+        },
+        "p95_us": {
+          "median": 119.542,
+          "min": 117.375,
+          "max": 125.333,
+          "cases": 3
+        },
+        "p99_us": {
+          "median": 193.333,
+          "min": 190.292,
+          "max": 210.333,
+          "cases": 3
+        },
+        "forwarderCPUSecondsPer1000": {
+          "median": 0.0343,
+          "min": 0.0337,
+          "max": 0.034800000000000005,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 20,
+      "engine": "gost",
+      "profile": "150Mbps_single_stream",
+      "metrics": {
+        "mbps": {
+          "median": 149.9852081401425,
+          "min": 149.97914203343652,
+          "max": 149.98673786627555,
+          "cases": 3
+        },
+        "forwarderCPUPercent": {
+          "median": 4.5474465119229714,
+          "min": 4.298092567121838,
+          "max": 4.848067487336161,
+          "cases": 3
+        },
+        "coreCPUSecondsPerGiB": {
+          "median": 5.81256903180706,
+          "min": 5.383068857042992,
+          "max": 6.585669346382383,
+          "cases": 3
+        },
+        "coreCPUPercent": {
+          "median": 10.145497571229454,
+          "min": 9.39472466199471,
+          "max": 11.495417753477494,
+          "cases": 3
+        },
+        "forwarderRSSMiB": {
+          "median": 42.4609375,
+          "min": 41.75,
+          "max": 43.421875,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 20,
+      "engine": "native",
+      "profile": "150Mbps_single_stream",
+      "metrics": {
+        "mbps": {
+          "median": 150.03163146893016,
+          "min": 149.96489723498,
+          "max": 150.0346167679238,
+          "cases": 3
+        },
+        "forwarderCPUPercent": {
+          "median": 0.6993578536400918,
+          "min": 0.6992743175528807,
+          "max": 0.7494838129600994,
+          "cases": 3
+        },
+        "coreCPUSecondsPerGiB": {
+          "median": 3.950020964360587,
+          "min": 3.864150943396227,
+          "max": 4.810401957357567,
+          "cases": 3
+        },
+        "coreCPUPercent": {
+          "median": 6.895251079232913,
+          "min": 6.743807874386601,
+          "max": 8.391291810634568,
+          "cases": 3
+        },
+        "forwarderRSSMiB": {
+          "median": 15.54296875,
+          "min": 15.4765625,
+          "max": 15.64453125,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 20,
+      "engine": "iptables",
+      "profile": "150Mbps_single_stream",
+      "metrics": {
+        "mbps": {
+          "median": 149.9942219762297,
+          "min": 149.97935947501202,
+          "max": 150.03162396832855,
+          "cases": 3
+        },
+        "forwarderCPUPercent": {
+          "median": 0.999294570432171,
+          "min": 0.9991677947424217,
+          "max": 1.0494608477277392,
+          "cases": 3
+        },
+        "coreCPUSecondsPerGiB": {
+          "median": 4.867668647326109,
+          "min": 4.495435162530584,
+          "max": 5.26669461914745,
+          "cases": 3
+        },
+        "coreCPUPercent": {
+          "median": 8.49563543398646,
+          "min": 7.84346718872801,
+          "max": 9.193510047975973,
+          "cases": 3
+        },
+        "forwarderRSSMiB": {
+          "median": 14.5,
+          "min": 14.4765625,
+          "max": 14.5078125,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 20,
+      "engine": "gost",
+      "profile": "tcp_persistent",
+      "metrics": {
+        "p50_us": {
+          "median": 131.125,
+          "min": 129.875,
+          "max": 135.792,
+          "cases": 3
+        },
+        "p95_us": {
+          "median": 371,
+          "min": 347.292,
+          "max": 447.041,
+          "cases": 3
+        },
+        "p99_us": {
+          "median": 1089.625,
+          "min": 974.708,
+          "max": 1223.5,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 20,
+      "engine": "gost",
+      "profile": "fresh_response",
+      "metrics": {
+        "p50_us": {
+          "median": 562.167,
+          "min": 545.625,
+          "max": 603.166,
+          "cases": 3
+        },
+        "p95_us": {
+          "median": 2793.792,
+          "min": 2461.125,
+          "max": 3081.375,
+          "cases": 3
+        },
+        "p99_us": {
+          "median": 6400.208,
+          "min": 5517.625,
+          "max": 7843.75,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 20,
+      "engine": "gost",
+      "profile": "udp_persistent",
+      "metrics": {
+        "p50_us": {
+          "median": 143.917,
+          "min": 141.291,
+          "max": 144.75,
+          "cases": 3
+        },
+        "p95_us": {
+          "median": 408.541,
+          "min": 392.542,
+          "max": 510.417,
+          "cases": 3
+        },
+        "p99_us": {
+          "median": 1406.542,
+          "min": 1205.833,
+          "max": 1814.375,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 20,
+      "engine": "native",
+      "profile": "tcp_persistent",
+      "metrics": {
+        "p50_us": {
+          "median": 103.958,
+          "min": 101.708,
+          "max": 120.542,
+          "cases": 3
+        },
+        "p95_us": {
+          "median": 430.292,
+          "min": 360.417,
+          "max": 434.167,
+          "cases": 3
+        },
+        "p99_us": {
+          "median": 1453.5,
+          "min": 1178.833,
+          "max": 1563.75,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 20,
+      "engine": "native",
+      "profile": "fresh_response",
+      "metrics": {
+        "p50_us": {
+          "median": 533.208,
+          "min": 499.958,
+          "max": 760.084,
+          "cases": 3
+        },
+        "p95_us": {
+          "median": 2644,
+          "min": 2157.834,
+          "max": 2739.958,
+          "cases": 3
+        },
+        "p99_us": {
+          "median": 5846.5,
+          "min": 5003.166,
+          "max": 7461.334,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 20,
+      "engine": "native",
+      "profile": "udp_persistent",
+      "metrics": {
+        "p50_us": {
+          "median": 95.375,
+          "min": 93.084,
+          "max": 95.875,
+          "cases": 3
+        },
+        "p95_us": {
+          "median": 315,
+          "min": 308.208,
+          "max": 490.083,
+          "cases": 3
+        },
+        "p99_us": {
+          "median": 956.666,
+          "min": 950.708,
+          "max": 1888.917,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 20,
+      "engine": "iptables",
+      "profile": "tcp_persistent",
+      "metrics": {
+        "p50_us": {
+          "median": 107.042,
+          "min": 106.334,
+          "max": 113.958,
+          "cases": 3
+        },
+        "p95_us": {
+          "median": 338.75,
+          "min": 325,
+          "max": 366.75,
+          "cases": 3
+        },
+        "p99_us": {
+          "median": 1069.167,
+          "min": 865,
+          "max": 1332.417,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 20,
+      "engine": "iptables",
+      "profile": "fresh_response",
+      "metrics": {
+        "p50_us": {
+          "median": 538.084,
+          "min": 511.042,
+          "max": 544.292,
+          "cases": 3
+        },
+        "p95_us": {
+          "median": 1943,
+          "min": 1890.042,
+          "max": 2165.292,
+          "cases": 3
+        },
+        "p99_us": {
+          "median": 6401.375,
+          "min": 5743.541,
+          "max": 6520.833,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 20,
+      "engine": "iptables",
+      "profile": "udp_persistent",
+      "metrics": {
+        "p50_us": {
+          "median": 103.5,
+          "min": 99.917,
+          "max": 122.459,
+          "cases": 3
+        },
+        "p95_us": {
+          "median": 395.666,
+          "min": 338.334,
+          "max": 420.958,
+          "cases": 3
+        },
+        "p99_us": {
+          "median": 1310.25,
+          "min": 1132.125,
+          "max": 1493.541,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 20,
+      "engine": "gost",
+      "profile": "bulk_download_1stream",
+      "metrics": {
+        "gbps": {
+          "median": 31.3607849091046,
+          "min": 30.128875904651373,
+          "max": 33.032164701949945,
+          "cases": 3
+        },
+        "forwarderCPUSecondsPerGiB": {
+          "median": 0.14000000000000057,
+          "min": 0.14000000000000057,
+          "max": 0.14000000000000057,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 20,
+      "engine": "gost",
+      "profile": "bulk_upload_1stream",
+      "metrics": {
+        "gbps": {
+          "median": 32.84205247400109,
+          "min": 32.62315349219067,
+          "max": 33.09720140263539,
+          "cases": 3
+        },
+        "forwarderCPUSecondsPerGiB": {
+          "median": 0.14999999999999147,
+          "min": 0.14999999999999147,
+          "max": 0.15000000000000568,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 20,
+      "engine": "native",
+      "profile": "bulk_download_1stream",
+      "metrics": {
+        "gbps": {
+          "median": 57.00609280981123,
+          "min": 55.70842184543731,
+          "max": 57.24032936429599,
+          "cases": 3
+        },
+        "forwarderCPUSecondsPerGiB": {
+          "median": 0.0,
+          "min": 0.0,
+          "max": 0.0,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 20,
+      "engine": "native",
+      "profile": "bulk_upload_1stream",
+      "metrics": {
+        "gbps": {
+          "median": 54.00368781984383,
+          "min": 50.1767809915261,
+          "max": 58.462221509871526,
+          "cases": 3
+        },
+        "forwarderCPUSecondsPerGiB": {
+          "median": 0.0,
+          "min": 0.0,
+          "max": 0.009999999999999787,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 20,
+      "engine": "iptables",
+      "profile": "bulk_download_1stream",
+      "metrics": {
+        "gbps": {
+          "median": 58.186170257227786,
+          "min": 54.65861946521905,
+          "max": 60.56149927837851,
+          "cases": 3
+        },
+        "forwarderCPUSecondsPerGiB": {
+          "median": 0.0,
+          "min": 0.0,
+          "max": 0.0,
+          "cases": 3
+        }
+      }
+    },
+    {
+      "rules": 20,
+      "engine": "iptables",
+      "profile": "bulk_upload_1stream",
+      "metrics": {
+        "gbps": {
+          "median": 51.10775986033565,
+          "min": 50.65647512743414,
+          "max": 52.08150246056355,
+          "cases": 3
+        },
+        "forwarderCPUSecondsPerGiB": {
+          "median": 0.0,
+          "min": 0.0,
+          "max": 0.0,
+          "cases": 3
+        }
+      }
+    }
+  ],
+  "externalForwardTestTargets": [],
+  "scope": "same switches; first response after connect; steady default reports GOST2s/kernel1s; opaque transport no encryption; pinned single testCPU with endpoints; min/max not confidence interval",
+  "portResourceDiagnostic": {
+    "defaultSingleIP": "first10k~6-7k/s;later~0.8-0.9k/s;systemCPUdominates",
+    "controlledRuns": [
+      {
+        "run": 0,
+        "cps": 6964.697099231406,
+        "p50BatchMedian_us": 107.2705,
+        "userCPUSecondsPer1000": 0.0587,
+        "systemCPUSecondsPer1000": 0.0335
+      },
+      {
+        "run": 1,
+        "cps": 6947.107558787762,
+        "p50BatchMedian_us": 107.5205,
+        "userCPUSecondsPer1000": 0.0587,
+        "systemCPUSecondsPer1000": 0.0337
+      },
+      {
+        "run": 2,
+        "cps": 7002.645522939099,
+        "p50BatchMedian_us": 107.1045,
+        "userCPUSecondsPer1000": 0.058100000000000006,
+        "systemCPUSecondsPer1000": 0.0338
+      }
+    ],
+    "controlledMedianCPS": 6964.697099231406,
+    "scope": "diagnostic changes router preferred source IP every5000 connections; all20addresses private; not original single-egress config and not used as production throughput guarantee",
+    "softwareProfiles": {
+      "single": {
+        "net.(*Dialer).DialContext": {
+          "inclusive": 88.19,
+          "self": 0.03
+        },
+        "tcp_v4_connect": {
+          "inclusive": 85.66,
+          "self": 0.03
+        },
+        "inet_hash_connect": {
+          "inclusive": 84.48,
+          "self": 0.0
+        },
+        "__inet_hash_connect": {
+          "inclusive": 82.82,
+          "self": 4.77
+        },
+        "runtime.gcBgMarkWorker.func2": {
+          "inclusive": 2.47,
+          "self": 0.0
+        },
+        "runtime.gcBgMarkWorker": {
+          "inclusive": 1.13,
+          "self": 0.0
+        },
+        "runtime.mallocgc": {
+          "inclusive": 1.01,
+          "self": 0.08
+        }
+      },
+      "rotate": {
+        "runtime.gcBgMarkWorker.func2": {
+          "inclusive": 21.41,
+          "self": 0.0
+        },
+        "net.(*Dialer).DialContext": {
+          "inclusive": 17.77,
+          "self": 0.11
+        },
+        "runtime.gcBgMarkWorker": {
+          "inclusive": 8.77,
+          "self": 0.0
+        },
+        "runtime.mallocgc": {
+          "inclusive": 8.2,
+          "self": 1.03
+        },
+        "tcp_v4_connect": {
+          "inclusive": 6.26,
+          "self": 0.0
+        },
+        "runtime.mallocgcSmallScanNoHeader": {
+          "inclusive": 3.87,
+          "self": 1.82
+        },
+        "runtime.mallocgcLarge": {
+          "inclusive": 1.71,
+          "self": 0.0
+        },
+        "runtime.mallocgcSmallNoscan": {
+          "inclusive": 1.14,
+          "self": 0.91
+        }
+      }
+    }
+  },
+  "environment": {
+    "platform": "Linux-6.12.113+deb13-arm64-aarch64-with-glibc2.41",
+    "vCPU": 4,
+    "memoryMiB": 4096,
+    "cpuAffinity": {
+      "test": 1,
+      "fixture": 0
+    },
+    "GOMAXPROCS": 1,
+    "ipLocalPortRange": "32768\t60999",
+    "tcpMaxTwBuckets": "16384",
+    "tcpTwReuse": "2",
+    "namespaceBoundary": "fresh unshare net+mount, root/router no public default route",
+    "externalForwardTestTargets": []
+  },
+  "productionChanges": false,
+  "compilerVersions": {
+    "gost": "go1.25.4",
+    "kernelAgent": "go1.26.10"
+  },
+  "runtimeAgentSourceCommit": "1d87c40"
+}

@@ -1,0 +1,58 @@
+services:
+  mysql:
+    image: ${MYSQL_IMAGE:-mysql:8.2}
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-${DB_PASSWORD:?DB_PASSWORD is required}}
+      MYSQL_DATABASE: ${DB_NAME:?DB_NAME is required}
+      MYSQL_USER: ${DB_USER:?DB_USER is required}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      TZ: ${TZ:-Asia/Shanghai}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks: [gost-network]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+  backend:
+    image: ${PANEL_IMAGE:-flux-panel-go:local}
+    build:
+      context: .
+      dockerfile: panel-go/Dockerfile
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    environment:
+      PANEL_LISTEN: 0.0.0.0:6365
+      DB_HOST: ${DB_HOST:-mysql:3306}
+      DB_NAME: ${DB_NAME:?DB_NAME is required}
+      DB_USER: ${DB_USER:?DB_USER is required}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      TZ: ${TZ:-Asia/Shanghai}
+      NODE_RELEASE_BASE_URL: ${NODE_RELEASE_BASE_URL:-}
+      NODE_RELEASE_MANIFEST_SHA256: ${NODE_RELEASE_MANIFEST_SHA256:-}
+      NODE_RELEASE_INSTALLER_SHA256: ${NODE_RELEASE_INSTALLER_SHA256:-}
+    ports:
+      - "${PANEL_BIND:-127.0.0.1}:${BACKEND_PORT:-6365}:6365"
+    depends_on:
+      mysql: {condition: service_healthy}
+    networks: [gost-network]
+  frontend:
+    image: ${FRONTEND_IMAGE:-flux-panel-frontend:local}
+    build: ./vite-frontend
+    restart: unless-stopped
+    ports:
+      - "${PANEL_BIND:-127.0.0.1}:${FRONTEND_PORT:-6366}:80"
+    depends_on:
+      backend: {condition: service_healthy}
+    networks: [gost-network]
+volumes:
+  mysql_data:
+    name: ${MYSQL_VOLUME_NAME:-flux_panel_mysql_data}
+networks:
+  gost-network:
+    driver: bridge

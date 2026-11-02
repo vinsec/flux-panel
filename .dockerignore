@@ -1,0 +1,10 @@
+.git
+.env
+.env.*
+**/node_modules
+**/.test-work
+**/.build
+**/target
+**/dist
+backups
+*.log

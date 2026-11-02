@@ -1,3 +1,4 @@
+import Network from '@/api/network';
 import { useState, useEffect, useRef } from "react";
 import { Card, CardBody, CardHeader } from "@heroui/card";
 import { Button } from "@heroui/button";
@@ -6,11 +7,13 @@ import { Textarea } from "@heroui/input";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@heroui/modal";
 import { Chip } from "@heroui/chip";
 import { Switch } from "@heroui/switch";
+import { Select, SelectItem } from "@heroui/select";
 import { Spinner } from "@heroui/spinner";
 import { Alert } from "@heroui/alert";
 import { Progress } from "@heroui/progress";
 import toast from 'react-hot-toast';
 import axios from 'axios';
+import NodeEngineTools from '@/components/node-engine-tools';
 
 
 import { 
@@ -18,10 +21,13 @@ import {
   getNodeList, 
   updateNode, 
   deleteNode,
-  getNodeInstallCommand
+  getNodeInstallCommand,
+  getEngineSocketTicket
 } from "@/api";
 
 interface Node {
+  engine?: string;
+  kernelBackend?: string;
   id: number;
   name: string;
   ip: string;
@@ -35,18 +41,23 @@ interface Node {
   status: number; // 1: 在线, 0: 离线
   connectionStatus: 'online' | 'offline';
   systemInfo?: {
-    cpuUsage: number;
-    memoryUsage: number;
+    cpuUsage: number | null;
+    memoryUsage: number | null;
     uploadTraffic: number;
     downloadTraffic: number;
-    uploadSpeed: number;
-    downloadSpeed: number;
+    uploadSpeed: number | null;
+    downloadSpeed: number | null;
     uptime: number;
+    interfaces?: Record<string,any>;
+    engineState?: any;
+    conntrackCount?: number;
+    conntrackMax?: number;
   } | null;
   copyLoading?: boolean;
 }
 
 interface NodeForm {
+  engine: string;
   id: number | null;
   name: string;
   ipString: string;
@@ -60,6 +71,7 @@ interface NodeForm {
 
 export default function NodePage() {
   const [nodeList, setNodeList] = useState<Node[]>([]);
+  const [engineToolsNode,setEngineToolsNode]=useState<Node|null>(null);
   const [loading, setLoading] = useState(false);
   const [dialogVisible, setDialogVisible] = useState(false);
   const [dialogTitle, setDialogTitle] = useState('');
@@ -68,6 +80,7 @@ export default function NodePage() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [nodeToDelete, setNodeToDelete] = useState<Node | null>(null);
+  const protocolRequest = useRef(0);
   const [protocolDisabled, setProtocolDisabled] = useState(false);
   const [protocolDisabledReason, setProtocolDisabledReason] = useState('');
   const [form, setForm] = useState<NodeForm>({
@@ -75,6 +88,7 @@ export default function NodePage() {
     name: '',
     ipString: '',
     serverIp: '',
+    engine: 'kernel',
     portSta: 1000,
     portEnd: 65535,
     http: 0,
@@ -125,7 +139,7 @@ export default function NodePage() {
   };
 
   // 初始化WebSocket连接
-  const initWebSocket = () => {
+  const initWebSocket = async () => {
     if (websocketRef.current && 
         (websocketRef.current.readyState === WebSocket.OPEN || 
          websocketRef.current.readyState === WebSocket.CONNECTING)) {
@@ -138,10 +152,12 @@ export default function NodePage() {
     
     // 构建WebSocket URL，使用axios的baseURL
     const baseUrl = axios.defaults.baseURL || (import.meta.env.VITE_API_BASE ? `${import.meta.env.VITE_API_BASE}/api/v1/` : '/api/v1/');
-    const wsUrl = baseUrl.replace(/^http/, 'ws').replace(/\/api\/v1\/$/, '') + `/system-info?type=0&secret=${localStorage.getItem('token')}`;
+
     
     try {
-      websocketRef.current = new WebSocket(wsUrl);
+      const response=await getEngineSocketTicket();if(response.code!==0||!response.data?.ticket)throw new Error('实时会话凭据不可用');
+      const endpoint=new URL(baseUrl,window.location.href);endpoint.pathname=endpoint.pathname.replace(/\/api\/v1\/?$/,'')+'/system-info';endpoint.protocol=endpoint.protocol==='https:'?'wss:':'ws:';endpoint.search=new URLSearchParams({type:'0',ticket:response.data.ticket}).toString();
+      websocketRef.current = new WebSocket(endpoint.toString());
       
       websocketRef.current.onopen = () => {
         reconnectAttemptsRef.current = 0;
@@ -195,6 +211,15 @@ export default function NodePage() {
               systemInfo = messageData;
             }
             
+            // v1 sends a liveness frame, not system-resource measurements.
+            // Keep resource indicators unavailable rather than showing fake 0%.
+            if(node.engine==='kernel'){
+              if(!systemInfo.sampledAt)return {...node,connectionStatus:'online',systemInfo:null};
+              const interfaces=systemInfo.network||{};const physical=Object.entries(interfaces).filter(([name])=>name!=='lo'&&!name.startsWith('fp4shape')).map(([,value])=>value as any);
+              const number=(v:any):number|null=>typeof v==='number'&&Number.isFinite(v)?v:null;
+              const sum=(key:string)=>physical.reduce((total,v)=>total+(Number(v[key])||0),0);
+              return {...node,connectionStatus:'online',systemInfo:{cpuUsage:number(systemInfo.cpu_usage),memoryUsage:number(systemInfo.memory_usage),uploadTraffic:sum('txBytes'),downloadTraffic:sum('rxBytes'),uploadSpeed:physical.length&&physical.every(v=>number(v.txBytesPerSecond)!==null)?sum('txBytesPerSecond'):null,downloadSpeed:physical.length&&physical.every(v=>number(v.rxBytesPerSecond)!==null)?sum('rxBytesPerSecond'):null,uptime:Number(systemInfo.uptimeSeconds)||0,interfaces,engineState:systemInfo.engineState,conntrackCount:systemInfo.conntrackCount,conntrackMax:systemInfo.conntrackMax}};
+            }
             const currentUpload = parseInt(systemInfo.bytes_transmitted) || 0;
             const currentDownload = parseInt(systemInfo.bytes_received) || 0;
             const currentUptime = parseInt(systemInfo.uptime) || 0;
@@ -330,8 +355,8 @@ export default function NodePage() {
   };
 
   // 获取进度条颜色
-  const getProgressColor = (value: number, offline = false): "default" | "primary" | "secondary" | "success" | "warning" | "danger" => {
-    if (offline) return "default";
+  const getProgressColor = (value: number | null, offline = false): "default" | "primary" | "secondary" | "success" | "warning" | "danger" => {
+    if (offline || value==null) return "default";
     if (value <= 50) return "success";
     if (value <= 80) return "warning";
     return "danger";
@@ -412,6 +437,7 @@ export default function NodePage() {
 
   // 新增节点
   const handleAdd = () => {
+    protocolRequest.current++;
     setDialogTitle('新增节点');
     setIsEdit(false);
     setDialogVisible(true);
@@ -422,6 +448,7 @@ export default function NodePage() {
 
   // 编辑节点
   const handleEdit = (node: Node) => {
+    const request = ++protocolRequest.current;
     setDialogTitle('编辑节点');
     setIsEdit(true);
     setForm({
@@ -429,6 +456,7 @@ export default function NodePage() {
       name: node.name,
       ipString: node.ip ? node.ip.split(',').map(ip => ip.trim()).join('\n') : '',
       serverIp: node.serverIp || '',
+      engine: node.engine || 'gost',
       portSta: node.portSta,
       portEnd: node.portEnd,
       http: typeof node.http === 'number' ? node.http : 1,
@@ -438,6 +466,7 @@ export default function NodePage() {
     const offline = node.connectionStatus !== 'online';
     setProtocolDisabled(offline);
     setProtocolDisabledReason(offline ? '节点未在线，等待节点上线后再设置' : '');
+    if(node.engine==='kernel'){setProtocolDisabled(true);Network.post('/engine/capabilities',{nodeId:node.id}).then(r=>{if(request!==protocolRequest.current)return;const ok=r.code===0&&r.data?.capabilities?.features?.protocolBlocking;setProtocolDisabled(offline||!ok);setProtocolDisabledReason(ok?'未知流量放行并标记；变更后现有 TCP 连接需要重连':'节点未声明协议识别能力，请先升级Agent')}).catch(()=>{if(request===protocolRequest.current)setProtocolDisabledReason('无法获取协议识别能力')});}
     setDialogVisible(true);
   };
 
@@ -533,6 +562,7 @@ export default function NodePage() {
         name: form.name, 
         ip: ipString,
         serverIp: form.serverIp,
+        engine: form.engine,
         portSta: form.portSta,
         portEnd: form.portEnd,
         http: form.http,
@@ -579,7 +609,8 @@ export default function NodePage() {
       name: '',
       ipString: '',
       serverIp: '',
-      portSta: 1000,
+      engine: 'kernel',
+        portSta: 1000,
       portEnd: 65535,
       http: 0,
       tls: 0,
@@ -643,7 +674,7 @@ export default function NodePage() {
                   <div className="flex justify-between items-start w-full">
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-foreground truncate text-sm">{node.name}</h3>
-                      <p className="text-xs text-default-500 truncate">{node.serverIp}</p>
+                      <p className="text-xs text-default-500 truncate">{node.serverIp} · {node.engine === "kernel" ? (node.kernelBackend === "nftables" ? "内核 / 原生 nftables" : "内核 / 旧 iptables 节点需迁移") : "GOST"}</p>
                     </div>
                     <div className="flex items-center gap-1.5 ml-2">
                       <Chip 
@@ -696,48 +727,50 @@ export default function NodePage() {
                     </div>
                   </div>
 
+                  {node.engine==='kernel'&&<Button size="sm" variant="flat" className="mb-2" onPress={()=>setEngineToolsNode(node)}>带宽组 / 升级向导</Button>}
                   {/* 系统监控 */}
+                  {node.engine==='kernel'&&<p className="text-xs text-default-500 mb-2">{node.systemInfo?'系统网卡指标与转发计费分别统计。':'等待真实指标；旧心跳不作为资源使用率。'}</p>}
                   <div className="space-y-3 mb-4">
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <div className="flex justify-between text-xs mb-1">
                           <span>CPU</span>
                           <span className="font-mono">
-                            {node.connectionStatus === 'online' && node.systemInfo 
+                            {node.connectionStatus === 'online' && node.systemInfo?.cpuUsage != null
                               ? `${node.systemInfo.cpuUsage.toFixed(1)}%` 
                               : '-'
                             }
                           </span>
                         </div>
-                        <Progress
-                          value={node.connectionStatus === 'online' && node.systemInfo ? node.systemInfo.cpuUsage : 0}
+                        {node.connectionStatus === 'online' && node.systemInfo?.cpuUsage != null ? <Progress
+                          value={node.systemInfo.cpuUsage}
                           color={getProgressColor(
-                            node.connectionStatus === 'online' && node.systemInfo ? node.systemInfo.cpuUsage : 0,
+                            node.connectionStatus === 'online' && node.systemInfo ? (node.systemInfo.cpuUsage ?? 0) : 0,
                             node.connectionStatus !== 'online'
                           )}
                           size="sm"
                           aria-label="CPU使用率"
-                        />
+                        /> : <div className="h-1 rounded bg-default-100" aria-label="CPU数据不可用" />}
                       </div>
                       <div>
                         <div className="flex justify-between text-xs mb-1">
                           <span>内存</span>
                           <span className="font-mono">
-                            {node.connectionStatus === 'online' && node.systemInfo 
+                            {node.connectionStatus === 'online' && node.systemInfo?.memoryUsage != null
                               ? `${node.systemInfo.memoryUsage.toFixed(1)}%` 
                               : '-'
                             }
                           </span>
                         </div>
-                        <Progress
-                          value={node.connectionStatus === 'online' && node.systemInfo ? node.systemInfo.memoryUsage : 0}
+                        {node.connectionStatus === 'online' && node.systemInfo?.memoryUsage != null ? <Progress
+                          value={node.systemInfo.memoryUsage}
                           color={getProgressColor(
-                            node.connectionStatus === 'online' && node.systemInfo ? node.systemInfo.memoryUsage : 0,
+                            node.connectionStatus === 'online' && node.systemInfo ? (node.systemInfo.memoryUsage ?? 0) : 0,
                             node.connectionStatus !== 'online'
                           )}
                           size="sm"
                           aria-label="内存使用率"
-                        />
+                        /> : <div className="h-1 rounded bg-default-100" aria-label="内存数据不可用" />}
                       </div>
                     </div>
 
@@ -745,7 +778,7 @@ export default function NodePage() {
                       <div className="text-center p-2 bg-default-50 dark:bg-default-100 rounded">
                         <div className="text-default-600 mb-0.5">上传</div>
                         <div className="font-mono">
-                          {node.connectionStatus === 'online' && node.systemInfo 
+                          {node.connectionStatus === 'online' && node.systemInfo?.uploadSpeed != null
                             ? formatSpeed(node.systemInfo.uploadSpeed) 
                             : '-'
                           }
@@ -754,7 +787,7 @@ export default function NodePage() {
                       <div className="text-center p-2 bg-default-50 dark:bg-default-100 rounded">
                         <div className="text-default-600 mb-0.5">下载</div>
                         <div className="font-mono">
-                          {node.connectionStatus === 'online' && node.systemInfo 
+                          {node.connectionStatus === 'online' && node.systemInfo?.downloadSpeed != null
                             ? formatSpeed(node.systemInfo.downloadSpeed) 
                             : '-'
                           }
@@ -837,6 +870,13 @@ export default function NodePage() {
             <ModalHeader>{dialogTitle}</ModalHeader>
             <ModalBody>
               <div className="space-y-4">
+                <Select label="转发引擎" selectedKeys={[form.engine]} isDisabled={isEdit} disallowEmptySelection
+                  onSelectionChange={(keys) => setForm(prev => ({...prev, engine: Array.from(keys)[0] as string, http: 0, tls: 0, socks: 0}))}
+                  description="节点创建后引擎固定；切换引擎请新建节点迁移。">
+                  <SelectItem key="gost">GOST</SelectItem>
+                  <SelectItem key="kernel">内核转发</SelectItem>
+                </Select>
+                {form.engine === 'kernel' && <p className="text-xs text-default-500">内核转发固定使用原生 nftables，隧道继承节点配置。</p>}
                 <Input
                   label="节点名称"
                   placeholder="请输入节点名称"
@@ -901,7 +941,7 @@ export default function NodePage() {
                 {/* 屏蔽协议 */}
                 <div className="mt-1">
                   <div className="text-sm font-medium text-default-700">屏蔽协议</div>
-                  <div className="text-xs text-default-500 mb-2">开启开关以屏蔽对应协议</div>
+                  <div className="text-xs text-default-500 mb-2">开启开关以屏蔽对应协议{form.engine==='kernel'&&'；未知流量放行并标记，变更后现有 TCP 连接需要重连'}</div>
                   {protocolDisabled && (
                     <Alert
                       color="warning"
@@ -1091,7 +1131,8 @@ export default function NodePage() {
             </ModalFooter>
           </ModalContent>
         </Modal>
-      </div>
+        <NodeEngineTools node={engineToolsNode} onClose={()=>setEngineToolsNode(null)}/>
+    </div>
     
   );
 } 

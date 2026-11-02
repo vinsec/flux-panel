@@ -1,90 +1,58 @@
-# flux-panel转发面板 哆啦A梦转发面板
+# Flux Panel — Go 面板
 
-## 项目更新说明
-由于一些个人原因，**flux-panel** 将暂停更新一段时间，**恢复更新时间暂不确定**。
+本分支在 [原项目](https://github.com/bqlpfy/flux-panel) 上维护 Go 后端、React 前端、GOST 与原生 nftables Agent。
+面板源码位于 `panel-go/`，不再包含 Java/Spring Boot 后端、Maven 构建或 JRE 运行依赖。
+只支持 `gost` 与 `kernel`（原生 nftables）；不提供 iptables 转发后端或回退。
 
-在此期间，项目不会继续推进新功能或修复问题，对可能带来的不便表示抱歉。当前已有功能仍可正常使用，也欢迎大家继续 Fork 或自行维护。
+## 部署
 
-如后续恢复更新，我会第一时间在仓库中说明。  
-感谢大家的理解与支持。
+使用本分支的完整源码，安装 Docker 和 Compose v2。不要下载官方旧分支的面板安装脚本。
 
-
-本项目基于 [go-gost/gost](https://github.com/go-gost/gost) 和 [go-gost/x](https://github.com/go-gost/x) 两个开源库，实现了转发面板。
----
-## 特性
-
-- 支持按 **隧道账号级别** 管理流量转发数量，可用于用户/隧道配额控制
-- 支持 **TCP** 和 **UDP** 协议的转发
-- 支持两种转发模式：**端口转发** 与 **隧道转发**
-- 可针对 **指定用户的指定隧道进行限速** 设置
-- 支持配置 **单向或双向流量计费方式**，灵活适配不同计费模型
-- 提供灵活的转发策略配置，适用于多种网络场景
-
-
-## 部署流程
----
-### Docker Compose部署
-#### 快速部署
-面板端(稳定版)：
-```bash
-curl -L https://raw.githubusercontent.com/bqlpfy/flux-panel/refs/heads/main/panel_install.sh -o panel_install.sh && chmod +x panel_install.sh && ./panel_install.sh
-```
-节点端(稳定版)：
-```bash
-curl -L https://raw.githubusercontent.com/bqlpfy/flux-panel/refs/heads/main/install.sh -o install.sh && chmod +x install.sh && ./install.sh
-
+```sh
+git clone --branch main https://github.com/vinsec/flux-panel.git
+cd flux-panel
+./panel_install.sh install
 ```
 
-面板端(开发版)：
-```bash
-curl -L https://raw.githubusercontent.com/bqlpfy/flux-panel/refs/heads/beta/panel_install.sh -o panel_install.sh && chmod +x panel_install.sh && ./panel_install.sh
+脚本从本地源码构建 Go 和前端镜像，生成仅本机可读的 `.env`，启动数据库，显式初始化及迁移空库，然后等待服务健康。
+默认端口仅绑定回环：前端 `127.0.0.1:6366`、后端 `127.0.0.1:6365`。通过自己的反向代理/TLS 对外提供服务。
+默认管理员为 `admin_user / admin_user`，首次登录后修改密码。
+
+已有配置可先复制 `.env.example` 为 `.env` 并填写变量。已有数据库不能执行初始化；从 Java 整体交接必须先读 [部署与交接](deploy/README.md)。
+不会自动接管旧 Java 实例，不会恢复旧快照覆盖新账单，不在面板普通启动时执行 DDL。
+
+```sh
+./panel_install.sh update       # 只用于已由本脚本创建的 Go 安装
+./panel_install.sh backup       # 一致性 SQL 备份到 backups/
+./panel_install.sh logs
+./panel_install.sh uninstall    # 保留数据库卷与 .env
 ```
-节点端(开发版)：
-```bash
-curl -L https://raw.githubusercontent.com/bqlpfy/flux-panel/refs/heads/beta/install.sh -o install.sh && chmod +x install.sh && ./install.sh
 
+离线环境先加载自己核对过的面板/前端/MySQL 镜像，再使用 `install --no-build`。镜像名可在 `.env` 中设置。
+CI 只验证、构建和上传工作流产物，不因 push 开发分支自动发布镜像或上线。
+
+## 开发与验证
+
+Go 1.26.10，前端 Node 20.19.0。数据库结构为 `gost.sql` 加 `database/migrations/001–006`。
+
+```sh
+cd panel-go
+go test ./...
+go vet ./...
+go build -o flux-panel ./cmd/panel
 ```
 
-#### 默认管理员账号
+完整验证需要一次性 MySQL、浏览器和可丢弃 Linux VM；见 [Go 模块说明](panel-go/README.md)。
+[功能矩阵](panel-go/contracts/feature-matrix.json) 覆盖冻结基线的 64 个 HTTP 映射以及控制连接、计费、额度和任务。
+[首次功能验收](doc/go-panel-validation.md) 保留原始基线与范围；[Go 收尾验收](doc/go-only-validation.md) 记录去 Java 化后的新验证。
 
-- **账号**: admin_user
-- **密码**: admin_user
+节点保持独立发布，构建、安装配置与固定哈希要求见 [node-agent](node-agent/README.md)。
+生成节点安装命令前必须配置同一已验证发布包的 URL、manifest 与 installer 哈希；不能使用浮动下载替代。
+GOST→nftables 的节点迁移与面板语言切换分别进行。
 
-> ⚠️ 首次登录后请立即修改默认密码！
+## 历史与回滚
 
-
-## 免责声明
-
-本项目仅供个人学习与研究使用，基于开源项目进行二次开发。  
-
-使用本项目所带来的任何风险均由使用者自行承担，包括但不限于：  
-
-- 配置不当或使用错误导致的服务异常或不可用；  
-- 使用本项目引发的网络攻击、封禁、滥用等行为；  
-- 服务器因使用本项目被入侵、渗透、滥用导致的数据泄露、资源消耗或损失；  
-- 因违反当地法律法规所产生的任何法律责任。  
-
-本项目为开源的流量转发工具，仅限合法、合规用途。  
-使用者必须确保其使用行为符合所在国家或地区的法律法规。  
-
-**作者不对因使用本项目导致的任何法律责任、经济损失或其他后果承担责任。**  
-**禁止将本项目用于任何违法或未经授权的行为，包括但不限于网络攻击、数据窃取、非法访问等。**  
-
-如不同意上述条款，请立即停止使用本项目。  
-
-作者对因使用本项目所造成的任何直接或间接损失概不负责，亦不提供任何形式的担保、承诺或技术支持。  
-
-
-请务必在合法、合规、安全的前提下使用本项目。  
-
----
-## ⭐ 喝杯咖啡！（USDT）
-
-| 网络       | 地址                                                                 |
-|------------|----------------------------------------------------------------------|
-| BNB(BEP20) | `0x755492c03728851bbf855daa28a1e089f9aca4d1`                          |
-| TRC20      | `TYh2L3xxXpuJhAcBWnt3yiiADiCSJLgUm7`                                  |
-| Aptos      | `0xf2f9fb14749457748506a8281628d556e8540d1eb586d202cd8b02b99d369ef8`  |
-
-[![Star History Chart](https://api.star-history.com/svg?repos=bqlpfy/flux-panel&type=Date)](https://www.star-history.com/#bqlpfy/flux-panel&Date)
-
+`a08e3d8` 保留旧 Java/nftables 基线，`3126f8c` 保留最初 Go 与 Java 对照/切回验证。
+当前分支的默认构建和测试均为 Go；如确需重做历史 Java 对照，使用独立历史工作区及旧产物，不把 Java 加回当前分支。
+Android 客户端是独立的 Kotlin/Gradle 项目，不参与面板构建、安装或 CI。
+本项目继承原项目许可与署名；仅用于合法授权的网络转发管理。

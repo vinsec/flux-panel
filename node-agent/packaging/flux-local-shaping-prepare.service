@@ -1,0 +1,25 @@
+[Unit]
+Description=Flux short-lived local shaping BPF preparation
+After=local-fs.target sys-fs-bpf.mount
+Before=flux-kernel.service
+RequiresMountsFor=/sys/fs/bpf
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=root
+Group=root
+ExecStart=/usr/local/bin/flux-agent --prepare-local-shaping
+RuntimeDirectory=flux-agent-bpf
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=yes
+UMask=0077
+NoNewPrivileges=true
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_BPF CAP_SYS_ADMIN
+AmbientCapabilities=CAP_NET_ADMIN CAP_BPF CAP_SYS_ADMIN
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=false
+ProtectKernelModules=true
+PrivateTmp=true
+ReadWritePaths=/run/flux-agent-bpf /sys/fs/bpf
+RestrictAddressFamilies=AF_NETLINK AF_UNIX
