@@ -1,4 +1,4 @@
-import DiagnosisCard from '@/components/diagnosis-card';
+import DiagnosisCard, { DiagnosisEntry } from '@/components/diagnosis-card';
 import { useState, useEffect } from "react";
 import { Card, CardBody, CardHeader } from "@heroui/card";
 import { Button } from "@heroui/button";
@@ -97,21 +97,10 @@ interface AddressItem {
 }
 
 interface DiagnosisResult {
-  returnPath?: {status:string;sourceMode:string;administratorConfirmed:boolean;remoteReturnVerified:boolean;limitations:string[];ingress:Array<{interface:string;ipv4RPFilterEffective:number|null;srcValidMarkEffective:number|null;risk:string}>};
   forwardName: string;
   timestamp: number;
-  results: Array<{
-    success: boolean;
-    description: string;
-    nodeName: string;
-    nodeId: string;
-    targetIp: string;
-    targetPort?: number;
-    message?: string;
-    averageTime?: number;
-    packetLoss?: number;
-    probeKind?: string;
-  }>;
+  truncated?: boolean;
+  results: DiagnosisEntry[];
 }
 
 // 添加分组接口
@@ -170,9 +159,6 @@ export default function ForwardPage() {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [diagnosisLoading, setDiagnosisLoading] = useState(false);
-  const [diagnosisClientIP, setDiagnosisClientIP] = useState("");
-  const [diagnosisIngress, setDiagnosisIngress] = useState("");
-  const [diagnosisProbe, setDiagnosisProbe] = useState(false);
   const [forwardToDelete, setForwardToDelete] = useState<Forward | null>(null);
   const [currentDiagnosisForward, setCurrentDiagnosisForward] = useState<Forward | null>(null);
   const [diagnosisResult, setDiagnosisResult] = useState<DiagnosisResult | null>(null);
@@ -655,16 +641,14 @@ export default function ForwardPage() {
   };
 
   // 诊断转发
-  const handleDiagnose = async (forward: Forward, retry = false) => {
-    const options = retry ? {clientIP:diagnosisClientIP.trim()||undefined, ingressInterface:diagnosisIngress.trim()||undefined, probe:diagnosisProbe} : {probe:false};
-    if (!retry) { setDiagnosisProbe(false); setDiagnosisClientIP(''); setDiagnosisIngress(''); }
+  const handleDiagnose = async (forward: Forward) => {
     setCurrentDiagnosisForward(forward);
     setDiagnosisModalOpen(true);
     setDiagnosisLoading(true);
     setDiagnosisResult(null);
 
     try {
-      const response = await diagnoseForward(forward.id, options);
+      const response = await diagnoseForward(forward.id);
       if (response.code === 0) {
         setDiagnosisResult(response.data);
       } else {
@@ -676,7 +660,6 @@ export default function ForwardPage() {
             success: false,
             description: '诊断失败',
             nodeName: '-',
-            nodeId: '-',
             targetIp: forward.remoteAddr.split(',')[0] || '-',
             message: response.msg || '诊断过程中发生错误'
           }]
@@ -2080,20 +2063,8 @@ export default function ForwardPage() {
                     </div>
                   ) : diagnosisResult ? (
                     <div className="space-y-4">
-                      {diagnosisResult.returnPath && <details className="rounded-lg border border-default-200 p-3">
-                        <summary className="cursor-pointer text-small">高级诊断</summary>
-                        <div className="mt-3 space-y-3 text-small">
-                          <div className="grid gap-2 sm:grid-cols-2">
-                            <Input label="客户端 IP" value={diagnosisClientIP} onValueChange={setDiagnosisClientIP} placeholder="可选" />
-                            <Input label="入口网卡" value={diagnosisIngress} onValueChange={setDiagnosisIngress} placeholder="可选，如 eth0" />
-                          </div>
-                          <label className="flex gap-2"><input type="checkbox" checked={diagnosisProbe} onChange={e=>setDiagnosisProbe(e.target.checked)} />附加 TCP 连接测试（最多两次）</label>
-                          <p>实际回程：{diagnosisResult.returnPath.remoteReturnVerified?'已验证':'未验证'}</p>
-                          {diagnosisResult.returnPath.ingress?.map(item=><p key={item.interface}>{item.interface}：rp_filter={item.ipv4RPFilterEffective??'未知'}，src_valid_mark={item.srcValidMarkEffective??'未知'}</p>)}
-                          <details><summary className="cursor-pointer">检查范围</summary>{diagnosisResult.returnPath.limitations?.map(line=><p key={line}>{line}</p>)}</details>
-                        </div>
-                      </details>}
                       {diagnosisResult.results.map((result, index) => <DiagnosisCard key={index} result={result} />)}
+                      {diagnosisResult.truncated && <p className="text-xs text-default-500">仅显示前 4 个目标</p>}
                     </div>
                   ) : (
                     <div className="text-center py-16">
@@ -2113,7 +2084,7 @@ export default function ForwardPage() {
                   {currentDiagnosisForward && (
                     <Button 
                       color="primary" 
-                      onPress={() => handleDiagnose(currentDiagnosisForward, true)}
+                      onPress={() => handleDiagnose(currentDiagnosisForward)}
                       isLoading={diagnosisLoading}
                     >
                       重新诊断

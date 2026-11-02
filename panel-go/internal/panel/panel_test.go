@@ -306,7 +306,7 @@ func (f *testPanel) fakeNode(t *testing.T, node int64, responders ...func(M) M) 
 	t.Cleanup(func() { conn.Close() })
 	events := make(chan M, 256)
 	features := M{}
-	for _, k := range []string{"batch", "structuredEndpoint", "independentProtocols", "ipv6", "dns", "multiTarget", "creditLease", "creditPolicy", "creditPush", "shaping", "protocolBlocking", "returnPathDiagnostics", "interfaceRouting", "trafficPolicy", "localOutput", "localTargets", "preserveSource", "localUDPPreserveSource", "localTrafficShaping"} {
+	for _, k := range []string{"connectivityDiagnostics", "batch", "structuredEndpoint", "independentProtocols", "ipv6", "dns", "multiTarget", "creditLease", "creditPolicy", "creditPush", "shaping", "protocolBlocking", "returnPathDiagnostics", "interfaceRouting", "trafficPolicy", "localOutput", "localTargets", "preserveSource", "localUDPPreserveSource", "localTrafficShaping"} {
 		features[k] = true
 	}
 	info := M{"kernelBackend": "nftables", "bootId": "boot-test", "strictCreditPolicy": true, "capabilities": M{"features": features}}

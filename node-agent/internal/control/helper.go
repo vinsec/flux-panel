@@ -162,7 +162,7 @@ func ServeHelper(ctx context.Context, path string, uid uint32, m *engine.Manager
 			case "_Rules":
 				data = m.Rules()
 			default:
-				allowed := map[string]bool{"SubmitModeSwitch": true, "GetModeSwitchStatus": true, "RequireCreditPolicy": true, "RequestCredit": true, "InstallCredit": true, "CollectCounters": true, "GetCapabilities": true, "GetForwardStatus": true, "GetForwardStatuses": true, "DiagnoseForward": true, "SubmitBatch": true, "GetBatchStatus": true, "GetEngineStatePage": true, "ApplyForward": true, "SetForwardState": true, "DeleteForward": true, "GetEngineState": true}
+				allowed := map[string]bool{"ProbeForward": true, "SubmitModeSwitch": true, "GetModeSwitchStatus": true, "RequireCreditPolicy": true, "RequestCredit": true, "InstallCredit": true, "CollectCounters": true, "GetCapabilities": true, "GetForwardStatus": true, "GetForwardStatuses": true, "DiagnoseForward": true, "SubmitBatch": true, "GetBatchStatus": true, "GetEngineStatePage": true, "ApplyForward": true, "SetForwardState": true, "DeleteForward": true, "GetEngineState": true}
 				if !allowed[call.Type] {
 					failure = fmt.Errorf("helper operation denied")
 					break
@@ -194,6 +194,12 @@ func ServeHelper(ctx context.Context, path string, uid uint32, m *engine.Manager
 }
 
 type RemoteManager struct{ Socket string }
+
+func (r *RemoteManager) ProbeForward(ctx context.Context, id string) (map[string]any, error) {
+	var out map[string]any
+	err := r.call("ProbeForward", map[string]any{"id": id}, &out)
+	return out, err
+}
 
 func (r *RemoteManager) call(method string, data, out any) error {
 	conn, e := net.DialTimeout("unix", r.Socket, time.Second)

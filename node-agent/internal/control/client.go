@@ -162,6 +162,19 @@ func Handle(m ManagerAPI, data []byte) ([]byte, error) {
 				r.Data = m.RuntimeStatuses(query.IDs)
 			}
 		}
+	case "ProbeForward":
+		var query struct {
+			ID string `json:"id"`
+		}
+		if e = strictJSON(cmd.Data, &query); e == nil {
+			if prober, ok := m.(interface {
+				ProbeForward(context.Context, string) (map[string]any, error)
+			}); ok {
+				r.Data, e = prober.ProbeForward(context.Background(), query.ID)
+			} else {
+				e = fmt.Errorf("connectivity diagnostics unavailable")
+			}
+		}
 	case "DiagnoseForward":
 		var query struct {
 			ID               string `json:"id"`

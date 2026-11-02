@@ -448,6 +448,21 @@ func (p *Panel) diagnoseForward(s store, f, t, b M) M {
 	node := found(s.get("node", t["inNodeId"]), "入口节点不存在")
 	results := []M{}
 	report := M{"forwardId": f["id"], "forwardName": f["name"], "timestamp": now()}
+	if normalizeEngine(t["engine"]) == "kernel" && b["probe"] != false {
+		p.requireCapability(num(node["id"]), "connectivityDiagnostics")
+		name, _ := serviceName(s, f)
+		d := p.commandOK(num(node["id"]), M{"id": name}, "ProbeForward")
+		for _, v := range arr(d["results"]) {
+			r := obj(v)
+			ping, tcp := obj(r["icmp"]), obj(r["tcp"])
+			results = append(results, M{"nodeId": node["id"], "nodeName": node["name"], "targetIp": r["target"], "targetPort": r["port"], "description": "转发到目标", "probeKind": "icmpTcp", "success": num(ping["received"]) > 0 || num(tcp["received"]) > 0, "icmp": ping, "tcp": tcp})
+		}
+		if len(results) == 0 {
+			results = append(results, M{"nodeId": node["id"], "nodeName": node["name"], "targetIp": f["remoteAddr"], "description": "转发到目标", "success": false, "message": "目标尚未解析，暂时无法探测"})
+		}
+		report["results"], report["probePerformed"], report["truncated"] = results, d["probePerformed"], d["truncated"]
+		return report
+	}
 	if normalizeEngine(t["engine"]) == "kernel" {
 		name, _ := serviceName(s, f)
 		query := M{"id": name, "probe": truth(b["probe"])}

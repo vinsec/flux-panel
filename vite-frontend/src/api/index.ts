@@ -61,7 +61,7 @@ export const pauseForwardService = (forwardId: number) => Network.post("/forward
 export const resumeForwardService = (forwardId: number) => Network.post("/forward/resume", { id: forwardId });
 
 // 转发诊断操作
-export const diagnoseForward = (forwardId: number, options?: { clientIP?: string; ingressInterface?: string; probe?: boolean }) => Network.post("/forward/diagnose", { forwardId, ...options });
+export const diagnoseForward = (forwardId: number) => Network.post("/forward/diagnose", { forwardId });
 
 // 转发排序操作
 export const updateForwardOrder = (data: { forwards: Array<{ id: number; inx: number }> }) => Network.post("/forward/update-order", data);
