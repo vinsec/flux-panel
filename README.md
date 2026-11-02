@@ -57,4 +57,4 @@ GOST→nftables 的节点迁移与面板语言切换分别进行。
 Android 客户端是独立的 Kotlin/Gradle 项目，不参与面板构建、安装或 CI。
 本项目继承原项目许可与署名；仅用于合法授权的网络转发管理。
 
-同一节点原生 nftables / 受管 GOST 切换见 [统一 Agent](doc/unified-agent-switching.md)，qcloud 已完成受管 GOST 灰度，qhix 尚未迁移，见 [上线记录](doc/qcloud-agent-migration-20261102.md)。
+同一节点原生 nftables / 受管 GOST 切换见 [统一 Agent](doc/unified-agent-switching.md)，qcloud 已完成统一 Agent 灰度并切到原生 nftables，qhix 尚未迁移，见 [上线记录](doc/qcloud-agent-migration-20261102.md)。

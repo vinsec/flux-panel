@@ -1,6 +1,6 @@
 # 同一节点切换转发模式
 
-main 上实现。2026-11-02 已完成 qcloud 的受管 GOST 灰度，qhix 尚未迁移；见 [上线记录](qcloud-agent-migration-20261102.md)。未执行 GZ 业务测速或压测。初版实现基线标签为 `baseline/pre-unified-agent-20261102`（ccec0d5）。
+main 上实现。2026-11-02 已完成 qcloud 的统一 Agent 灰度及原生 nftables 切换，qhix 尚未迁移；见 [上线记录](qcloud-agent-migration-20261102.md)。未执行 GZ 业务测速或压测。初版实现基线标签为 `baseline/pre-unified-agent-20261102`（ccec0d5）。
 
 ## 使用方式与边界
 

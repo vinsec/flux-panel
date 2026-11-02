@@ -1,6 +1,6 @@
 # qcloud 统一 Agent 迁移验收
 
-2026-11-02 已完成 qcloud（逻辑节点 ID 2）迁移，当前为 **统一 Agent / 受管 GOST**。没有切换至原生 nftables 转发模式。qhix 没有迁移、没有对其执行 SSH 或服务配置变更，仍以旧 GOST 在线；需用户确认 qcloud 后再处理。
+**最新状态：qcloud（逻辑节点 ID 2）已切到统一 Agent / 原生 nftables，实际 `forwardingMode=kernel`。** 最初先迁入受管 GOST，随后按用户明确要求完成原生模式切换。qhix 没有迁移、没有对其执行 SSH 或服务配置变更，仍以旧 GOST 在线；需用户确认 qcloud 后再处理。
 
 ## 业务与状态
 
@@ -27,3 +27,12 @@ Oracle 配套更新面板前后端为 `cfabd1f` 构建，并显式应用增量 0
 root 私有备份：qcloud `/root/flux-agent-migration-20261102/`；Oracle `/app/flux-agent-qcloud-migration/20261102/`。包括旧 GOST、配置、原 Compose、数据库备份及操作记录。提交后的私有回滚脚本会拒绝自动回退；后续若需回滚，必须先核对有没有新增规则或策略，保留最新账本，不能直接恢复整库旧快照。
 
 [机器记录](qcloud-agent-migration-20261102.json)。其中 conntrack 条目数不等同于活跃应用连接数。所有密钥、完整数据库和私有运行配置均不写入本报告。
+
+## 后续原生 nftables 切换
+
+2026-11-02T15:00:39.726000+08:00，通过面板模式切换 API 将 qcloud 从 `gost` 切到 `kernel`，任务成功。面板、Agent 实时状态和持久化 checkpoint 三处一致。原 `kernelBackend=nftables` 只是共用内核规则后端，不等于业务执行模式；此次才实际启用原生转发。
+
+- 原三条规则全部启用，epoch 未变，累计流量不倒退。
+- 受管 GOST 的业务服务列表已清空，进程仅待命；内核 DNAT map 直接指向原远端三组目标，不再转到本机 GOST 后端端口。
+- 被动观察到新的原生标记 TCP/UDP 连接，UDP 有 ASSURED 记录；50050/50051 的双向字节持续增长。50052 仍闲置，没有声称对它生成业务探测。
+- 未重启节点服务、未改变 IP/入口/目标，未生成 GZ 测速或压测流量。qhix 保持旧 GOST 在线，未执行迁移。

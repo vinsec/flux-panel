@@ -1,10 +1,10 @@
 {
   "date": "2026-11-02",
-  "status": "qcloud_committed_qhix_not_migrated",
+  "status": "qcloud_native_nftables_qhix_not_migrated",
   "nodeId": 2,
   "nodeAlias": "qcloud",
-  "mode": "managed-gost",
-  "nativeForwardingActivated": false,
+  "mode": "native-nftables",
+  "nativeForwardingActivated": true,
   "panelSourceCommit": "cfabd1f",
   "agentSourceCommit": "4e3cfe3",
   "binarySHA256": {
@@ -186,5 +186,44 @@
     "Historical forward/user ledger was not reset or restored from snapshot. New usage is network-layer bytes.",
     "Traffic validation observes natural connections/counters only; an idle port has no claimed application-level round-trip validation.",
     "Rollback watchdogs cancelled after commit. Post-commit rollback requires a fresh configuration/ledger check; private scripts deliberately refuse when COMMITTED is present."
-  ]
+  ],
+  "initialMigrationMode": "managed-gost",
+  "nativeModeSwitch": {
+    "completedAt": "2026-11-02T15:00:39.726000+08:00",
+    "task": {
+      "error": "",
+      "from": "gost",
+      "id": "qcloud-native-78219481-ee69-44f8-a147-2538e8bfc7d9",
+      "status": "succeeded",
+      "to": "kernel"
+    },
+    "actualForwardingMode": "kernel",
+    "kernelBackend": "nftables",
+    "checkpointMode": "kernel",
+    "epochUnchanged": true,
+    "rulesPreserved": true,
+    "allRulesEnabled": true,
+    "cumulativeUsageMonotonic": true,
+    "managedGostServiceCount": 0,
+    "natDirectToOriginalTargets": true,
+    "passiveTrafficGrowth": {
+      "36_1_0": {
+        "up": 435009,
+        "down": 766961
+      },
+      "37_1_0": {
+        "up": 4367102,
+        "down": 3117940
+      },
+      "39_1_0": {
+        "up": 0,
+        "down": 0
+      }
+    },
+    "nativeTCPConntrackEntries": 82,
+    "nativeUDPConntrackEntries": 2,
+    "nativeUDPAssuredEntries": 2,
+    "syntheticPublicDataPlaneTests": false,
+    "qhixChanged": false
+  }
 }
