@@ -913,7 +913,9 @@ func (m *Manager) Report() (Report, error) {
 	claimIDs := map[string]bool{}
 	for _, l := range r.Leases {
 		ack, seen := m.state.LeaseAcks[l.ID]
-		if selected[l.ServiceID] || seen && ack == l.Used {
+		// A fresh idle grant has no dirty usage page yet. Its zero-consumption
+		// claim must be acknowledged once so later TTL renewals can be sent.
+		if selected[l.ServiceID] || seen && ack == l.Used || !seen && l.Used == 0 {
 			claims = append(claims, l)
 			claimIDs[l.ServiceID] = true
 		}
