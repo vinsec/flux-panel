@@ -295,6 +295,9 @@ func (f *testPanel) fakeNode(t *testing.T, node int64, responders ...func(M) M) 
 	t.Helper()
 	n := f.store().get("node", node)
 	url := "ws" + strings.TrimPrefix(f.http.URL, "http") + "/system-info?type=1&engine=" + str(n["engine"]) + "&version=kernel-v6.0"
+	if str(n["engine"]) == "kernel" {
+		url += "&http=0&tls=0&socks=0"
+	}
 	head := http.Header{"Authorization": []string{"Bearer " + str(n["secret"])}}
 	conn, _, e := websocket.DefaultDialer.Dial(url, head)
 	if e != nil {

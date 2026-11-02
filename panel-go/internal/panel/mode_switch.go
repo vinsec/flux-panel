@@ -92,6 +92,8 @@ func (p *Panel) resumeModeSwitch(s store, node int64) M {
 			tx.exec("UPDATE engine_mode_switch SET status='succeeded',error_text='',updated_at=? WHERE node_id=? AND operation_id=?", now(), node, id)
 			return nil
 		})
+		// Complete the initial desired-state apply immediately after a mode job.
+		p.queueReconcile(node)
 	case "failed", "blocked":
 		s.exec("UPDATE engine_mode_switch SET status=?,error_text=?,updated_at=? WHERE node_id=? AND operation_id=?", job["status"], redact(str(job["error"])), now(), node, id)
 	default:

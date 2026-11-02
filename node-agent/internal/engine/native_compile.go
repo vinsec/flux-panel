@@ -199,7 +199,7 @@ func compileNative(rules map[string]Spec, addresses map[string][]string, objects
 						if ms < 1 {
 							continue
 						}
-						timeout = fmt.Sprintf(" timeout %dms", ms)
+						timeout = " timeout " + nftTimeoutMilliseconds(ms)
 					}
 					elements["allow"+f][key] = timeout
 				}

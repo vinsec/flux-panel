@@ -532,7 +532,7 @@ func (n *NativeNFT) updateControl(s State) error {
 	for _, v := range entries {
 		timeout := ""
 		if v.timeout > 0 {
-			timeout = fmt.Sprintf(" timeout %dms", v.timeout)
+			timeout = " timeout " + nftTimeoutMilliseconds(v.timeout)
 		}
 		fmt.Fprintf(&b, "add element inet %s live_control { 0x%x%s }\n", nativeTable, v.mark, timeout)
 	}

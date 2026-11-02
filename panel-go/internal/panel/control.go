@@ -234,9 +234,13 @@ func (p *Panel) socket(w http.ResponseWriter, r *http.Request, s store) {
 			if x.version != "" {
 				m["version"] = x.version
 			}
-			for _, k := range []string{"http", "tls", "socks"} {
-				if q.Get(k) != "" {
-					m[k] = num(q.Get(k))
+			// Native agents receive policy from the panel. Their handshake zeros
+			// must never erase the administrator's protocol-blocking settings.
+			if x.engine == "gost" {
+				for _, k := range []string{"http", "tls", "socks"} {
+					if q.Get(k) != "" {
+						m[k] = num(q.Get(k))
+					}
 				}
 			}
 			s.update("node", id, m)

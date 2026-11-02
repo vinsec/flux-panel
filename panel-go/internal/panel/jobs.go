@@ -2,6 +2,7 @@ package panel
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"regexp"
 	"strings"
@@ -142,6 +143,7 @@ func (p *Panel) Start(ctx context.Context) {
 			func() {
 				defer func() {
 					if v := recover(); v != nil {
+						slog.Error("node reconciliation failed", "nodeId", node, "error", redact(fmt.Sprint(v)))
 						p.queueReconcile(node)
 					}
 				}()
