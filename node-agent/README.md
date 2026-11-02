@@ -30,7 +30,7 @@ CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o flux-agent ./cmd/flux-agent
 
 参考 `config.example.json`；真实配置权限应为 600。正式面板地址使用 WSS/HTTPS；
 `allowInsecure` 仅用于隔离测试。离线安装器使用 `--engine kernel` 或 `--engine gost`，并固定校验发布包。
-安装、升级、维护和卸载可能暂停业务，需另行安排发布窗口；qcloud 已按单独批准的窗口完成统一 Agent 灰度并切到原生 nftables，qhix 未迁移，见 [上线记录](../doc/qcloud-agent-migration-20261102.md)。
+安装、升级、维护和卸载可能暂停业务，需另行安排发布窗口；qcloud 和 qhix 已按各自批准的窗口升级并实际切到原生 nftables，分别见 [qcloud 上线记录](../doc/qcloud-agent-migration-20261102.md)和 [qhix 上线记录](../doc/qhix-agent-migration-20261102.md)。
 
 ## 验证
 
