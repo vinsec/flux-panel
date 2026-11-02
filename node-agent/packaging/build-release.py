@@ -21,12 +21,11 @@ if a.gost_amd64 or a.gost_arm64:
   if expected.get('sha256')!=sha or not expected.get('ws') or not expected.get('wss'):p.error('unverified GOST binary '+arch)
   shutil.copyfile(source,out/('gost-linux-'+arch));(out/('gost-linux-'+arch)).chmod(0o755)
  (out/'gost-wss-evidence.json').write_text(json.dumps(proof,indent=2))
-manifest={'format':1,'sourceCommit':commit,'sourceDirty':dirty,'engines':['kernel']+(['gost'] if proof else []),'kernelBackends':['nftables'],'stateVersion':8,'managedGost':True,'forwardingModes':['kernel','gost'],'requiresExplicitDatabaseMigration':['001-forward-engines.sql','002-engine-foundation.sql','003-engine-p1.sql','004-node-kernel-backend.sql','005-native-only.sql','006-go-panel-runtime.sql','007-managed-agent.sql']}
-(out/'release.json').write_text(json.dumps(manifest,indent=2)+'\n')
-lines=[]
-for f in sorted(out.iterdir()):
- if f.is_file():lines.append(hashlib.sha256(f.read_bytes()).hexdigest()+'  '+f.name)
-checks='\n'.join(lines)+'\n';(out/'SHA256SUMS').write_text(checks);pin=hashlib.sha256(checks.encode()).hexdigest();(out/'MANIFEST.sha256').write_text(pin+'\n')
+args=['python3',str(root/'node-agent/packaging/finalize-release.py'),'--directory',str(out),'--source',commit]
+if dirty:args+=['--dirty']
+if a.gost_proof:args+=['--gost-proof',str(a.gost_proof)]
+subprocess.run(args,check=True)
+pin=(out/'MANIFEST.sha256').read_text().strip()
 archive=out.parent/(out.name+'.tar.gz')
 with tarfile.open(archive,'w:gz') as t:t.add(out,arcname=out.name)
 print(json.dumps({'directory':str(out),'archive':str(archive),'manifestSha256':pin,'published':False}))

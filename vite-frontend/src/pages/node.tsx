@@ -510,15 +510,9 @@ export default function NodePage() {
     try {
       const res = await getNodeInstallCommand(node.id);
       if (res.code === 0 && res.data) {
-        try {
-          await navigator.clipboard.writeText(res.data);
-          toast.success('安装命令已复制到剪贴板');
-        } catch (copyError) {
-          // 复制失败，显示安装命令模态框
-          setInstallCommand(res.data);
-          setCurrentNodeName(node.name);
-          setInstallCommandModal(true);
-        }
+        setInstallCommand(res.data);
+        setCurrentNodeName(node.name);
+        setInstallCommandModal(true);
       } else {
         toast.error(res.msg || '获取安装命令失败');
       }
@@ -1104,7 +1098,7 @@ export default function NodePage() {
             <ModalBody>
               <div className="space-y-4">
                 <p className="text-sm text-default-600">
-                  请复制以下安装命令到服务器上执行：
+                  登录要安装节点的 Linux 服务器，使用 root 执行下面的命令。完成后回到面板，节点会显示在线。
                 </p>
                 <div className="relative">
                   <Textarea
@@ -1129,7 +1123,7 @@ export default function NodePage() {
                   </Button>
                 </div>
                 <div className="text-xs text-default-500">
-                  💡 提示：如果复制按钮失效，请手动选择上方文本进行复制
+                  命令包含此节点的连接凭据，请勿公开分享。已有节点升级前先安排维护窗口。
                 </div>
               </div>
             </ModalBody>

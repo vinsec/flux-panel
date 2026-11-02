@@ -1,0 +1,4 @@
+{
+  "amd64": {"sha256":"2faca7c1ca7e38d4adaff80ec0349344c77004216774639f784fdd3728d0011e","ws":true,"wss":true},
+  "arm64": {"sha256":"734ffcea4979bd4c9bc1031501eed08c0f6bef675d6e7c59fed82ef552ecf877","ws":true,"wss":true}
+}

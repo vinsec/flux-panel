@@ -58,7 +58,7 @@ func main() {
 	if leaseMax < 128 || leaseMax > 1<<32 || leaseDuration < 1000 || leaseDuration > 60000 {
 		panic("invalid credit lease configuration")
 	}
-	p := panel.New(db, panel.Config{JWTSecret: os.Getenv("JWT_SECRET"), SessionMillis: sessionMillis, LeaseMaxBytes: leaseMax, LeaseDurationMillis: leaseDuration, ReleaseBase: os.Getenv("NODE_RELEASE_BASE_URL"), ManifestSHA: os.Getenv("NODE_RELEASE_MANIFEST_SHA256"), InstallerSHA: os.Getenv("NODE_RELEASE_INSTALLER_SHA256"), AllowLegacyQuery: os.Getenv("ENGINE_AUTH_ALLOW_LEGACY_QUERY") != "false", ReadOnly: os.Getenv("PANEL_READ_ONLY") == "true", TimeZone: os.Getenv("TZ")})
+	p := panel.New(db, panel.Config{JWTSecret: os.Getenv("JWT_SECRET"), SessionMillis: sessionMillis, LeaseMaxBytes: leaseMax, LeaseDurationMillis: leaseDuration, NodeReleaseDir: os.Getenv("NODE_RELEASE_DIR"), ReleaseBase: os.Getenv("NODE_RELEASE_BASE_URL"), ManifestSHA: os.Getenv("NODE_RELEASE_MANIFEST_SHA256"), InstallerSHA: os.Getenv("NODE_RELEASE_INSTALLER_SHA256"), AllowLegacyQuery: os.Getenv("ENGINE_AUTH_ALLOW_LEGACY_QUERY") != "false", ReadOnly: os.Getenv("PANEL_READ_ONLY") == "true", TimeZone: os.Getenv("TZ")})
 	addr := os.Getenv("PANEL_LISTEN")
 	if addr == "" {
 		addr = "127.0.0.1:6365"

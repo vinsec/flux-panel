@@ -277,13 +277,6 @@ func (p *Panel) installCommand(s store, n M) string {
 	if panel == "" {
 		fail("请先前往网站配置中设置ip")
 	}
-	if !hashPattern.MatchString(p.cfg.ManifestSHA) || !hashPattern.MatchString(p.cfg.InstallerSHA) {
-		fail("请先发布经过验证的节点安装包，并配置固定 release URL、manifest SHA256 和 installer SHA256；也可使用已校验的离线包。未回退到未经验证的上游 GOST 下载。")
-	}
-	base, e := url.Parse(p.cfg.ReleaseBase)
-	if e != nil || base.Scheme != "https" || base.Hostname() == "" || base.User != nil || base.RawQuery != "" || base.Fragment != "" {
-		fail("release URL must be a pinned HTTPS base")
-	}
 	if !strings.Contains(panel, "://") {
 		panel = "wss://" + panel
 	}
@@ -297,8 +290,26 @@ func (p *Panel) installCommand(s store, n M) string {
 		nativeNode(n)
 		defaults(cfg, M{"kernelBackend": "nftables", "apply": true, "helperSocket": "/run/flux-agent/kernel.sock", "useSessions": true, "statePath": "/var/lib/flux-agent/state.json", "intervalSeconds": 5, "forwardingMode": n["forwardingMode"]})
 	}
-	baseURL := strings.TrimRight(p.cfg.ReleaseBase, "/")
-	return "umask 077\nFLUX_SETUP=$(mktemp -d)\ntrap 'rm -rf -- \"$FLUX_SETUP\"' EXIT\ncurl --fail --location --proto '=https' --proto-redir '=https' " + quote(baseURL+"/install.sh") + " -o \"$FLUX_SETUP/install.sh\"\nprintf '%s  %s\\n' " + quote(strings.ToLower(p.cfg.InstallerSHA)) + " \"$FLUX_SETUP/install.sh\" | sha256sum --strict -c -\ncat > \"$FLUX_SETUP/config.json\" <<'FLUX_NODE_CONFIG'\n" + jsonText(cfg) + "\nFLUX_NODE_CONFIG\nbash \"$FLUX_SETUP/install.sh\" --engine " + engine + " --release-url " + quote(baseURL) + " --manifest-sha256 " + quote(strings.ToLower(p.cfg.ManifestSHA)) + " --config \"$FLUX_SETUP/config.json\""
+	baseURL, manifestSHA, installerSHA := strings.TrimRight(p.cfg.ReleaseBase, "/"), p.cfg.ManifestSHA, p.cfg.InstallerSHA
+	if baseURL == "" && manifestSHA == "" && installerSHA == "" {
+		if p.nodeRelease == nil {
+			fail("节点安装文件尚未就绪，请更新完整面板镜像后重试")
+		}
+		u.Scheme = "https"
+		u.Path = strings.TrimRight(u.Path, "/") + "/node-install/" + p.nodeRelease.manifestSHA
+		baseURL = u.String()
+		manifestSHA = p.nodeRelease.manifestSHA
+		installerSHA = p.nodeRelease.installerSHA
+		if engine == "gost" && !p.nodeRelease.files["gost-linux-amd64"] {
+			fail("当前安装包不含旧版 GOST，请选择统一 Agent 或联系管理员")
+		}
+	} else {
+		base, e := url.Parse(baseURL)
+		if !hashPattern.MatchString(manifestSHA) || !hashPattern.MatchString(installerSHA) || e != nil || base.Scheme != "https" || base.Hostname() == "" || base.User != nil || base.RawQuery != "" || base.Fragment != "" {
+			fail("自定义节点下载配置不完整，请联系面板管理员检查")
+		}
+	}
+	return "umask 077\nif [ \"$(id -u)\" != 0 ]; then echo '请使用 root 用户执行安装命令'; exit 1; fi\nif ! command -v curl >/dev/null; then\n  if command -v apt-get >/dev/null; then apt-get update && apt-get install -y curl ca-certificates\n  elif command -v dnf >/dev/null; then dnf install -y curl ca-certificates\n  elif command -v yum >/dev/null; then yum install -y curl ca-certificates\n  else echo '请先安装 curl 后重试'; exit 1; fi\nfi\nFLUX_SETUP=$(mktemp -d)\ntrap 'rm -rf -- \"$FLUX_SETUP\"' EXIT\ncurl --fail --location --proto '=https' --proto-redir '=https' " + quote(baseURL+"/install.sh") + " -o \"$FLUX_SETUP/install.sh\"\nprintf '%s  %s\\n' " + quote(strings.ToLower(installerSHA)) + " \"$FLUX_SETUP/install.sh\" | sha256sum --strict -c -\ncat > \"$FLUX_SETUP/config.json\" <<'FLUX_NODE_CONFIG'\n" + jsonText(cfg) + "\nFLUX_NODE_CONFIG\nbash \"$FLUX_SETUP/install.sh\" --engine " + engine + " --release-url " + quote(baseURL) + " --manifest-sha256 " + quote(strings.ToLower(manifestSHA)) + " --config \"$FLUX_SETUP/config.json\" --install-deps --enable-forwarding"
 }
 func ipv4(s string) bool {
 	ip := net.ParseIP(s)

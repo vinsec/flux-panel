@@ -20,8 +20,10 @@ type Config struct {
 	SessionMillis                                     int64
 	ReadOnly                                          bool
 	TimeZone                                          string
+	NodeReleaseDir                                    string
 }
 type Panel struct {
+	nodeRelease     *nodeRelease
 	userNames       sync.Mutex
 	tunnelNames     sync.Mutex
 	owners          map[int64]*ownerGate
@@ -62,7 +64,8 @@ func New(db *sql.DB, cfg Config) *Panel {
 	if cfg.SessionMillis == 0 {
 		cfg.SessionMillis = 900000
 	}
-	return &Panel{db: db, cfg: cfg, owners: map[int64]*ownerGate{}, nodes: map[int64]*peer{}, nodeStatusLocks: map[int64]*sync.Mutex{}, quotaJobs: make(chan M, 64), quotaPending: map[int64]bool{}, gostCleanup: map[int64]M{}, admins: map[*peer]bool{}, tickets: map[string]ticket{}, captcha: newCaptchas(), stop: make(chan struct{})}
+	nodePackage, _ := loadNodeRelease(cfg.NodeReleaseDir)
+	return &Panel{nodeRelease: nodePackage, db: db, cfg: cfg, owners: map[int64]*ownerGate{}, nodes: map[int64]*peer{}, nodeStatusLocks: map[int64]*sync.Mutex{}, quotaJobs: make(chan M, 64), quotaPending: map[int64]bool{}, gostCleanup: map[int64]M{}, admins: map[*peer]bool{}, tickets: map[string]ticket{}, captcha: newCaptchas(), stop: make(chan struct{})}
 }
 func (p *Panel) Handler() http.Handler { return http.HandlerFunc(p.serve) }
 func (p *Panel) serve(w http.ResponseWriter, r *http.Request) {
@@ -91,6 +94,10 @@ func (p *Panel) serve(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, 500, M{"code": -1, "msg": "服务器内部错误", "ts": now(), "data": nil})
 		}
 	}()
+	if strings.HasPrefix(r.URL.Path, "/node-install/") {
+		p.serveNodeRelease(w, r)
+		return
+	}
 	ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
 	defer cancel()
 	s := store{p.db, ctx}
