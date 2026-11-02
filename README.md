@@ -58,8 +58,7 @@ go build -o flux-panel ./cmd/panel
 [功能矩阵](panel-go/contracts/feature-matrix.json) 覆盖冻结基线的 64 个 HTTP 映射以及控制连接、计费、额度和任务。
 [首次功能验收](doc/go-panel-validation.md) 保留原始基线与范围；[Go 收尾验收](doc/go-only-validation.md) 记录去 Java 化后的新验证。
 
-节点保持独立发布，构建、安装配置与固定哈希要求见 [node-agent](node-agent/README.md)。
-生成节点安装命令前必须配置同一已验证发布包的 URL、manifest 与 installer 哈希；不能使用浮动下载替代。
+节点与面板分开部署，安装程序由面板镜像提供；维护者构建与校验说明见 [node-agent](node-agent/README.md)。
 GOST→nftables 的节点迁移与面板语言切换分别进行。
 
 ## 历史与回滚
