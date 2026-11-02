@@ -1,0 +1,122 @@
+{
+  "qcloud": {
+    "success": true,
+    "at": 1793608040.4662309,
+    "recoveryAndVerificationSeconds": 6.1071629320213106,
+    "agentSHA256": "571ea9bbaa42f66e867a415a7638cf74d41ac98fdad9ed9696b4a5ea9ec6263a",
+    "rules": 3,
+    "readOnlyDiagnosticPasses": 3,
+    "probePerformed": false,
+    "epochUnchanged": true,
+    "bootIdUnchanged": true,
+    "totalsMonotonic": true,
+    "units": {
+      "flux-kernel.service": {
+        "MainPID": "87919",
+        "NRestarts": "0",
+        "ActiveState": "active"
+      },
+      "flux-agent.service": {
+        "MainPID": "87922",
+        "NRestarts": "0",
+        "ActiveState": "active"
+      }
+    }
+  },
+  "qhix": {
+    "success": true,
+    "at": 1793608071.2016609,
+    "recoveryAndVerificationSeconds": 6.617236260004574,
+    "agentSHA256": "571ea9bbaa42f66e867a415a7638cf74d41ac98fdad9ed9696b4a5ea9ec6263a",
+    "rules": 17,
+    "readOnlyDiagnosticPasses": 17,
+    "probePerformed": false,
+    "epochUnchanged": true,
+    "bootIdUnchanged": true,
+    "totalsMonotonic": true,
+    "units": {
+      "flux-kernel.service": {
+        "MainPID": "57847",
+        "NRestarts": "0",
+        "ActiveState": "active"
+      },
+      "flux-agent.service": {
+        "MainPID": "57848",
+        "NRestarts": "0",
+        "ActiveState": "active"
+      }
+    }
+  },
+  "panel": {
+    "success": true,
+    "at": 1793608093.0809462,
+    "restartAndVerificationSeconds": 7.213168651011074,
+    "otherContainersUnchanged": true,
+    "sourceCommit": "a9ec7f7"
+  },
+  "api": {
+    "success": true,
+    "verifiedAt": 1793608114460,
+    "diagnostics": [
+      {
+        "tunnelId": 1,
+        "success": true,
+        "checkedForwards": 17,
+        "probePerformed": false
+      },
+      {
+        "tunnelId": 2,
+        "success": true,
+        "checkedForwards": 3,
+        "probePerformed": false
+      },
+      {
+        "forwardId": 34,
+        "success": true,
+        "probePerformed": false
+      },
+      {
+        "forwardId": 36,
+        "success": true,
+        "probePerformed": false
+      }
+    ],
+    "credits": {
+      "live": 14,
+      "lost": 0,
+      "open": 14,
+      "minGeneration": 109
+    }
+  },
+  "isolated": {
+    "success": true,
+    "count": 11,
+    "checks": [
+      "four private netns including an intermediate PMTU router; no external route",
+      "basic numeric-target forward has no advanced options",
+      "TCP and UDP work before diagnostics",
+      "basic route-only diagnostic succeeds without helper crash 0",
+      "basic route-only diagnostic succeeds without helper crash 1",
+      "basic route-only diagnostic succeeds without helper crash 2",
+      "read-only diagnostic does not consume business counters",
+      "opt-in private TCP handshake handles basic egress defaults",
+      "TCP and UDP continue after diagnostics",
+      "diagnostics retain epoch and rule identity",
+      "missing forward returns an error without crashing helper"
+    ],
+    "publicTargets": []
+  },
+  "sourceCommit": "a9ec7f7",
+  "tests": {
+    "agentRaceAndVet": true,
+    "panelRaceWithDisposableMySQLAndVet": true,
+    "frontendTypecheckAndBuild": true
+  },
+  "browser": {
+    "qcloudForwardRouteOnly": true,
+    "advancedSettingsCollapsed": true,
+    "qhixTunnel17RulesHealthy": true
+  },
+  "newPerformanceBenchmark": false,
+  "publicConnectionProbes": false
+}

@@ -1,5 +1,7 @@
 # qcloud 统一 Agent 迁移验收
 
+后续已更新 Agent 和面板以修复诊断并精简界面，当前二进制及验证见 [诊断修复记录](diagnostics-repair-20261102.md)。
+
 后续状态：qhix 也已完成迁移并实际使用原生 nftables，见 [qhix 上线记录](qhix-agent-migration-20261102.md)。本文及配套 JSON 保留 qcloud 迁移当时的观测，涉及“qhix 未迁移”的描述仅指当时。
 
 **最新状态：qcloud（逻辑节点 ID 2）已切到统一 Agent / 原生 nftables，实际 `forwardingMode=kernel`。** 最初先迁入受管 GOST，随后按用户明确要求完成原生模式切换。qhix 没有迁移、没有对其执行 SSH 或服务配置变更，仍以旧 GOST 在线；需用户确认 qcloud 后再处理。

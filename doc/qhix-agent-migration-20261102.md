@@ -1,5 +1,7 @@
 # qhix 统一 Agent / 原生 nftables 迁移验收
 
+后续已更新 Agent 和面板以修复诊断并精简界面，当前二进制及验证见 [诊断修复记录](diagnostics-repair-20261102.md)。本文件保留迁移时点的记录。
+
 2026-11-02，qhix（逻辑节点 ID 1）已升级到统一 Agent 并实际切到原生 nftables。面板、实时 Agent 和持久化状态均为 `forwardingMode=kernel`，`kernelBackend=nftables`。qcloud 同样保持原生模式在线，本次没有修改其节点配置、二进制或服务。
 
 ## 最终状态和账本
