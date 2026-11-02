@@ -1,5 +1,5 @@
 """Disposable private netns only; /build/gost is the managed-capable GOST.
-See doc/unified-agent-switching.md for the isolated runner.
+The private topology and controller are defined in foundation_fixture.py.
 """
 from foundation_fixture import *
 import hashlib

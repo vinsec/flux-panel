@@ -1,71 +1,30 @@
-# 节点安装
+# 安装转发节点
 
-使用本仓库默认面板镜像时，节点程序和校验由面板提供，普通安装只需以下操作。
+面板已经自带节点安装文件，普通安装不用自己编译、发布文件或填写校验值。
 
 ## 安装步骤
 
-1. 在面板“网站配置”中填写面板的 HTTPS 访问地址。
-2. 打开“节点监控”→“新增”，选择“统一 Agent”，填写节点名称、服务器 IP 和业务端口范围，保存。
-3. 点击该节点的“安装”，复制弹窗里的整段命令。
-4. SSH 登录要安装节点的服务器，以 root 用户粘贴执行。
-5. 等命令执行结束，回到面板确认节点“在线”，再创建隧道和转发规则。
+1. 在面板“网站配置”中填写面板的 **HTTPS 访问地址**。
+2. 打开“节点监控”→“新增”，选择“统一 Agent”，填写节点名称、服务器 IP 和业务端口范围，保存。普通情况下，入口 IP 与服务器 IP 填同一个地址。
+3. 点击该节点的“安装”，复制弹窗里的**整段命令**。
+4. SSH 登录**要作为转发节点的服务器**，以 root 用户粘贴执行。这里不是让你把命令再次执行在面板服务器上，除非你就打算让它同时作为节点。
+5. 等命令执行结束，回到面板确认节点显示“在线”，再创建隧道和转发规则。
 
-默认使用原生 nftables，也可在“编辑节点”中切换为受管 GOST。安装命令会识别 x86_64／ARM64、准备必要依赖、开启 IPv4 转发并安装服务。节点需为支持 systemd 的 Linux；IPv6、特殊出口路由等按主机环境检查。命令包含该节点的连接凭据，不要公开分享。
+默认使用原生 nftables。需要受管 GOST 时，在“编辑节点”里选另一模式，再点击旁边的“切换”。切换会断开原有连接，客户端需要重连；不能切换时页面会置灰并显示原因。
 
-已有节点升级可能短暂停流。旧独立 GOST 转成统一 Agent 需要交接原记录和业务，不能把新节点命令当作所有旧版本的一键迁移。先阅读 [部署与交接](../deploy/README.md) 以及 [模式切换范围](../doc/unified-agent-switching.md)。
+## 服务器要求
 
-<details>
-<summary>维护者参考：兼容边界、源码构建与隔离测试</summary>
+- 支持 systemd 的 Linux，常见的 x86_64／ARM64 架构会自动识别。
+- 能访问面板的 HTTPS 地址，且具有转发所需的内核权限。安装命令会准备必要依赖、开启 IPv4 转发并安装服务。
+- 云安全组和服务器防火墙需要放行实际使用的业务端口及 TCP／UDP 协议。IPv6、特殊出口和回程配置按服务器实际网络条件处理。
 
-统一 Agent 支持同一节点在原生 nftables 和受管 GOST 之间切换，允许短暂中断；旧独立 GOST 节点继续兼容。
-控制协议值保持 `kernel`，执行方式使用 `forwardingMode=kernel|gost`，不提供 iptables 后端或自动回退。
-使用步骤、支持范围和格式 8 回滚边界见 [统一 Agent 切换说明](../doc/unified-agent-switching.md)。
+安装命令含有这个节点的连接凭据，不要公开分享。
 
-当前支持域名、双栈、多目标、出口路由、共享平滑限速、本地路径、源地址保留、缩权 helper，
-以及有界 HTTP/TLS/SOCKS 识别。未知流量放行并标记 UNKNOWN。
-暂停、配额和网络层计数仍由内核规则执行；控制通信保留 WSS、累计上报、中央 credit、事务日志与恢复语义。
+## 没有成功时
 
-完整移除范围、迁移、回滚和测试见 [原生后端收敛说明](../doc/native-only.md)。
-先前两种后端的性能报告是历史对照，不是当前可选模式列表。
+- **点安装提示面板地址未设置**：先在“网站配置”填写正确的 HTTPS 访问地址。
+- **服务器下载或连接失败**：检查该服务器能否访问面板域名及其 HTTPS 端口。
+- **执行结束仍离线**：保留终端最后的报错，检查面板地址和服务器网络，不要反复新增同一个节点。
+- **想升级已有旧节点**：先看 [存量迁移](../deploy/migrate-existing.md)。新节点安装命令不是所有旧版本的自动迁移程序。
 
-## 安装与兼容边界
-
-- 面板升级前显式应用尚未执行的 `database/migrations/001` 至 `007` 迁移；不自动修改线上数据库。
-- Linux 需要 `nftables`、`conntrack`、`iproute2` 及相应内核能力。原生模式不依赖 iptables/ipset 可执行文件。
-- 主机转发开关、回程和外部防火墙需要事先配置；Agent 不修改宿主 sysctl 或全局防火墙默认策略。
-- `kernelBackend` 可省略或为 `nftables`。`iptables` 后端和旧 `iptables` 二进制选项明确拒绝。
-- 已有原生 nftables 的 format 6/7 状态继续使用同一 epoch、计数身份和账本；不原地把旧 iptables 状态改成原生。
-- 旧 iptables 状态/备份须由以前的发布版结算和导出，再按独立迁移方案处理。新二进制拒绝接管它们。
-- 只读审计会检查机器上已安装的外部 xtables 工具；工具不存在不阻止原生模式启动。外部规则不会被本项目删除。
-- 一套网络命名空间只允许一个内核 Agent；保留跨版本互斥锁的历史名称，不能同时启动新旧版本。
-
-编译：
-
-```sh
-CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o flux-agent ./cmd/flux-agent
-```
-
-参考 `config.example.json`；真实配置权限应为 600。正式面板地址使用 WSS/HTTPS；
-`allowInsecure` 仅用于隔离测试。离线安装器使用 `--engine kernel` 或 `--engine gost`，并固定校验发布包。
-安装、升级、维护和卸载可能暂停业务，需安排维护窗口。
-
-## 验证
-
-```sh
-go test -race ./...
-go vet ./...
-tests/run-local.sh native
-```
-
-完整端到端脚本 `tests/integration.py` 可在本地 Docker 或 Fusion Linux 运行。Linux 必须有实际 IFB/BPF 等能力，
-不能把 Docker Desktop 缺少驱动的结果当作功能通过。Fusion 的 `FLUX_TEST_DB_HOST` / `FLUX_TEST_DB_PORT`
-只指向一次性测试 MySQL，业务数据保持在私有 veth 内；不能指向生产。
-
-`tests/native-no-xtables.py` 用不包含任何 iptables/ipset 的 PATH 验证转发、暂停、恢复、重启和结算卸载。
-`tests/install-package.py` 验证固定哈希、离线安装、幂等及激活失败回滚，使用私有 /run 和假 systemctl。
-`tests/benchmark/native-only-regression.py` 用相同协议屏蔽比较冻结原生 v5.5 与当前版本，记录实际进程哈希、CPU、延迟及收包回执。
-
-历史设计与边界参见 [原生 map 后端](../doc/forward-native-nft.md)、
-[协议识别](../doc/forward-protocol-blocking.md)、[先前 v5.5 验证](../doc/forward-performance-v55-validation.md)。
-
-</details>
+返回 [面板安装](../README.md)。

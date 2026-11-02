@@ -53,7 +53,7 @@ case "$ACTION" in
   echo 'Go panel ready. Default login: admin_user / admin_user. Change the password after login.'
   ;;
  update)
-  [[ -f "$MARKER" ]] || { echo 'First Java-to-Go takeover requires the explicit handover in deploy/README.md. Refusing an automatic takeover.' >&2;exit 1; }
+  [[ -f "$MARKER" ]] || { echo '旧安装不能直接执行 update，请先按 deploy/migrate-existing.md 制定迁移步骤。' >&2;exit 1; }
   build_images
   "${DC[@]}" stop backend
   "${DC[@]}" run --rm --no-deps backend migrate
