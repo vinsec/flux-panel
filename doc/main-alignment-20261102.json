@@ -1,0 +1,51 @@
+{
+  "date": "2026-11-02",
+  "repository": "https://github.com/vinsec/flux-panel.git",
+  "branch": "main",
+  "codeBaselineCommit": "5c6ad2d",
+  "rejectedUncommittedChangesRemoved": [
+    "legacy diagnostic response compatibility",
+    "HTML cache policy change",
+    "frontend build-version polling and reload"
+  ],
+  "components": {
+    "panel": {
+      "sourceTree": "58d3f6c55c80519f338e61cb0cb8aae4a613f5bf",
+      "platform": "linux/arm64",
+      "binarySHA256": "702e6076c453fb22a8cd7c859493bbb45ba1000dc0c15fa78d7e863b10bf6332",
+      "runningImage": "oracle/panel-go:connectivity-9b28c3b",
+      "rebuildMatchesRunning": true
+    },
+    "frontend": {
+      "sourceTree": "f7ed104403b9b92b2569d5e2b64ff2f86a49a8d3",
+      "runningImage": "oracle/panel-frontend:node-editor-5c6ad2d",
+      "mainAsset": "assets/index-FutjWr3C.js",
+      "comparedFiles": 7,
+      "allRebuiltFilesMatchRunning": true
+    },
+    "agent": {
+      "sourceTree": "7b8bc6174ae9cbc813597c01d204f2f19780b090",
+      "platform": "linux/amd64",
+      "binarySHA256": "a1ce620d51099337656c2ff1f6e4656adbceec2c5520adb236aee65c37180044",
+      "runningNodes": ["qcloud", "qhix"],
+      "actualForwardingMode": "kernel",
+      "kernelBackend": "nftables",
+      "rebuildMatchesBothRunningNodes": true
+    },
+    "database": {
+      "migrationSourceTree": "f2c4158076dd0a38328b39b2c5b5cd35d389191f",
+      "migrationExecutedForAlignment": false
+    }
+  },
+  "build": {
+    "goToolchain": "go1.26.10",
+    "cgoEnabled": false,
+    "goFlags": ["-trimpath", "-buildvcs=false"],
+    "frontendTypecheckAndBuildPassed": true
+  },
+  "restartRequired": false,
+  "publicBusinessProbes": false,
+  "credentialsOrRuntimeDataCommitted": false,
+  "historicalWorktreesRetained": true,
+  "qcloudSgHistoricalCopy": "SSH unavailable; not changed"
+}
