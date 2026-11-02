@@ -1,5 +1,7 @@
 # 统一 Agent 切换验收（2026-11-02）
 
+本文件记录初版隔离验收快照；之后的 qcloud 实际灰度另见 [上线记录](qcloud-agent-migration-20261102.md)，不混用两阶段的验证范围。
+
 仅本地 main；未发布、未部署，未连接 Oracle/qcloud/qhix，未使用 GZ 入口。基线为 `baseline/pre-unified-agent-20261102`（ccec0d5）。最终 Agent、面板、GOST 的 SHA256、原始证据位置和逐项结果见 [JSON](unified-agent-validation.json)。
 
 ## 功能结果
