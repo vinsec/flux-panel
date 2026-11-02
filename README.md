@@ -9,7 +9,7 @@
 使用本分支的完整源码，安装 Docker 和 Compose v2。不要下载官方旧分支的面板安装脚本。
 
 ```sh
-git clone --branch feat/panel-go-native https://github.com/vinsec/flux-panel.git
+git clone --branch main https://github.com/vinsec/flux-panel.git
 cd flux-panel
 ./panel_install.sh install
 ```
