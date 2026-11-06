@@ -31,6 +31,12 @@ s.close()
  exchange(b'GET / '+b'x'*20000,True);check('large coalesced HTTP payload cannot bypass prefix recognition')
  exchange(b'GET / HTTP/1.1\r\n\r\n',True,True);check('segmented TCP prefix is classified before release')
  exchange(b'opaque\x00\x80\xfe-data');check('opaque traffic allowed without alteration')
+ for payload in SOCKS_LIKE_CIPHERTEXT:
+  exchange(payload)
+ check('SOCKS-like encrypted prefixes are passed byte for byte')
+ exchange(b'\x05\x02\x00\x02',True,True);check('segmented SOCKS5 greeting remains blocked')
+ exchange(b'\x04\x01\x01\xbb\x00\x00\x00\x01user\0private.test\0',True);check('complete SOCKS4a request remains blocked')
+
  exchange(b'\x05\x02\x80\x81opaque-auth-data');check('unknown SOCKS5 authentication methods are allowed and labelled UNKNOWN')
  exchange(b'G');check('bounded incomplete prefix timeout is allowed UNKNOWN')
  code="import socket;s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.settimeout(2);s.sendto(b'GET / udp',('10.205.1.1',18000));assert s.recv(100)==b'GET / udp'";run(ns('client','python3','-c',code));check('UDP preserved and marked UNKNOWN')

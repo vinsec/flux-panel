@@ -2,6 +2,7 @@ package service
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -462,6 +463,18 @@ type detectConn struct {
 }
 
 func (c *detectConn) Read(b []byte) (int, error) {
+	if !c.detected && isSocks == 1 && len(b) != 0 && !strings.HasPrefix(c.Conn.RemoteAddr().Network(), "udp") {
+		// Inspect the buffered network read, even if the caller asks for
+		// fewer bytes. A short caller buffer is not a message boundary.
+		if _, err := c.reader.Peek(1); err != nil {
+			return 0, err
+		}
+		prefix, _ := c.reader.Peek(c.reader.Buffered())
+		c.detected = true
+		if detectProtocol(prefix, c.Conn) {
+			return 0, fmt.Errorf("connection blocked")
+		}
+	}
 	n, err := c.reader.Read(b)
 	if n > 0 && !c.detected {
 		c.detected = true
@@ -537,35 +550,100 @@ func detectTLS(data []byte) bool {
 }
 
 func detectSOCKS(data []byte) bool {
-	if len(data) == 0 {
-		return false
-	}
+	return len(data) != 0 && plainSOCKS(data) == 4
+}
 
-	switch data[0] {
-	case 0x04:
-		if len(data) < 7 {
-			return false
+// plainSOCKS returns 0 for an incomplete greeting, 1 for unknown traffic,
+// and 4 for a complete plaintext SOCKS request. Keep this in sync between
+// the standalone GOST service and the unified agent.
+func plainSOCKS(b []byte) byte {
+	switch b[0] {
+	case 5:
+		if len(b) < 2 {
+			return 0
 		}
-		cmd := data[1]
-		if cmd != 0x01 && cmd != 0x02 {
-			return false
+		// RFC 1928 clients wait for the server before sending another message.
+		// Reject suffix bytes and unrecognized methods, which are common in
+		// encrypted data that happens to begin with a SOCKS version byte.
+		n := int(b[1])
+		if n == 0 || n > 13 || len(b) > n+2 {
+			return 1
 		}
-		return true
-	case 0x05:
-		if len(data) < 2 {
-			return false
-		}
-		nMethods := int(data[1])
-		if len(data) < 2+nMethods {
-			return false
-		}
-		for _, method := range data[2 : 2+nMethods] {
-			if method == 0x00 || method == 0x02 {
-				return true
+		var seen [256]bool
+		plain := false
+		for _, method := range b[2:] {
+			if seen[method] {
+				return 1
+			}
+			seen[method] = true
+			switch method {
+			case 0, 2: // no authentication or username/password
+				plain = true
+			case 1, 3, 5, 6, 7, 8, 9, 10, 0x80, 0x82, 0x88:
+				// Registered methods and the known GOST extensions.
+			default:
+				return 1
 			}
 		}
+		if len(b) < n+2 {
+			return 0
+		}
+		if plain {
+			return 4
+		}
+	case 4:
+		if len(b) < 2 {
+			return 0
+		}
+		if b[1] != 1 && b[1] != 2 {
+			return 1
+		}
+		if len(b) < 8 {
+			return 0
+		}
+		if b[2] == 0 && b[3] == 0 {
+			return 1
+		}
+		userEnd := bytes.IndexByte(b[8:], 0)
+		user := b[8:]
+		if userEnd >= 0 {
+			user = user[:userEnd]
+		}
+		if len(user) > 255 {
+			return 1
+		}
+		for _, ch := range user {
+			if ch < ' ' || ch > '~' {
+				return 1
+			}
+		}
+		if userEnd < 0 {
+			return 0
+		}
+		tail := b[9+userEnd:]
+		if b[4] == 0 && b[5] == 0 && b[6] == 0 && b[7] != 0 {
+			// SOCKS4a follows the user ID with a NUL-terminated host name.
+			if len(tail) > 254 {
+				return 1
+			}
+			for i, ch := range tail {
+				if ch == 0 {
+					if i > 0 && i == len(tail)-1 {
+						return 4
+					}
+					return 1
+				}
+				if !(ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z' || ch >= '0' && ch <= '9' || ch == '.' || ch == '-') {
+					return 1
+				}
+			}
+			return 0
+		}
+		if len(tail) == 0 {
+			return 4
+		}
 	}
-	return false
+	return 1
 }
 
 // Config 配置结构体

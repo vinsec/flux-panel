@@ -11,7 +11,7 @@ func TestProtocolBoundedRecognition(t *testing.T) {
 	for _, row := range []struct {
 		b     []byte
 		class byte
-	}{{[]byte("GE"), 0}, {[]byte("GET / HTTP/1.1\r\n"), 2}, {[]byte("GETTING opaque"), 1}, {[]byte{0x16, 3, 3, 0, 4, 1, 0, 0, 0}, 3}, {[]byte{5, 1}, 0}, {[]byte{5, 1, 0}, 4}, {[]byte{5, 1, 0x80}, 1}, {[]byte{5, 2, 0x80, 2}, 4}, {[]byte{4, 1, 1, 0, 127, 0, 0, 1}, 4}, {[]byte("opaque encryption"), 1}} {
+	}{{[]byte("GE"), 0}, {[]byte("GET / HTTP/1.1\r\n"), 2}, {[]byte("GETTING opaque"), 1}, {[]byte{0x16, 3, 3, 0, 4, 1, 0, 0, 0}, 3}, {[]byte{5, 1}, 0}, {[]byte{5, 1, 0}, 4}, {[]byte{5, 1, 0x80}, 1}, {[]byte{5, 2, 0x80, 2}, 4}, {[]byte{4, 1, 1, 0, 127, 0, 0, 1}, 0}, {[]byte{4, 1, 1, 0, 127, 0, 0, 1, 0}, 4}, {[]byte("opaque encryption"), 1}} {
 		if c := recognizeProtocol(row.b); c != row.class {
 			t.Fatalf("%x -> %d want%d", row.b, c, row.class)
 		}
@@ -22,6 +22,30 @@ func TestProtocolBoundedRecognition(t *testing.T) {
 		}
 	}
 }
+func TestSOCKSRequiresCompletePlaintextGreeting(t *testing.T) {
+	for _, row := range []struct {
+		name string
+		data []byte
+		want byte
+	}{
+		{"encrypted suffix", append([]byte{5, 1, 0}, bytes.Repeat([]byte{0xa7}, 80)...), 1},
+		{"unrecognized methods", []byte{5, 3, 0, 0xa7, 0xb3}, 1},
+		{"duplicate methods", []byte{5, 3, 0, 2, 0}, 1},
+		{"implausible method count", []byte{5, 200, 0}, 1},
+		{"SOCKS4 binary user", []byte{4, 1, 1, 187, 127, 0, 0, 1, 0x9f, 0}, 1},
+		{"SOCKS4 suffix", []byte{4, 1, 1, 187, 127, 0, 0, 1, 0, 0xa7}, 1},
+		{"SOCKS4 incomplete user", append([]byte{4, 1, 1, 187, 127, 0, 0, 1}, []byte("user")...), 0},
+		{"SOCKS4a", append([]byte{4, 1, 1, 187, 0, 0, 0, 1}, []byte("user\x00private.test\x00")...), 4},
+		{"SOCKS5 password", []byte{5, 1, 2}, 4},
+	} {
+		t.Run(row.name, func(t *testing.T) {
+			if got := recognizeProtocol(row.data); got != row.want {
+				t.Fatalf("classification = %d, want %d", got, row.want)
+			}
+		})
+	}
+}
+
 func TestProtocolPolicyNeedsVersionedContract(t *testing.T) {
 	s := Spec{SchemaVersion: 4, AdvancedOptions: &AdvancedOptions{ProtocolFilter: &ProtocolFilter{HTTP: true, Unknown: "allow"}}}
 	if validateProtocolPolicy(s) == nil {

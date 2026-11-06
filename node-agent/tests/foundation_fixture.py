@@ -8,6 +8,12 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 OUT=pathlib.Path(os.environ.get('FLUX_TEST_EVIDENCE','/evidence'));OUT.mkdir(exist_ok=True);BUILD=pathlib.Path('/build');SECRET='isolated-foundation-only';KEY=hashlib.sha256(SECRET.encode()).digest();CHECKS=[];PROCS=[];DONE=False
 STATE=pathlib.Path('/tmp/foundation-state.json');CONFIG=pathlib.Path('/tmp/foundation-config.json')
 KERNEL_BACKEND=os.getenv('FLUX_KERNEL_BACKEND','nftables')
+# Reproducers for ciphertext with a salt that starts like a SOCKS request.
+SOCKS_LIKE_CIPHERTEXT = (
+    bytes.fromhex('05 01 00 a7 b3') + bytes(range(1, 80)),
+    bytes.fromhex('05 08 00 a7 b3 fe 44 31 99 13') + bytes(range(1, 80)),
+    bytes.fromhex('04 01 01 bb 7f 00 00 01 9f b3 00') + bytes(range(1, 80)),
+)
 def write_config(cfg):
  cfg=dict(cfg)
  if KERNEL_BACKEND=='nftables':cfg['kernelBackend']='nftables'

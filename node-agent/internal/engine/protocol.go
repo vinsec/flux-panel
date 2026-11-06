@@ -67,35 +67,98 @@ func recognizeProtocol(b []byte) byte {
 		}
 		return 3
 	}
-	if b[0] == 5 {
+	return plainSOCKS(b)
+}
+
+// plainSOCKS returns 0 for an incomplete greeting, 1 for unknown traffic,
+// and 4 for a complete plaintext SOCKS request. Keep this in sync between
+// the standalone GOST service and the unified agent.
+func plainSOCKS(b []byte) byte {
+	switch b[0] {
+	case 5:
 		if len(b) < 2 {
 			return 0
 		}
+		// RFC 1928 clients wait for the server before sending another message.
+		// Reject suffix bytes and unrecognized methods, which are common in
+		// encrypted data that happens to begin with a SOCKS version byte.
 		n := int(b[1])
-		if n == 0 {
+		if n == 0 || n > 13 || len(b) > n+2 {
 			return 1
+		}
+		var seen [256]bool
+		plain := false
+		for _, method := range b[2:] {
+			if seen[method] {
+				return 1
+			}
+			seen[method] = true
+			switch method {
+			case 0, 2: // no authentication or username/password
+				plain = true
+			case 1, 3, 5, 6, 7, 8, 9, 10, 0x80, 0x82, 0x88:
+				// Registered methods and the known GOST extensions.
+			default:
+				return 1
+			}
 		}
 		if len(b) < n+2 {
 			return 0
 		}
-		// Match the panel-maintained GOST's supported authentication methods.
-		// Private/unknown-only method lists are not enough evidence to block
-		// an opaque stream under the UNKNOWN-allow contract.
-		for _, method := range b[2 : n+2] {
-			if method == 0 || method == 2 {
-				return 4
-			}
+		if plain {
+			return 4
 		}
-		return 1
-	}
-	if b[0] == 4 {
+	case 4:
+		if len(b) < 2 {
+			return 0
+		}
+		if b[1] != 1 && b[1] != 2 {
+			return 1
+		}
 		if len(b) < 8 {
 			return 0
 		}
-		if b[1] != 1 && b[1] != 2 || binary.BigEndian.Uint16(b[2:4]) == 0 {
+		if b[2] == 0 && b[3] == 0 {
 			return 1
 		}
-		return 4
+		userEnd := bytes.IndexByte(b[8:], 0)
+		user := b[8:]
+		if userEnd >= 0 {
+			user = user[:userEnd]
+		}
+		if len(user) > 255 {
+			return 1
+		}
+		for _, ch := range user {
+			if ch < ' ' || ch > '~' {
+				return 1
+			}
+		}
+		if userEnd < 0 {
+			return 0
+		}
+		tail := b[9+userEnd:]
+		if b[4] == 0 && b[5] == 0 && b[6] == 0 && b[7] != 0 {
+			// SOCKS4a follows the user ID with a NUL-terminated host name.
+			if len(tail) > 254 {
+				return 1
+			}
+			for i, ch := range tail {
+				if ch == 0 {
+					if i > 0 && i == len(tail)-1 {
+						return 4
+					}
+					return 1
+				}
+				if !(ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z' || ch >= '0' && ch <= '9' || ch == '.' || ch == '-') {
+					return 1
+				}
+			}
+			return 0
+		}
+		if len(tail) == 0 {
+			return 4
+		}
 	}
 	return 1
 }
