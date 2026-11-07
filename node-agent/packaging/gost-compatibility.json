@@ -1,4 +1,12 @@
 {
-  "amd64": {"sha256":"2faca7c1ca7e38d4adaff80ec0349344c77004216774639f784fdd3728d0011e","ws":true,"wss":true},
-  "arm64": {"sha256":"734ffcea4979bd4c9bc1031501eed08c0f6bef675d6e7c59fed82ef552ecf877","ws":true,"wss":true}
+  "amd64": {
+    "sha256": "5df2628d6d50d60d33d23d5ecc6616ec6af6bbb5a2bf47edd77654fcd52278e3",
+    "ws": true,
+    "wss": true
+  },
+  "arm64": {
+    "sha256": "ff623bfb16ccb5f90c03399f2df2299fd1396e1720748f46ec7f6e91c7676277",
+    "ws": true,
+    "wss": true
+  }
 }

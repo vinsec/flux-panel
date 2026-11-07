@@ -1,0 +1,19 @@
+# Layer on the original 1.4.3 Compose file. Its database, ports and JWT are inherited.
+services:
+  backend:
+    image: flux-panel-go:legacy-migration
+    build:
+      context: ${FLUX_SOURCE_DIR:?set FLUX_SOURCE_DIR to this checkout}
+      dockerfile: panel-go/Dockerfile
+    environment:
+      NODE_RELEASE_DIR: /node-release
+    healthcheck:
+      test: ["CMD", "/flux-panel", "healthcheck"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+  frontend:
+    image: flux-panel-frontend:legacy-migration
+    build:
+      context: ${FLUX_SOURCE_DIR:?set FLUX_SOURCE_DIR to this checkout}/vite-frontend

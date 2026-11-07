@@ -19,7 +19,10 @@ ACTION="${1:-help}";[[ $# == 0 ]] || shift
 NO_BUILD=0
 for arg in "$@";do case "$arg" in --no-build)NO_BUILD=1;; *)usage >&2;exit 2;;esac;done
 case "$ACTION" in help|--help|-h)usage;exit 0;; install|update|migrate|backup|logs|uninstall);; *)usage >&2;exit 2;;esac
-command -v docker >/dev/null || { echo 'Docker with Compose v2 is required.' >&2;exit 1; }
+if [[ "$ACTION" == install ]]; then
+ "$ROOT/deploy/install-dependencies.sh"
+fi
+command -v docker >/dev/null || { echo '请先安装 Docker Engine 和 Compose v2。' >&2;exit 1; }
 docker compose version >/dev/null
 COMPOSE_FILE="${PANEL_COMPOSE_FILE:-$ROOT/docker-compose.yml}"
 [[ -f "$COMPOSE_FILE" ]] || { echo 'Compose file not found.' >&2;exit 1; }

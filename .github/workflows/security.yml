@@ -1,0 +1,24 @@
+name: Source secret scan
+on:
+  push:
+    branches: [main, beta]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify and run Gitleaks on tracked release files
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          curl --fail --location --retry 3 https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz -o gitleaks.tar.gz
+          printf '%s  %s\n' '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb' gitleaks.tar.gz | sha256sum --strict -c -
+          tar -xzf gitleaks.tar.gz gitleaks
+          mkdir release-source
+          git -C "$GITHUB_WORKSPACE" archive HEAD | tar -xf - -C release-source
+          ./gitleaks dir release-source --redact=100 --no-banner

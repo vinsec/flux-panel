@@ -14,7 +14,13 @@
 
 ### 1. 准备服务器
 
-准备一台 Linux 服务器和一个指向它的域名，安装好 Git、OpenSSL、Docker 和 Compose v2。面板与节点可以分别部署在不同服务器。
+准备一台 Debian 12／13 或 Ubuntu 22.04／24.04 服务器和一个指向它的域名，以 root 登录。先安装 Git。面板与节点可以分别部署在不同服务器。
+
+```sh
+apt-get update && apt-get install -y git
+```
+
+其他 Linux 系统也可以运行面板，需要先自行安装 Docker Engine 和 Compose v2。
 
 ### 2. 执行安装
 
@@ -26,7 +32,9 @@ cd flux-panel
 ./panel_install.sh install
 ```
 
-脚本会构建镜像、生成配置、创建数据库并启动面板。首次构建需要下载依赖，请等待命令执行完成。
+脚本会从官方软件仓库准备缺少的 Docker Engine、Compose 插件和 OpenSSL，然后构建镜像、生成随机数据库密码和 JWT 配置、创建数据库并启动面板。已有可用 Docker 时直接使用。首次安装需要下载依赖和镜像，请等待命令完成。
+
+新装使用默认端口即可，不需要先手填 `.env`。域名解析、HTTPS 反向代理，以及登录后在“网站配置”填写面板地址，仍需按下面步骤完成。
 
 **这条命令用于新装。已有账号和数据库的用户先看 [迁移说明](deploy/migrate-existing.md)，不要用新装代替迁移。**
 
