@@ -75,7 +75,7 @@ for mode in ['in-place', 'copy']:
 
     def sql(container, query):
         return docker('exec', '-i', container, 'sh', '-c',
-                      'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot --batch --raw --skip-column-names flux',
+                      'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql --protocol=tcp -h127.0.0.1 -uroot --batch --raw --skip-column-names flux',
                       data=query.encode()).decode().strip()
 
     try:
