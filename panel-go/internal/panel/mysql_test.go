@@ -342,4 +342,58 @@ func TestLegacyWildcardAndProtocolPolicy(t *testing.T) {
 	if off["protocolFilter"] != nil || str(off["intentHash"]) == str(interactive["intentHash"]) {
 		t.Fatal("node policy removal did not alter desired intent")
 	}
+	if !specChanged(off, interactive) {
+		t.Fatal("node policy removal was not scheduled for reconciliation")
+	}
+}
+
+func TestSimpleForwardProtocolDisableReconciliation(t *testing.T) {
+	f := setupDB(t)
+	node := f.seedNode("kernel")
+	f.fakeNode(t, node)
+	tunnel := f.seedTunnel(node, "kernel")
+	fid := f.seedForward(tunnel, 1)
+	forward, tun := f.store().get("forward", fid), f.store().get("tunnel", tunnel)
+	f.store().update("node", node, M{"http": 1, "tls": 1, "socks": 1})
+	on := f.p.wireSpec(f.store(), forward, tun, true)
+	if num(on["schemaVersion"]) != 5 {
+		t.Fatal(on)
+	}
+	f.store().update("node", node, M{"http": 0, "tls": 0, "socks": 0})
+	off := f.p.wireSpec(f.store(), forward, tun, true)
+	if num(off["schemaVersion"]) > 2 || off["protocolFilter"] != nil || !specChanged(off, on) {
+		t.Fatal("unchanged IPv4 endpoints masked the removed filter", off)
+	}
+}
+
+func TestPausedAutomaticReconciliationAllowsOneSelectedNode(t *testing.T) {
+	f := setupDB(t)
+	f.p.cfg.PauseAutomaticReconcile = true
+	first, second := f.seedNode("kernel"), f.seedNode("kernel")
+	firstEvents, secondEvents := f.fakeNode(t, first), f.fakeNode(t, second)
+	f.seedForward(f.seedTunnel(first, "kernel"), 1)
+	f.seedForward(f.seedTunnel(second, "kernel"), 1)
+	f.p.queueReconcile(first)
+	f.p.queueReconcile(second)
+	f.p.mu.Lock()
+	queued := len(f.p.reconcileQueue)
+	f.p.mu.Unlock()
+	if queued != 0 {
+		t.Fatal("maintenance pause queued automatic changes")
+	}
+	f.post(t, "/api/v1/engine/reconcile", M{"nodeId": first})
+	seen := false
+	for len(firstEvents) > 0 {
+		if str((<-firstEvents)["type"]) == "SubmitBatch" {
+			seen = true
+		}
+	}
+	if !seen {
+		t.Fatal("selected node was not reconciled")
+	}
+	for len(secondEvents) > 0 {
+		if str((<-secondEvents)["type"]) == "SubmitBatch" {
+			t.Fatal("unselected node changed")
+		}
+	}
 }

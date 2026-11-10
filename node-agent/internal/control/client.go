@@ -66,7 +66,7 @@ func (c Config) URLs() (string, string, error) {
 	q := ws.Query()
 	q.Set("type", "1")
 	q.Set("engine", "kernel")
-	q.Set("version", "kernel-v7.0")
+	q.Set("version", engine.AgentVersion)
 	if c.LegacyQueryAuth {
 		q.Set("secret", c.Secret)
 	}

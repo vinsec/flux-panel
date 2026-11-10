@@ -415,6 +415,16 @@ func (m *Manager) commit(after State, forget []Spec, reason string, gc []counter
 	if m.blocked {
 		return fmt.Errorf("recovery required; forwarding remains blocked")
 	}
+	// Reject an unparseable configuration before writing recovery intent or
+	// fencing any live packets. In particular, rollback must not be needed
+	// merely to discover that the nft userspace parser rejects a timeout.
+	if reason != "counter and token GC" {
+		if checker, ok := m.Kernel.(interface{ CheckApply(map[string]string) error }); ok {
+			if e := checker.CheckApply(Render(after.Rules, nil)); e != nil {
+				return fmt.Errorf("configuration preflight: %w", e)
+			}
+		}
+	}
 	before := cloneState(m.state)
 	// Reserve IDs durably even if a partially installed transaction rolls back.
 	if after.NextToken > before.NextToken {
@@ -1052,7 +1062,7 @@ func (m *Manager) Info() map[string]any {
 		switchable = k.Gost != nil
 	}
 	caps.Features["engineSwitch"] = switchable
-	caps.AgentVersion = "kernel-v7.0"
+	caps.AgentVersion = AgentVersion
 	caps.Features["nativeNFTMap"] = m.state.KernelBackend == "nftables"
 	return map[string]any{"forwardingMode": m.state.ForwardingMode, "modeSwitch": m.state.EngineSwitch, "managedEngines": switchable, "kernelBackend": m.state.KernelBackend, "capacity": capacity, "lastAckAt": m.state.LastAckAt, "lastConnectedAt": m.state.LastConnectedAt, "strictCreditPolicy": m.state.StrictCredit, "bootId": m.state.BootID, "capabilities": caps, "epoch": m.state.Epoch, "generation": m.state.Generation, "blocked": m.blocked, "maintenancePending": m.state.MaintenancePending, "accountingBlocked": m.state.AccountingBlocked, "lastDurableAt": m.state.LastDurableAt, "recovery": m.state.Recovery}
 }

@@ -19,6 +19,7 @@ type Config struct {
 	AllowLegacyQuery                                  bool
 	SessionMillis                                     int64
 	ReadOnly                                          bool
+	PauseAutomaticReconcile                           bool
 	TimeZone                                          string
 	NodeReleaseDir                                    string
 }

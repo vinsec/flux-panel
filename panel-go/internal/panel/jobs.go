@@ -17,6 +17,11 @@ func redact(s string) string {
 	return jwtLog.ReplaceAllString(s, "[REDACTED]")
 }
 func (p *Panel) queueReconcile(node int64) {
+	// A rolling maintenance window may reconcile explicitly selected nodes
+	// one at a time. Credit renewal and quota enforcement remain active.
+	if p.cfg.PauseAutomaticReconcile {
+		return
+	}
 	p.mu.Lock()
 	peer := p.nodes[node]
 	if peer == nil || peer.engine != "kernel" {
@@ -40,6 +45,9 @@ func (p *Panel) queueReconcile(node int64) {
 func (p *Panel) Start(ctx context.Context) {
 	if p.cfg.ReadOnly {
 		return
+	}
+	if p.cfg.PauseAutomaticReconcile {
+		slog.Info("automatic node reconciliation paused for sequential maintenance; credit and quota jobs remain active")
 	}
 	if _, e := p.db.ExecContext(ctx, "SELECT node_id FROM engine_mode_switch LIMIT 0"); e != nil {
 		panic("explicit migrations 006 and 007-managed-agent.sql are required")
@@ -461,6 +469,12 @@ func (p *Panel) reconcileLocked(s store, node int64) M {
 }
 func specChanged(desired, actual M) bool {
 	if actual == nil || truth(actual["deleted"]) {
+		return true
+	}
+	// A downgrade must remove the previous advanced policies even when the
+	// simple endpoints stayed identical. Comparing only the new schema's
+	// fields otherwise leaves protocol filtering (and other policies) active.
+	if num(desired["schemaVersion"]) != num(actual["schemaVersion"]) {
 		return true
 	}
 	if num(desired["schemaVersion"]) >= 3 {

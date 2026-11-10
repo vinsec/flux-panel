@@ -23,7 +23,7 @@ ProtectHome=true
 ProtectKernelTunables=true
 ProtectKernelModules=true
 PrivateTmp=true
-ReadWritePaths=/var/lib/flux-agent /run/flux-agent /run/xtables.lock
+ReadWritePaths=/var/lib/flux-agent /run/flux-agent
 RestrictAddressFamilies=AF_INET AF_INET6 AF_NETLINK AF_UNIX
 [Install]
 WantedBy=multi-user.target

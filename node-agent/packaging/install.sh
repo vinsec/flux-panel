@@ -79,7 +79,20 @@ if [[ "$ACTION" == install && -f "$BINARY" && -f "$DIRECTORY/config.json" ]];the
  CURRENT="$(sha256sum "$BINARY" | cut -d' ' -f1)";EXPECTED="$(sha256sum "$STAGE/${ENGINE/kernel/flux-agent}-linux-$ARCH" | cut -d' ' -f1)"
  MANAGED_MATCH=1
  if [[ "$ENGINE" == kernel ]] && { [[ ! -f "$MANAGED_BINARY" ]] || [[ "$(sha256sum "$MANAGED_BINARY" | cut -d' ' -f1)" != "$MANAGED_SHA" ]]; };then MANAGED_MATCH=0;fi
- if (( MANAGED_MATCH )) && [[ "$CURRENT" == "$EXPECTED" && ! -e "$STATE.maintenance" && ! -e "$STATE.journal" ]] && cmp -s "$EFFECTIVE_CONFIG" "$DIRECTORY/config.json";then KEEP_FORWARDING=1;echo 'Verified version and configuration already installed.';exit 0;fi
+ if (( MANAGED_MATCH )) && [[ "$CURRENT" == "$EXPECTED" && ! -e "$STATE.maintenance" && ! -e "$STATE.journal" ]] && cmp -s "$EFFECTIVE_CONFIG" "$DIRECTORY/config.json";then
+  # An identical executable is not proof that the previous deployment
+  # installed its boot configuration. Repair verified service files without
+  # stopping a healthy dataplane or replacing its accounting checkpoint.
+  if [[ "$ENGINE" == kernel ]] && (( ! NO_SERVICE ));then
+   install -d -m 0755 "$PREFIX/etc/systemd/system" "$PREFIX/etc/tmpfiles.d" "$PREFIX/run"
+   install -m 0644 "$STAGE/flux-agent.service" "$PREFIX/etc/systemd/system/flux-agent.service"
+   install -m 0644 "$STAGE/flux-kernel.service" "$PREFIX/etc/systemd/system/flux-kernel.service"
+   install -m 0644 "$STAGE/flux-agent-tmpfiles.conf" "$PREFIX/etc/tmpfiles.d/flux-agent.conf"
+   [[ -e "$PREFIX/run/xtables.lock" ]] || install -m 0600 /dev/null "$PREFIX/run/xtables.lock"
+   systemctl daemon-reload
+  fi
+  KEEP_FORWARDING=1;echo 'Verified version and configuration already installed; service files repaired where enabled.';exit 0
+ fi
 fi
 install -d -m 0700 "$DIRECTORY" "$STATE_DIRECTORY" "$STATE_DIRECTORY/backups"
 BACKUP="$STATE_DIRECTORY/backups/$(date -u +%Y%m%dT%H%M%SZ)-$$"

@@ -19,6 +19,25 @@ try:
  managed=prefix/'usr/local/lib/flux-agent/gost-managed';expected_managed=hashlib.sha256((package/('gost-managed-linux-'+arch)).read_bytes()).hexdigest();check('managed artifact is checksum-pinned and installed separately',managed.exists() and hashlib.sha256(managed.read_bytes()).hexdigest()==expected_managed)
  before=binary.stat().st_mtime_ns;install();check('repeated identical install is idempotent',binary.stat().st_mtime_ns==before)
  serial=PANEL.serial;a=spawn(ns('router',str(binary),'--config',str(prefix/'etc/flux-agent/config.json')),'installed-agent.log');wait(lambda:PANEL.serial>serial);apply(spec());check('installed artifact actually forwards TCP and UDP',probe());stop(a)
+ # Reinstall the identical executable in service mode after deliberately
+ # losing the boot files. Only daemon-reload is permitted; no outage or
+ # checkpoint rewrite is needed to repair this incomplete deployment.
+ saved_config=(prefix/'etc/flux-agent/config.json').read_bytes()
+ profile=pathlib.Path('/tmp/repair-service-config.json')
+ run(ns('router',str(binary),'--config',str(prefix/'etc/flux-agent/config.json'),'--write-service-config',str(profile)))
+ (prefix/'etc/flux-agent/config.json').write_bytes(profile.read_bytes())
+ fake=pathlib.Path('/tmp/fake-systemctl');fake.mkdir(exist_ok=True)
+ (OUT/'boot-repair-systemctl.calls').write_text('')
+ command=fake/'systemctl';command.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> /evidence/boot-repair-systemctl.calls\nexit 0\n');command.chmod(0o755)
+ before_state=ledger.read_bytes();before_binary=binary.stat().st_mtime_ns
+ install(service=True)
+ for relative in ['etc/systemd/system/flux-kernel.service','etc/systemd/system/flux-agent.service','etc/tmpfiles.d/flux-agent.conf']:
+  (prefix/relative).unlink()
+ install(service=True)
+ calls=(OUT/'boot-repair-systemctl.calls').read_text().splitlines()
+ check('identical install repairs missing service and boot files without stopping forwarding',calls==['daemon-reload','daemon-reload'] and all((prefix/p).exists() for p in ['etc/systemd/system/flux-kernel.service','etc/systemd/system/flux-agent.service','etc/tmpfiles.d/flux-agent.conf']))
+ check('boot-file repair preserves binary inode contents and exact ledger checkpoint',ledger.read_bytes()==before_state and binary.stat().st_mtime_ns==before_binary)
+ (prefix/'etc/flux-agent/config.json').write_bytes(saved_config)
  install('uninstall');check('uninstall keeps durable state and backup while removing owned dataplane',not binary.exists() and ledger.exists() and 'keep-unrelated' in router('iptables-save'))
  baseline=pathlib.Path(os.getenv('FLUX_INSTALL_BASELINE',str(BUILD/'agent-v2')))
  if os.getenv('FLUX_INSTALL_BASELINE'):assert baseline.exists(),'explicit native baseline missing'
@@ -27,10 +46,10 @@ try:
   prefix=pathlib.Path('/tmp/package-upgrade');ledger=prefix/'var/lib/flux-agent/state.json';binary=prefix/'usr/local/bin/flux-agent';binary.parent.mkdir(parents=True);(prefix/'etc/flux-agent').mkdir(parents=True)
   config=pathlib.Path('/tmp/package-upgrade-config.json');config.write_text(json.dumps({'addr':'http://10.205.4.1:8000','secret':SECRET,'statePath':str(ledger),'apply':True,'allowInsecure':True,'intervalSeconds':1,'kernelBackend':'nftables'}));shutil.copyfile(config,prefix/'etc/flux-agent/config.json');shutil.copyfile(baseline,binary);binary.chmod(0o755)
   serial=PANEL.serial;a=spawn(ns('router',str(binary),'--config',str(config)),'previous-agent.log');wait(lambda:PANEL.serial>serial);apply(spec());assert probe();wait(lambda:json.loads(ledger.read_text()).get('totals',{}).get('1_1_0',{}).get('up',0)>0);old=json.loads(ledger.read_text());stop(a)
-  fake=pathlib.Path('/tmp/fake-systemctl');fake.mkdir();command=fake/'systemctl';command.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> /evidence/systemctl.calls\n[ "$1" != start ]\n');command.chmod(0o755)
+  fake=pathlib.Path('/tmp/fake-systemctl');fake.mkdir(exist_ok=True);command=fake/'systemctl';command.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> /evidence/systemctl.calls\n[ "$1" != start ]\n');command.chmod(0o755)
   failed=install(service=True,success=False);check('service activation failure triggers a verified version rollback',failed.returncode!=0 and hashlib.sha256(binary.read_bytes()).hexdigest()==hashlib.sha256(baseline.read_bytes()).hexdigest())
   current=json.loads(ledger.read_text());check('installer rollback preserves epoch, newer totals and paused business',current['epoch']==old['epoch'] and current['totals']['1_1_0']['up']>=old['totals']['1_1_0']['up'] and all(not s['enabled'] for s in current['rules'].values()) and probe(blocked=True))
-  install();check('retry upgrades the native checkpoint without resetting accounting',json.loads(ledger.read_text())['formatVersion']==6 and hashlib.sha256(binary.read_bytes()).hexdigest()==expected)
+  install();check('retry upgrades the native checkpoint without resetting accounting',json.loads(ledger.read_text())['kernelBackend']=='nftables' and json.loads(ledger.read_text())['formatVersion']>=6 and hashlib.sha256(binary.read_bytes()).hexdigest()==expected)
   install('uninstall')
  check('sandbox never invoked the real system service manager',not pathlib.Path('/run/systemd/system').exists())
  DONE=True

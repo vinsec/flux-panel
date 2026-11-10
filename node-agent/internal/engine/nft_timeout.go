@@ -5,12 +5,12 @@ import (
 	"strings"
 )
 
-// Older nft parsers reject one numeric time component above uint32, even
-// though the kernel timeout is uint64. Compound units retain millisecond
-// precision for multi-month user authorizations without shortening expiry.
+// nft 1.0.6 rejects numeric time components longer than eight digits,
+// including leading zeroes. Always normalize units instead of guessing an
+// integer-width limit. This preserves the exact deadline at every duration.
 func nftTimeoutMilliseconds(ms int64) string {
-	if ms <= int64(^uint32(0)) {
-		return fmt.Sprintf("%dms", ms)
+	if ms <= 0 {
+		return "0ms"
 	}
 	var out strings.Builder
 	for _, u := range []struct {

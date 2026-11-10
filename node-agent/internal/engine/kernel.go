@@ -310,3 +310,18 @@ func (k *NativeKernel) Apply(tables map[string]string) (failure error) {
 	}
 	return k.Native.apply(plan)
 }
+
+// CheckApply rejects nft parser/compiler failures before Manager's packet fence.
+func (k *NativeKernel) CheckApply(tables map[string]string) error {
+	plan, e := decodePlan(tables)
+	if e != nil {
+		return e
+	}
+	if k.Gost != nil && k.Mode == "gost" {
+		plan, _, e = k.Gost.project(plan)
+		if e != nil {
+			return e
+		}
+	}
+	return k.Native.checkPlan(plan)
+}

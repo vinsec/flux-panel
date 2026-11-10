@@ -35,6 +35,7 @@ type NativeNFT struct {
 	ready             bool
 	shape             string
 	controlShape      string
+	checkedInput      string
 	bindings          string
 	rules             map[string]Spec
 }
@@ -57,8 +58,12 @@ func (n *NativeNFT) batch(input string) error {
 	if input == "" {
 		return nil
 	}
-	if _, e := n.run(input, "-c", "-f", "-"); e != nil {
-		return e
+	checked := n.checkedInput == digest(input)
+	n.checkedInput = ""
+	if !checked {
+		if _, e := n.run(input, "-c", "-f", "-"); e != nil {
+			return e
+		}
 	}
 	_, e := n.run(input, "-f", "-")
 	return e
@@ -379,50 +384,10 @@ func (n *NativeNFT) apply(plan []Spec) error {
 	for id, s := range advanced {
 		rules[id] = s
 	}
-	objects, e := n.counters()
+	input, e := n.transaction(rules, addresses)
 	if e != nil {
 		return e
 	}
-	input, e := compileNative(rules, addresses, objects)
-	if e != nil {
-		return e
-	}
-	d, e := n.document()
-	if e != nil {
-		return e
-	}
-	existing := map[string]bool{}
-	for _, item := range d.NFT {
-		if raw := item["chain"]; raw != nil {
-			var c struct{ Name string }
-			_ = json.Unmarshal(raw, &c)
-			existing[c.Name] = true
-		}
-	}
-	var pools strings.Builder
-	for _, family := range []string{"ipv4", "ipv6"} {
-		for _, s := range rules {
-			count := 0
-			for _, p := range s.Paths() {
-				if p.Family == family && p.RetiredAt == 0 && p.AcceptNew && p.Healthy {
-					count++
-				}
-			}
-			if !s.Deleted && count > 1 && s.Selection != "fifo" {
-				name := fmt.Sprintf("pool%s_%04x", map[string]string{"ipv4": "4", "ipv6": "6"}[family], s.Token)
-				if !existing[name] {
-					fmt.Fprintf(&pools, "add chain inet %s %s\n", nativeTable, name)
-					existing[name] = true
-				}
-			}
-		}
-	}
-	for _, name := range nativeNames(existing) {
-		if strings.HasPrefix(name, "pool") {
-			fmt.Fprintf(&pools, "flush chain inet %s %s\n", nativeTable, name)
-		}
-	}
-	input = pools.String() + input
 	// Keep the transaction guard outside this replaceable configuration graph.
 	if digest(input) != n.shape {
 		if e = n.batch(input); e != nil {
@@ -745,4 +710,76 @@ func (n *NativeNFT) preflight() (PreflightResult, error) {
 	}
 	r.Probes = []string{"native map compiler; exact table ownership; no live xtables takeover; flow-offload audit"}
 	return r, nil
+}
+
+// transaction only reads kernel objects and renders the replacement graph.
+func (n *NativeNFT) transaction(rules map[string]Spec, addresses map[string][]string) (string, error) {
+	objects, e := n.counters()
+	if e != nil {
+		return "", e
+	}
+	input, e := compileNative(rules, addresses, objects)
+	if e != nil {
+		return "", e
+	}
+	d, e := n.document()
+	if e != nil {
+		return "", e
+	}
+	existing := map[string]bool{}
+	for _, item := range d.NFT {
+		if raw := item["chain"]; raw != nil {
+			var c struct{ Name string }
+			_ = json.Unmarshal(raw, &c)
+			existing[c.Name] = true
+		}
+	}
+	var pools strings.Builder
+	for _, family := range []string{"ipv4", "ipv6"} {
+		for _, s := range rules {
+			count := 0
+			for _, p := range s.Paths() {
+				if p.Family == family && p.RetiredAt == 0 && p.AcceptNew && p.Healthy {
+					count++
+				}
+			}
+			if !s.Deleted && count > 1 && s.Selection != "fifo" {
+				name := fmt.Sprintf("pool%s_%04x", map[string]string{"ipv4": "4", "ipv6": "6"}[family], s.Token)
+				if !existing[name] {
+					fmt.Fprintf(&pools, "add chain inet %s %s\n", nativeTable, name)
+					existing[name] = true
+				}
+			}
+		}
+	}
+	for _, name := range nativeNames(existing) {
+		if strings.HasPrefix(name, "pool") {
+			fmt.Fprintf(&pools, "flush chain inet %s %s\n", nativeTable, name)
+		}
+	}
+	return pools.String() + input, nil
+}
+
+// checkPlan validates the desired graph without starting classifiers, changing
+// routing/shaping state, fencing packets, or replacing any kernel object.
+// apply validates again if runtime preparation changes the generated graph.
+func (n *NativeNFT) checkPlan(plan []Spec) error {
+	n.checkedInput = ""
+	rules := map[string]Spec{}
+	for _, s := range plan {
+		rules[s.ID] = cloneSpec(s)
+	}
+	addresses, e := localAddresses()
+	if e != nil {
+		return e
+	}
+	input, e := n.transaction(rules, addresses)
+	if e != nil {
+		return e
+	}
+	if _, e = n.run(input, "-c", "-f", "-"); e != nil {
+		return e
+	}
+	n.checkedInput = digest(input)
+	return nil
 }
