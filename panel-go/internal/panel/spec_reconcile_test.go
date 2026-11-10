@@ -15,9 +15,29 @@ func TestReconcileRemovesAdvancedPolicyOnSchemaDowngrade(t *testing.T) {
 			t.Fatalf("schema %d retained removed policy", oldSchema)
 		}
 		delete(actual, "protocolFilter")
-		actual["schemaVersion"] = int64(2)
+		actual["schemaVersion"] = int64(0)
 		if specChanged(desired, actual) {
 			t.Fatal("converged simple rule keeps reconciling")
+		}
+	}
+}
+
+func TestSimpleWireSchemasConvergeWithAgentCanonicalState(t *testing.T) {
+	for _, desiredSchema := range []int64{0, 1, 2} {
+		for _, actualSchema := range []int64{0, 1, 2} {
+			d := M{"schemaVersion": desiredSchema, "listenIP": "0.0.0.0", "listenPort": int64(18000), "targetIP": "192.0.2.1", "targetPort": int64(19000), "enabled": true}
+			a := M{}
+			for k, v := range d {
+				a[k] = v
+			}
+			a["schemaVersion"] = actualSchema
+			if specChanged(d, a) {
+				t.Fatalf("equivalent simple schemas %d/%d repeatedly reconcile", desiredSchema, actualSchema)
+			}
+			a["targetPort"] = int64(19001)
+			if !specChanged(d, a) {
+				t.Fatal("canonicalization hid a real target change")
+			}
 		}
 	}
 }

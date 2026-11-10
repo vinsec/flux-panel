@@ -364,6 +364,17 @@ func TestSimpleForwardProtocolDisableReconciliation(t *testing.T) {
 	if num(off["schemaVersion"]) > 2 || off["protocolFilter"] != nil || !specChanged(off, on) {
 		t.Fatal("unchanged IPv4 endpoints masked the removed filter", off)
 	}
+	canonical := M{}
+	for k, v := range off {
+		canonical[k] = v
+	}
+	canonical["schemaVersion"] = int64(0)
+	for _, k := range []string{"listen", "target", "protocols"} {
+		delete(canonical, k)
+	}
+	if specChanged(off, canonical) {
+		t.Fatal("Agent's normalized simple state caused an endless reconcile loop")
+	}
 }
 
 func TestPausedAutomaticReconciliationAllowsOneSelectedNode(t *testing.T) {

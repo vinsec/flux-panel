@@ -474,7 +474,11 @@ func specChanged(desired, actual M) bool {
 	// A downgrade must remove the previous advanced policies even when the
 	// simple endpoints stayed identical. Comparing only the new schema's
 	// fields otherwise leaves protocol filtering (and other policies) active.
-	if num(desired["schemaVersion"]) != num(actual["schemaVersion"]) {
+	// The Agent canonicalizes simple wire schemas 1/2 to persisted schema 0.
+	// These three representations are equivalent; advanced policy versions
+	// must still differ so removing a policy produces exactly one update.
+	desiredSchema, actualSchema := num(desired["schemaVersion"]), num(actual["schemaVersion"])
+	if (desiredSchema >= 3 || actualSchema >= 3) && desiredSchema != actualSchema {
 		return true
 	}
 	if num(desired["schemaVersion"]) >= 3 {
